@@ -13,3 +13,8 @@ torch-scatter
 torch-sparse
 torch-cluster
 torch-spline-conv
+ipyparallel
+trimesh
+glob2
+h5py
+yaml
