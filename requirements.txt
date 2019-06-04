@@ -1,3 +1,5 @@
+torch
+torchvision
 tensorboardX
 numpy>=1.16.0
 scipy
@@ -6,11 +8,6 @@ scikit-image>=0.14
 jupyter==1.0.0
 tqdm
 Pillow
-torch-geometric
-torch-scatter
-torch-sparse
-torch-cluster
-torch-spline-conv
 ipyparallel
 trimesh
 glob2

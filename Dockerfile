@@ -41,7 +41,6 @@ RUN echo ${PATH}
 
 ## Install general requirements for the sharp features
 RUN pip install --upgrade pip
-RUN pip install torch torchvision
 COPY requirements.txt /opt/
 RUN pip install -r /opt/requirements.txt
 
