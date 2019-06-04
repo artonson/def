@@ -15,4 +15,4 @@ ipyparallel
 trimesh
 glob2
 h5py
-yaml
+PyYAML
