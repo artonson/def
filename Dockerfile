@@ -1,4 +1,4 @@
-FROM nvidia/cuda:9.0-cudnn7-runtime-ubuntu16.04
+FROM nvidia/cuda:9.0-cudnn7-devel-ubuntu16.04
 
 ## Base packages for ubuntu
 
@@ -43,6 +43,13 @@ RUN echo ${PATH}
 RUN pip install --upgrade pip
 COPY requirements.txt /opt/
 RUN pip install -r /opt/requirements.txt
+
+# Install pytorch_geometric and friends
+RUN pip install --verbose --no-cache-dir torch-scatter
+RUN pip install --verbose --no-cache-dir torch-sparse
+RUN pip install --verbose --no-cache-dir torch-cluster
+RUN pip install --verbose --no-cache-dir torch-spline-conv
+RUN pip install torch-geometric
 
 ## Torch -- installed through requirements.txt
 # RUN conda install pytorch torchvision -c pytorch
