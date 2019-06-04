@@ -39,8 +39,9 @@ RUN echo ${PATH}
 ## Install base conda packages -- installed through requirements.txt
 # RUN conda install -y numpy==1.14.0 jupyter==1.0.0
 
-## Install general requirements for the vectorization
+## Install general requirements for the sharp features
 RUN pip install --upgrade pip
+RUN pip install torch torchvision
 COPY requirements.txt /opt/
 RUN pip install -r /opt/requirements.txt
 
