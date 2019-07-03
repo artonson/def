@@ -39,7 +39,7 @@ RUN wget https://repo.continuum.io/miniconda/Miniconda3-4.6.14-Linux-x86_64.sh -
  && chmod +x ~/miniconda.sh \
  && ~/miniconda.sh -b -p ~/miniconda \
  && rm ~/miniconda.sh \
- && echo "export PATH=/home/user/miniconda/bin:$PATH" >/etc/profile.d/conda.sh
+ && echo "export PATH=/home/user/miniconda/bin:$PATH" >>/home/user/.profile
 ENV PATH /home/user/miniconda/bin:$PATH
 ENV CONDA_AUTO_UPDATE_CONDA=false
 
@@ -51,10 +51,9 @@ ENV CONDA_DEFAULT_ENV=py36
 ENV CONDA_PREFIX=/home/user/miniconda/envs/$CONDA_DEFAULT_ENV
 ENV PATH=$CONDA_PREFIX/bin:$PATH
 
-## Install general requirements for the vectorization
+## Install general requirements for the sharp features
 COPY requirements.txt /opt/requirements.txt
 RUN pip install --upgrade pip \
- && pip install --upgrade git+https://github.com/mathandy/svgpathtools.git \
  && pip install -r /opt/requirements.txt
 
 # Install pytorch_geometric and friends
