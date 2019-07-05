@@ -1,8 +1,48 @@
-import argparse
-import datetime
 
-import numpy as np
-import yaml
+class ShapeFilter(ABC):
+    def __call__(self, tri_mesh, **kwargs):
+        pass
+
+
+class FaceRateFilter(ShapeFilter):
+    """Filtering based on the ratio of faces with areas five times
+    smaller than an average face area: count these triangles
+
+    big enough triangles (the rate of small triangles in the whole mesh is smaller than 5%)
+    """
+    def __init__(self, rate, ratio_thr):
+        self.rate = rate
+        self.ratio_thr = ratio_thr
+
+    def __call__(self, mesh, **kwargs):
+        area_ratio = (mesh.area_faces < mesh.area_faces.mean() / self.rate).mean()
+        addrs_good_triangles = addrs[np.where(small_faces_rate_5 <= self.ratio_thr)[0]]
+
+
+
+class FaceAspectRatioFilter(ShapeFilter):
+    # the cell for filtering based on the aspect ratio of faces: count the number of triangles with aspect ratio more than 5
+    def __init__(self, rate):
+        self.rate = rate
+
+    def __call__(self, mesh, **kwargs):
+        vertices_in_edge = mesh.vertices[mesh.edges_unique[mesh.faces_unique_edges]]
+        outer_radius = np.prod(np.sqrt(np.sum((vertices_in_edge[:,:,0]-vertices_in_edge[:,:,1]) ** 2, axis = -1)),
+                               axis = -1) / 4 / mesh.area_faces
+        half_perimeter = np.sqrt(np.sum((vertices_in_edge[:,:,0]-vertices_in_edge[:,:,1]) ** 2,
+                                        axis = -1)).sum(axis = -1) / 2
+        inner_radius = mesh.area_faces / half_perimeter
+        aspect_ratios_5.append((outer_radius / inner_radius >= 5).mean())
+        addrs_very_good_triangles = addrs_good_triangles[np.where(aspect_ratios_5 <= 0.05)[0]] # slice the addresses which have
+
+
+
+class SequentialFilter(ShapeFilter):
+    def __init__(self, filters):
+        self.filters = filters
+
+    def __call__(self, mesh, **kwargs):
+        pass
 
 
 # the function for patch generator: breadth-first search
@@ -15,7 +55,7 @@ def find_and_add(sets, desired_number_of_points, adjacency_graph):
             if vs not in sets:
                 sets.append(vs)
                 counter += 1
-#                 print(counter)
+        #                 print(counter)
         if counter >= desired_number_of_points:
             break # stop when the patch has more than 1024 vertices
 
@@ -174,87 +214,3 @@ def generate_patches(addrs_very_good_triangles):
 
 
 
-def main(options):
-    pass
-
-
-
-def parse_args():
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument('-j', '--jobs', type=int, default=4, help='CPU jobs to use in parallel [default: 4].')
-
-    subparsers = parser.add_subparsers(help='sub-command help')
-
-     # create the parser for the "a" command
-    stats_parser = subparsers.add_parser('stats', help='compute statistics')
-    stats_parser.add_argument('bar', type=int, help='bar help')
-
-    # create the parser for the "b" command
-    patches_parser = subparsers.add_parser('patches', help='generate patches')
-    patches_parser.add_argument('bar', type=int, help='bar help')
-
-
-
-
-
-    parser.add_argument('-e', '--epochs', type=int, default=1, help='how many epochs to train [default: 1].')
-    parser.add_argument('-b', '--train-batch-size', type=int, default=128, dest='train_batch_size',
-                        help='train batch size [default: 128].')
-    parser.add_argument('-B', '--val-batch-size', type=int, default=128, dest='val_batch_size',
-                        help='val batch size [default: 128].')
-    parser.add_argument('--batches-before-val', type=int, default=1024, dest='batches_before_val',
-                        help='how many batches to train before validation [default: 1024].')
-    parser.add_argument('--batches-before-imglog', type=int, default=12, dest='batches_before_imglog',
-                        help='log images each batches-before-imglog validation batches [default: 12].')
-    parser.add_argument('--mini-val-batches-n-per-subset', type=int, default=12, dest='mini_val_batches_n_per_subset',
-                        help='how many batches per subset to run for mini validation [default: 12].')
-
-    parser.add_argument('--model-spec', dest='model_spec_filename', required=True,
-                        help='model specification JSON file to use [default: none].')
-    parser.add_argument('--infer-from-spec', dest='infer_from_spec', action='store_true', default=False,
-                        help='if set, --model, --save-model-file, --logging-file, --tboard-json-logging-file,'
-                             'and --tboard-dir are formed automatically [default: False].')
-    parser.add_argument('--log-dir-prefix', dest='logs_dir', default='/logs',
-                        help='path to root of logging location [default: /logs].')
-    parser.add_argument('-m', '--init-model-file', dest='init_model_filename',
-                        help='Path to initializer model file [default: none].')
-
-    parser.add_argument('-s', '--save-model-file', dest='save_model_filename',
-                        help='Path to output vectorization model file [default: none].')
-    parser.add_argument('--batches_before_save', type=int, default=1024, dest='batches_before_save',
-                        help='how many batches to run before saving the model [default: 1024].')
-
-    parser.add_argument('--data-root', required=True, dest='data_root', help='root of the data tree (directory).')
-    parser.add_argument('--data-type', required=True, dest='dataloader_type',
-                        help='type of the train/val data to use.', choices=dataloading.prepare_loaders.keys())
-    parser.add_argument('--handcrafted-train', required=False, action='append',
-                        dest='handcrafted_train_paths', help='dirnames of handcrafted datasets used for training '
-                                                             '(sought for in preprocessed/synthetic_handcrafted).')
-    parser.add_argument('--handcrafted-val', required=False, action='append',
-                        dest='handcrafted_val_paths', help='dirnames of handcrafted datasets used for validation '
-                                                           '(sought for in preprocessed/synthetic_handcrafted).')
-    parser.add_argument('--handcrafted-val-part', required=False, type=float, default=.1,
-                        dest='handcrafted_val_part', help='portion of handcrafted_train used for validation')
-    parser.add_argument('-M', '--memory-constraint', required=True, type=int, dest='memory_constraint',help='maximum RAM usage in bytes.')
-
-    parser.add_argument('-r', '--render-resolution', dest='render_res', default=64, type=int,
-                        help='resolution used for rendering.')
-
-    parser.add_argument('--verbose', action='store_true', default=False, dest='verbose',
-                        help='verbose output [default: False].')
-    parser.add_argument('-l', '--logging-file', dest='logging_filename',
-                        help='Path to output logging text file [default: output to stdout only].')
-    parser.add_argument('-tl', '--tboard-json-logging-file', dest='tboard_json_logging_file',
-                        help='Path to output logging JSON file with scalars [default: none].')
-    parser.add_argument('-x', '--tboard-dir', dest='tboard_dir',
-                        help='Path to tensorboard [default: do not log events].')
-    parser.add_argument('-w', '--overwrite', action='store_true', default=False,
-                        help='If set, overwrite existing logs [default: exit if output dir exists].')
-
-    return parser.parse_args()
-
-
-if __name__ == '__main__':
-    options = parse_args()
-    main(options)
