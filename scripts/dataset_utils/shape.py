@@ -1,5 +1,7 @@
+from abc import ABC as AbstractBase
 
-class ShapeFilter(ABC):
+
+class ShapeFilter(AbstractBase):
     def __call__(self, tri_mesh, **kwargs):
         pass
 
@@ -17,6 +19,7 @@ class FaceRateFilter(ShapeFilter):
     def __call__(self, mesh, **kwargs):
         area_ratio = (mesh.area_faces < mesh.area_faces.mean() / self.rate).mean()
         addrs_good_triangles = addrs[np.where(small_faces_rate_5 <= self.ratio_thr)[0]]
+
 
 
 
@@ -42,7 +45,20 @@ class SequentialFilter(ShapeFilter):
         self.filters = filters
 
     def __call__(self, mesh, **kwargs):
-        pass
+        for f in self.filters:
+            is_ok = f(mesh)
+
+
+filter_dict = {
+    'face_ratio': FaceRateFilter,
+    'face_aspect_ratio': FaceAspectRatioFilter,
+}
+
+
+def load_from_options(name, opts_dict):
+    assert name in filter_dict, 'unknown kind of filter: "{}"'.format(name)
+    filter_cls = filter_dict[name]
+    return filter_cls(**opts_dict)
 
 
 # the function for patch generator: breadth-first search

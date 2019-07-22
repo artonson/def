@@ -2,7 +2,8 @@
 
 import argparse
 
-from sharpf.data.abc_data import ABCData
+from scripts.dataset_utils.shape import SequentialFilter, load_from_options
+from sharpf.data.abc_data import ABCData, ABCModality
 
 from joblib import Parallel, delayed
 import datetime
@@ -19,24 +20,39 @@ import yaml
 # 5) Save dataset from the patches, saving to torch.FloatStorage .
 
 
-def filter_shapes_worker(filter_fn, ):
+@delayed
+def filter_meshes_worker(filter_fn, item):
+    item.archive_filename
+    item.name
 
-    for filter_fn in filters:
-        filter(filter_fn, shapes)
+    is_ok = filter_fn(item.obj)
+    return item.archive_filename, item.name, is_ok
 
 
 
 def filter_shapes(options):
     """Filter the shapes using a number of filters, saving intermediate results."""
 
-    sequential_filter =
+    # create the required filter objects
+    sequential_filter = SequentialFilter([
+        load_from_options(filter_name, options.__dict__)
+        for filter_name in options.filters])
 
-    abc_data = ABCData(options.data_dir, modalities=['feat'])
+    # create the data source iterator
+    abc_data = ABCData(options.data_dir, modalities=[ABCModality.FEAT],
+                       shape_representation='trimesh')
 
+    # run the filtering job in parallel
     parallel = Parallel(n_jobs=options.n_jobs)
-    delayed_iterable = (delayed(filter_shapes_worker)(item) for item in abc_data)
+    delayed_iterable = (filter_meshes_worker(sequential_filter, item) for item in abc_data)
     output = parallel(delayed_iterable)
 
+    # write out the results
+    with open(options.output_filename, 'w') as output_file:
+        output_file.write('\n'.join([
+            '{} {}'.format(archive_filename, name)
+            for archive_filename, name, is_ok in output if is_ok
+        ]))
 
 
 def make_patches(options):
@@ -59,7 +75,8 @@ def parse_args():
     stats_parser = subparsers.add_parser('filter', help='select meshes according to the specified filters.')
     stats_parser.add_argument('--data-root', required=True, dest='data_root', help='root of the data tree (directory).')
 
-    stats_parser.add_argument('bar', type=int, help='bar help')
+    stats_parser.add_argument('-f', '--filter', choices=[], action='append', dest='filters',
+                              help='the filters to use (can be multiple).')
     stats_parser.add_argument('bar', type=int, help='bar help')
     stats_parser.add_argument('bar', type=int, help='bar help')
     stats_parser.add_argument('bar', type=int, help='bar help')
