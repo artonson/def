@@ -7,7 +7,8 @@ from itertools import groupby
 import os
 
 import py7zlib
-import pylzma
+
+from sharpf.utils.namedtuple import namedtuple_with_defaults as namedtuple
 
 
 class ABCModality(Enum):
@@ -41,8 +42,17 @@ def _compose_filemask(chunks, modalities, version):
     )
 
 
-class ABCItem():
-    pass
+def _extract_modality(filename):
+    name = os.path.basename(filename)
+    name, ext = os.path.splitext(name)
+    abc, chunk, modality, version = name.split('_')
+    return modality
+
+
+# ABCItem is the primary data instance in ABC, containing all the modalities
+ABCItem = namedtuple(
+    'ABCItem',
+    'pathname archive_pathname ' + ' '.join(modality.value for modality in ALL_ABC_MODALITIES))
 
 
 class ABC7ZFile(object):
@@ -50,10 +60,12 @@ class ABC7ZFile(object):
 
     def __init__(self, filename):
         self.filename = filename
+        self.file_handle = None
+        self.modality = _extract_modality(filename)
 
     def _open(self):
         self.file_handle = open(self.filename, 'rb')
-        self.archive = py7zlib.Archive7z(self.file_handle)
+        self.archive_handle = py7zlib.Archive7z(self.file_handle)
 
     def _close(self):
         self.file_handle.close()
@@ -62,13 +74,13 @@ class ABC7ZFile(object):
         self._open()
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self._close()
+        if self.file_handle:
+            self._close()
 
     def __iter__(self):
-        for name in self.archive.getnames():
-            bytes_io = BytesIO(self.archive.getmember(name).read())
-            yield ABCItem(self.filename, name, bytes_io)
-
+        for name in self.archive_handle.getnames():
+            bytes_io = BytesIO(self.archive_handle.getmember(name).read())
+            yield ABCItem(self.filename, name, **{self.modality: bytes_io})
 
 
 
