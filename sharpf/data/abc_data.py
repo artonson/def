@@ -3,7 +3,7 @@ from contextlib import ExitStack, AbstractContextManager
 from enum import Enum
 import glob
 from io import BytesIO
-from itertools import groupby
+from itertools import groupby, islice
 import os
 
 import py7zlib
@@ -73,30 +73,52 @@ class ABC7ZFile(Iterable, AbstractContextManager):
         self.filename = filename
         self.modality = _extract_modality(filename)
         assert self.modality in ALL_ABC_MODALITIES, 'unknown modality: "{}"'.format(self.modality)
+        self._reset_handles()
+
+    def _reset_handles(self):
         self.file_handle = None
         self.archive_handle = None
-        self._open()
+        self._names_list = None
 
     def _open(self):
         self.file_handle = open(self.filename, 'rb')
         self.archive_handle = py7zlib.Archive7z(self.file_handle)
+        self._names_list = self.archive_handle.getnames()
 
     def _close(self):
         self.file_handle.close()
+        self._reset_handles()
 
     def __enter__(self):
+        self._open()
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        if self.file_handle:
+        if self._isopen():
             self._close()
+
+    def _get_item_by_name(self, name):
+        bytes_io = BytesIO(self.archive_handle.getmember(name).read())
+        item_id = _extract_inar_id(name)
+        return ABCItem(self.filename, name, item_id, **{self.modality: bytes_io})
 
     def __iter__(self):
         for name in self.archive_handle.getnames():
-            bytes_io = BytesIO(self.archive_handle.getmember(name).read())
-            item_id = _extract_inar_id(name)
-            yield ABCItem(self.filename, name, item_id, **{self.modality: bytes_io})
+            yield self._get_item_by_name(name)
 
+    def _isopen(self):
+        return (self.file_handle is not None and
+                self.archive_handle is not None and
+                self._names_list is not None)
+
+    def __getitem__(self, key):
+        assert self._isopen()
+        if isinstance(key, int):
+            name = self._names_list[key]
+            return self._get_item_by_name(name)
+        elif isinstance(key, slice):
+            names = list(islice(self._names_list, key.start, key.stop, key.step))
+            return (self._get_item_by_name(name) for name in names)
 
 
 class ABCChunk(Iterable):
@@ -185,4 +207,26 @@ class ABCData(Iterable):
 # testing use case #3: looping over specified modalities in the entire dataset
 # testing use case #4: parallel reading of different chunks
 # testing use case #5: parallel reading of different files in the same chunk (?)
-
+#
+# from joblib import Parallel, delayed
+#
+# def read_slice(filename, slice_params):
+#     slice_start, slice_end = slice_params
+#     with ABC7ZFile(filename) as abc_7z_file:
+#         x = abc_7z_file[slice_start:slice_end]
+#         for i, item in enumerate(x):
+#             y = item.obj.getvalue()
+#             print(filename, slice_start + i, len(y))
+#
+# slice_start = list(range(0, 7000, 100))
+# slice_end = list(range(99, 7099, 100))
+# slice_params = zip(slice_start, slice_end)
+#
+# filename = '/home/artonson/tmp/abc/abc_0000_obj_v00.7z'
+#
+# parallel = Parallel(n_jobs=40, verbose=10)
+# delayed_read_slice = delayed(read_slice)
+#
+# parallel(
+#     delayed_read_slice(filename, sp) for sp in slice_params
+# )
