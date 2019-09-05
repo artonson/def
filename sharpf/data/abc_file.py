@@ -99,7 +99,6 @@ class ABC7ZFile(Iterable, AbstractContextManager):
             self._close()
 
     def _get_item_by_name(self, name):
-        print(name)
         bytes_io = BytesIO(self.archive_handle.getmember(name).read())
         item_id = _extract_inar_id(name)
         return ABCItem(self.filename, name, item_id, **{self.modality: bytes_io})
@@ -133,39 +132,49 @@ class ABCChunk(Iterable):
         self.file_handles = []
         self.load_chunk_to_memory = load_chunk_to_memory
 
-    def __iter__(self):
-        with ExitStack() as stack:
-            self.file_handles = [stack.enter_context(ABC7ZFile(filename))
+    def __enter__(self):
+        self.file_handles = [ABC7ZFile(filename).__enter__()
                                  for filename in self.filenames]
 
-            if self.load_chunk_to_memory:
-                # if we cannot be sure that archive interiors are ordered
-                # in the same way for all archives, we load them into memory
-                iterables = zip(*self._preload())
-            else:
-                # otherwise, we try to iterate as on-the-fly as possible
-                # specifically, we read items from each archive until all requested modalities
-                # have been found, then merge and yield a unified item
-                # (this could be useful if the archives are mostly aligned, but contain broken items)
-                iterables = zip(*self.file_handles)
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        for i in self.file_handles:
+            i._close()
+        self.file_handles = None    
+
+    def __iter__(self):
+        #with ExitStack() as stack:
+
+        if self.load_chunk_to_memory:
+            # if we cannot be sure that archive interiors are ordered
+            # in the same way for all archives, we load them into memory
+            iterables = zip(*self._preload())
+        else:
+            # otherwise, we try to iterate as on-the-fly as possible
+            # specifically, we read items from each archive until all requested modalities
+            # have been found, then merge and yield a unified item
+            # (this could be useful if the archives are mostly aligned, but contain broken items)
+            iterables = zip(*self.file_handles)
 
 
-            read_items_by_id = defaultdict(dict)  # maps item + modality into
+        read_items_by_id = defaultdict(dict)  # maps item + modality into
 
-            for items in iterables:
-                # TODO implement checks for raised exceptions during iterations
-                for item, file in zip(items, self.file_handles):
-                    read_items_by_id[item.item_id][file.modality] = item
-
-                ids_to_yield = [item_id for item_id, read_modalities in read_items_by_id.items()
-                                      if not self.required_modalities - read_modalities.keys()]
-
-                for item_id in ids_to_yield:
-                    read_modalities = read_items_by_id.pop(item_id)
-                    bytes_io = {modality: getattr(item, modality)
-                                for modality, item in read_modalities.items()}
-                    merged_item = ABCItem(item_id=item_id, **bytes_io)
-                    yield merged_item
+        for items in iterables:
+            # TODO implement checks for raised exceptions during iterations
+            for item, file in zip(items, self.file_handles):
+                 read_items_by_id[item.item_id][file.modality] = item
+                
+            ids_to_yield = [item_id for item_id, read_modalities in read_items_by_id.items()
+                            if not self.required_modalities - read_modalities.keys()]
+            for item_id in ids_to_yield:
+                read_modalities = read_items_by_id.pop(item_id)
+                bytes_io = {modality: getattr(item, modality)
+                            for modality, item in read_modalities.items()}
+                names = [[it.pathname, it.archive_pathname] for _, it in read_modalities.items()]
+                merged_item = ABCItem(pathname=names[:][0], archive_pathname=names[:][1], item_id=item_id, **bytes_io)
+                 
+                yield merged_item
 
     def _preload(self):
         """Physically load entire chunk into working memory. Return tuple of iterables."""
@@ -203,7 +212,6 @@ class ABCData(Iterable):
                 yield item
 
 
-
 # testing use case #1: looping over all data in the entire dataset
 # testing use case #2: looping over all data in specific chunks (subset of dataset)
 # testing use case #3: looping over specified modalities in the entire dataset
@@ -214,9 +222,7 @@ from joblib import Parallel, delayed
 #
 def read_slice(filename, slice_params):
     slice_start, slice_end = slice_params
-    print(slice_start, slice_end)
     with ABC7ZFile(filename) as abc_7z_file:
-        print(abc_7z_file)
         x = abc_7z_file[slice_start:slice_end]
         for i, item in enumerate(x):
             y = item.obj.getvalue()
@@ -227,9 +233,19 @@ if __name__ == '__main__':
     slice_end = list(range(99, 7099, 100))
     slice_params = zip(slice_start, slice_end)
 #
-    filename = '/home/artonson/tmp/abc/abc_0000_obj_v00.7z'
-    for i,j in slice_params:
-        read_slice(filename, (i, j))
+    filename_1 = '/home/artonson/tmp/abc/abc_0000_obj_v00.7z'
+    filename_2 = '/home/artonson/tmp/abc/abc_0000_feat_v00.7z'
+    filenames = [filename_1, filename_2]
+
+    with ABCChunk(filenames) as chunk:
+        print(chunk)
+        for item in chunk:
+            print('obj:', len(item.obj.getvalue()))
+            print('feat:', len(item.feat.getvalue()))
+            break
+
+    #for i,j in slice_params:
+    #    read_slice(filename, (i, j))
 #   parallel = Parallel(n_jobs=40, verbose=10)
 #   delayed_read_slice = delayed(read_slice)
 #
