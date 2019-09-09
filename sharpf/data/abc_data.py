@@ -2,6 +2,7 @@ from collections import Iterable, ByteString, defaultdict
 from contextlib import ExitStack, AbstractContextManager
 from enum import Enum
 import glob
+import re
 from io import BytesIO
 from itertools import groupby, islice
 import os
@@ -23,6 +24,7 @@ class ABCModality(Enum):
 
 ALL_ABC_MODALITIES = [modality.value for modality in ABCModality]
 ABC_7Z_FILEMASK = 'abc_{chunk}_{modality}_v{version}.7z'  # abc_0000_feat_v00.7z
+ABC_7Z_REGEX = 'abc_(\d{4})_([a-z-]+)_v(\d{2}).7z' # abc_0000_feat_v00.7z
 ABC_INAR_FILEMASK = '{dirname}/{dirname}_{hash}_{modalityex}_{number}.{ext}'  # '00000002/00000002_1ffb81a71e5b402e966b9341_features_001.yml'
 
 def _compose_filemask(chunks, modalities, version):
@@ -34,13 +36,13 @@ def _compose_filemask(chunks, modalities, version):
 
         chunk_mask = '[' + '|'.join(chunks) + ']'
 
-    modalities
+    #modalities
 
-    version
+    #version
 
-    return ABC_7Z_FILEMASK.format(
-        chunk=chunk_mask, modality='x', version=0,
-    )
+    return [ABC_7Z_FILEMASK.format(
+        chunk=chunk_mask, modality=modality, version=version,
+    ) for modality in modalities]
 
 
 def _extract_modality(filename):
@@ -144,7 +146,6 @@ class ABCChunk(Iterable):
         self.file_handles = None    
 
     def __iter__(self):
-        #with ExitStack() as stack:
 
         if self.load_chunk_to_memory:
             # if we cannot be sure that archive interiors are ordered
@@ -201,21 +202,21 @@ class ABCData(Iterable):
         self.version = version
         self.shape_representation = shape_representation
 
-        filemask = _compose_filemask(self.chunks, self.modalities, self.version)
+        filemasks = _compose_filemask(self.chunks, self.modalities, self.version)
 
-        self.data_files = glob.glob(os.path.join(self.data_dir, filemask))
+        self.data_files = [glob.glob(os.path.join(self.data_dir, filemask))[0] for filemask in filemasks]
 
-        chunk_getter = lambda s: ABC_7Z_FILEMASK.format(s)
-
-        self.data_files = {chunk: chunk_files
+        chunk_getter = lambda s: re.search(ABC_7Z_REGEX, s).group(1)
+        self.data_files = {chunk: list(chunk_files)
                            for chunk, chunk_files in groupby(self.data_files, key=chunk_getter)}
 
     def __iter__(self):
-        for chunk in self.chunks:
+        for chunk in self.data_files.keys():
             filenames_by_chunk = self.data_files[chunk]
-            chunk = ABCChunk(**filenames_by_chunk)
-            for item in chunk:
-                yield item
+            chunk = ABCChunk(filenames_by_chunk)
+            with ABCChunk(filenames_by_chunk) as chunk:
+                for item in chunk:
+                    yield item
 
 
 # testing use case #1: looping over all data in the entire dataset
@@ -234,21 +235,34 @@ def read_slice(filename, slice_params):
             y = item.obj.getvalue()
             print(filename, slice_start + i, len(y))
 
+def read_chunk(filenames):
+    with ABCChunk(filenames) as chunk:
+        for item in chunk:
+            print('obj:', len(item.obj.getvalue()))
+            print('feat:', len(item.feat.getvalue()))
+            break 
+
+
+
 if __name__ == '__main__':
     slice_start = list(range(0, 7000, 100))
     slice_end = list(range(99, 7099, 100))
     slice_params = zip(slice_start, slice_end)
-#
+    filename = '/home/artonson/tmp/abc/abc_0000_obj_v00.7z'
+#    for i,j in slice_params:
+#        read_slice(filename, (i, j))
+#        break
+
     filename_1 = '/home/artonson/tmp/abc/abc_0000_obj_v00.7z'
     filename_2 = '/home/artonson/tmp/abc/abc_0000_feat_v00.7z'
-    filenames = [filename_1, filename_2]
+    filenames = [filename_1, filename_2]   
+    read_chunk(filenames)
+     
+    dataset = ABCData('/home/artonson/tmp/abc/', modalities=['obj', 'feat'])
+    for item in dataset:
+        print(item)
+        break
 
-    with ABCChunk(filenames) as chunk:
-        print(chunk)
-        for item in chunk:
-            print('obj:', len(item.obj.getvalue()))
-            print('feat:', len(item.feat.getvalue()))
-            #break
 
     #for i,j in slice_params:
     #    read_slice(filename, (i, j))
@@ -257,4 +271,4 @@ if __name__ == '__main__':
 #
 #    parallel(
 #        delayed_read_slice(filename, sp) for sp in slice_params
-#    )
+#   
