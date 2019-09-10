@@ -1,10 +1,11 @@
 from collections import Iterable, ByteString, defaultdict
 from contextlib import ExitStack, AbstractContextManager
+from itertools import groupby, islice
+from abc import ABC, abstractmethod
+from io import BytesIO
 from enum import Enum
 import glob
 import re
-from io import BytesIO
-from itertools import groupby, islice
 import os
 
 import py7zlib
@@ -54,11 +55,45 @@ def _extract_modality(filename):
 
 def _extract_inar_id(pathname):
     # assume name matches ABC_INAR_FILEMASK
+    assert 
     name = os.path.basename(pathname)
     name, ext = os.path.splitext(name)
     dirname, hash, modalityex, number = name.split('_')
     return '_'.join([dirname, hash, number])
 
+class AbstractABC(ABC):
+    def __init__(self, filename):
+        self.filename = filename
+        self.modality = _extract_modality(filename)
+        assert self.modality in ALL_ABC_MODALITIES, 'unknown modality: "{}"'.format(self.modality)
+        self._reset_handles()
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if self._isopen():
+            self._close()
+    
+    def __enter__(self):
+        self._open()
+        return self
+
+    def _reset_handler(self):
+        pass
+
+    @abstractmethod
+    def _close(self):
+        pass
+    @abstractmethod
+    def _isopen(self):
+        pass
+    @abstractmethod
+    def _open(self):
+        pass
+    @abstractmethod
+    def __iter__(self):
+        pass
+    @abstractmethod
+    def __getitem__(self):
+        pass
 
 # ABCItem is the primary data instance in ABC, containing
 # all the modalities in the form of bitstreams, supporting
@@ -69,14 +104,8 @@ ABCItem = namedtuple(
     defaults=(None for modality in ALL_ABC_MODALITIES))
 
 
-class ABC7ZFile(Iterable, AbstractContextManager):
+class ABC7ZFile(AbstractABC):
     """A helper class for reading 7z files."""
-
-    def __init__(self, filename):
-        self.filename = filename
-        self.modality = _extract_modality(filename)
-        assert self.modality in ALL_ABC_MODALITIES, 'unknown modality: "{}"'.format(self.modality)
-        self._reset_handles()
 
     def _reset_handles(self):
         self.file_handle = None
@@ -92,15 +121,8 @@ class ABC7ZFile(Iterable, AbstractContextManager):
         self.file_handle.close()
         self._reset_handles()
 
-    def __enter__(self):
-        self._open()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if self._isopen():
-            self._close()
-
     def _get_item_by_name(self, name):
+        assert name in achive_handle.getnames(), 'Archive does not contain requested filename: {}'.format(name) 
         bytes_io = BytesIO(self.archive_handle.getmember(name).read())
         item_id = _extract_inar_id(name)
         return ABCItem(self.filename, name, item_id, **{self.modality: bytes_io})
@@ -122,9 +144,8 @@ class ABC7ZFile(Iterable, AbstractContextManager):
         elif isinstance(key, slice):
             names = list(islice(self._names_list, key.start, key.stop, key.step))
             return (self._get_item_by_name(name) for name in names)
-
-
-class ABCChunk(Iterable):
+    
+class ABCChunk(AbstractABC):
     """A chunk is a collection of files (with different modalities),
     that iterates over all files simultaneously."""
 
@@ -133,17 +154,22 @@ class ABCChunk(Iterable):
         self.required_modalities = {_extract_modality(filename) for filename in filenames}
         self.file_handles = []
         self.load_chunk_to_memory = load_chunk_to_memory
+        self._reset_handlers()       
 
-    def __enter__(self):
+    def _reset_handlers(self):
+        self.file_handles = None
+        
+    def _isopen(self):
+        return self.file_handles is not None
+
+    def _open(self):
         self.file_handles = [ABC7ZFile(filename).__enter__()
                                  for filename in self.filenames]
 
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        for i in self.file_handles:
-            i._close()
-        self.file_handles = None    
+    def _close(self):
+        for file_handle in self.file_handles:
+            file_handle.close()
+        self._reset_handles()
 
     def __iter__(self):
 
@@ -182,6 +208,8 @@ class ABCChunk(Iterable):
                 merged_item = ABCItem(pathname=read_pathnames, archive_pathname=read_achivenames, item_id=item_id, **bytes_io)
                  
                 yield merged_item
+
+    
 
     def _preload(self):
         """Physically load entire chunk into working memory. Return tuple of iterables."""
