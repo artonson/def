@@ -55,7 +55,6 @@ def _extract_modality(filename):
 
 def _extract_inar_id(pathname):
     # assume name matches ABC_INAR_FILEMASK
-    assert 
     name = os.path.basename(pathname)
     name, ext = os.path.splitext(name)
     dirname, hash, modalityex, number = name.split('_')
@@ -91,9 +90,9 @@ class AbstractABC(ABC):
     @abstractmethod
     def __iter__(self):
         pass
-    @abstractmethod
-    def __getitem__(self):
-        pass
+    #@abstractmethod
+    #def __getitem__(self):
+    #    pass
 
 # ABCItem is the primary data instance in ABC, containing
 # all the modalities in the form of bitstreams, supporting
@@ -122,7 +121,7 @@ class ABC7ZFile(AbstractABC):
         self._reset_handles()
 
     def _get_item_by_name(self, name):
-        assert name in achive_handle.getnames(), 'Archive does not contain requested filename: {}'.format(name) 
+        assert name in self.archive_handle.getnames(), 'Archive does not contain requested filename: {}'.format(name) 
         bytes_io = BytesIO(self.archive_handle.getmember(name).read())
         item_id = _extract_inar_id(name)
         return ABCItem(self.filename, name, item_id, **{self.modality: bytes_io})
@@ -154,21 +153,23 @@ class ABCChunk(AbstractABC):
         self.required_modalities = {_extract_modality(filename) for filename in filenames}
         self.file_handles = []
         self.load_chunk_to_memory = load_chunk_to_memory
-        self._reset_handlers()       
+        self._reset_handles()       
 
-    def _reset_handlers(self):
+    def _reset_handles(self):
         self.file_handles = None
         
     def _isopen(self):
         return self.file_handles is not None
 
     def _open(self):
-        self.file_handles = [ABC7ZFile(filename).__enter__()
+        self.exitstack = ExitStack()
+        self.file_handles = [self.exitstack.enter_context(ABC7ZFile(filename))
                                  for filename in self.filenames]
 
     def _close(self):
-        for file_handle in self.file_handles:
-            file_handle.close()
+        #for file_handle in self.file_handles:
+        #    file_handle.close()
+        self.exitstack.close()
         self._reset_handles()
 
     def __iter__(self):
