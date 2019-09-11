@@ -18,7 +18,7 @@ IMAGE_VERSION="latest"
 IMAGE_NAME_TAG="${IMAGE_NAME}:${IMAGE_VERSION}"
 SIMAGE_FILENAME="${SIMAGES_DIR}/$(echo ${IMAGE_NAME_TAG} | tr /: _).sif"
 
-HOST_CODE_DIR="/trinity/home/a.artemov/FloorplanVectorization"
+HOST_CODE_DIR=$(realpath $(dirname `realpath $0`)/../..)     # dirname of THIS file's parent dir
 HOST_DATA_DIR="/gpfs/gpfs0/3ddl/datasets/abc"
 HOST_OUT_DIR="/gpfs/gpfs0/3ddl/sharp_features/data"
 HOST_LOG_DIR="/logs"
