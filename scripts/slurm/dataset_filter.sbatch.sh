@@ -1,16 +1,16 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
-CPUS_PER_TASK=20
-
-#SBATCH -J sharpf_dataset_filter
+#SBATCH --job-name=sharpf_dataset_filter
+#SBATCH --output=array_%A_%a.out
+#SBATCH --error=array_%A_%a.err
+#SBATCH --array=0-9
+#SBATCH --time=01:00:00
 #SBATCH --partition=cpu_big
-#SBATCH --cpus-per-task=${CPUS_PER_TASK}
-#SBATCH --ntasks=1
-#SBATCH --nodes=10
-#SBATCH --time 00:05:00
-#SBATCH --array=0-99
+#SBATCH --cpus-per-task=24
+#SBATCH --ntasks-per-node=1
 
-# ${SLURM_ARRAY_TASK_ID} is set by SLURM
+set -x
+CPUS_PER_TASK=24
 
 SIMAGES_DIR=/gpfs/gpfs0/3ddl/singularity-images
 IMAGE_NAME="artonson/sharp_features"
@@ -18,7 +18,7 @@ IMAGE_VERSION="latest"
 IMAGE_NAME_TAG="${IMAGE_NAME}:${IMAGE_VERSION}"
 SIMAGE_FILENAME="${SIMAGES_DIR}/$(echo ${IMAGE_NAME_TAG} | tr /: _).sif"
 
-HOST_CODE_DIR=$(realpath $(dirname `realpath $0`)/../..)     # dirname of THIS file's parent dir
+HOST_CODE_DIR="/trinity/home/a.artemov/repos/sharp_features"
 HOST_DATA_DIR="/gpfs/gpfs0/3ddl/datasets/abc"
 HOST_OUT_DIR="/gpfs/gpfs0/3ddl/sharp_features/data"
 HOST_LOG_DIR="/logs"
@@ -28,6 +28,7 @@ CONT_DATA_DIR="/data"
 CONT_OUT_DIR="/out"
 CONT_LOG_DIR="/logs"
 
+echo SLURM_ARRAY_TASK_ID=${SLURM_ARRAY_TASK_ID}
 
 module load apps/singularity-3.2.0
 singularity exec \

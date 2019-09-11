@@ -21,7 +21,11 @@ def test(item):
     import socket
     host = socket.gethostname()
     chunk, i = item
-    return "On host {} process {} has chunk {} and input {}".format(pid, host, chunk, i)
+    import numpy as np 
+    size = 4096
+    A = np.random.random((size, size))
+    svd = np.linalg.svd(A, full_matrices=False)
+    return "On host {} process {} has chunk {} and input {}".format(host, pid, chunk, i)
 
 
 def filter_meshes(options):
@@ -42,18 +46,19 @@ def filter_meshes(options):
     abc_data = [(options.chunk, i) for i in range(options.jobs)]
 
     # run the filtering job in parallel
-    parallel = Parallel(n_jobs=options.n_jobs)
+    parallel = Parallel(n_jobs=options.jobs)
     # delayed_iterable = (filter_meshes_worker(sequential_filter, item) for item in abc_data)
     delayed_iterable = (test(item) for item in abc_data)
     output = parallel(delayed_iterable)
 
     # write out the results
-    output_filename = os.path.join(options.output_dir,'{}.txt'.format(options.chunk.zfill(4)))
+    output_filename = os.path.join(options.output_dir,'{}.txt'.format(str(options.chunk).zfill(4)))
     with open(output_filename, 'w') as output_file:
-        output_file.write('\n'.join([
-            '{} {}'.format(pathname, archive_filename)
-            for pathname, archive_filename, is_ok in output if is_ok
-        ]))
+        output_file.write('\n'.join(output) + '\n')
+#       output_file.write('\n'.join([
+#           '{} {}'.format(pathname, archive_filename)
+#           for pathname, archive_filename, is_ok in output if is_ok
+#       ]))
 
 
 def parse_args():
