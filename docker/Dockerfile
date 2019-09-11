@@ -54,7 +54,7 @@ ENV PATH=$CONDA_PREFIX/bin:$PATH
 ## Install general requirements for the sharp features
 COPY requirements.txt /opt/requirements.txt
 RUN pip install --upgrade pip \
- && pip install -r /opt/requirements.txt
+ && pip install --default-timeout=1000 -r /opt/requirements.txt
 
 # Install pytorch_geometric and friends
 RUN pip install --verbose --no-cache-dir torch-scatter
