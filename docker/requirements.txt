@@ -13,3 +13,4 @@ trimesh
 glob2
 h5py
 PyYAML
+joblib
