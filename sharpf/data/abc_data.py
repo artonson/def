@@ -62,7 +62,7 @@ def _extract_inar_id(pathname):
     return '_'.join([dirname, hash, number])
 
 
-class AbstractABCDataHolder(Iterable, AbstractContextManager, ABC):
+class AbstractABCDataHolder(Mapping, Iterable, AbstractContextManager, ABC):
     """ An abstract parent class inherited from childred which operate with ABC 7z files  """
     
     def __exit__(self, exc_type, exc_val, exc_tb):
@@ -81,6 +81,8 @@ class AbstractABCDataHolder(Iterable, AbstractContextManager, ABC):
     def _isopen(self): pass
     @abstractmethod
     def _open(self): pass
+    @abstractmethod
+    def __len__(self): pass
     @abstractmethod
     def __iter__(self): pass
     @abstractmethod
@@ -103,44 +105,68 @@ class ABC7ZFile(AbstractABCDataHolder):
         self.modality = _extract_modality(filename)
         assert self.modality in ALL_ABC_MODALITIES, 'unknown modality: "{}"'.format(self.modality)
         self._unset_handles()
+        self._open()
 
     def _unset_handles(self):
         self.file_handle = None
         self.archive_handle = None
-        self._names = None
+        self._names_list = None
+        self._names_set = None
 
     def _open(self):
         self.file_handle = open(self.filename, 'rb') 
         self.archive_handle = py7zlib.Archive7z(self.file_handle)
-        self._names = self.archive_handle.getnames() # rewrite with list and tree
+        self._names_list = self.archive_handle.getnames() # rewrite with list and tree
+        self._names_set = set(self.archive_handle.getnames())
 
     def close(self):
         self.file_handle.close()
         self._unset_handles()
+        self.filename = None
+        self.modality = None
 
-    def _get_item_by_name(self, name):
-        assert name in self.archive_handle.getnames(), 'Archive does not contain requested filename: {}'.format(name) 
-        bytes_io = BytesIO(self.archive_handle.getmember(name).read())
-        item_id = _extract_inar_id(name)
+    def get(self, name):
+        try:
+            if name not in self._names_set:
+                raise ValueError
+            bytes_io = BytesIO(self.archive_handle.getmember(name).read())
+            item_id = _extract_inar_id(name)
+
+        except ValueError:
+            print('Archive does not contain requested filename: {}'.format(name))
+            raise
+
         return ABCItem(self.filename, name, item_id, **{self.modality: bytes_io})
 
     def __iter__(self):
-        for name in self.archive_handle.getnames():
-            yield self._get_item_by_name(name)
-
+        try:
+            if not self._isopen():
+                raise Exception
+            for name in self.archive_handle.getnames():
+                yield self.get(name)
+        except Exception:
+            print('ABC7ZFile is not open!')
+            raise
+    
     def _isopen(self):
-        return (self.file_handle is not None and
+        return (self.filename is not None and
+                self.modality is not None and
+                self.file_handle is not None and
                 self.archive_handle is not None and
-                self._names is not None)
+                self._names_list is not None and
+                self._names_set is not None)
+    
+    def __len__(self):
+        return len(self._names_set)
 
     def __getitem__(self, key):
         assert self._isopen()
         if isinstance(key, int):
-            name = self._names[key]
-            return self._get_item_by_name(name)
+            name = self._names_list[key]
+            return self.get(name)
         elif isinstance(key, slice):
-            names = list(islice(self._names, key.start, key.stop, key.step))
-            return (self._get_item_by_name(name) for name in names)
+            names = list(islice(self._names_list, key.start, key.stop, key.step))
+            return (self.get(name) for name in names)
 
     
 class ABCChunk(AbstractABCDataHolder):
@@ -153,7 +179,7 @@ class ABCChunk(AbstractABCDataHolder):
         self.file_handles = []
         self.exitstack = ExitStack()
         self.load_chunk_to_memory = load_chunk_to_memory
-        self._unset_handles()       
+        self._unset_handles()
 
     def _unset_handles(self):
         self.file_handles = None
@@ -161,6 +187,13 @@ class ABCChunk(AbstractABCDataHolder):
     def _open(self):
         self.file_handles = [self.exitstack.enter_context(ABC7ZFile(filename))
                                  for filename in self.filenames]
+        self.len = set([len(file_handle) for file_handle in self.file_handles])
+        try:
+            if len(self.len) > 1:
+                raise Exception
+        except Exception:
+            print('different lengths')
+            raise
 
     def _isopen(self):
         return (self.file_handles is not None)
@@ -168,6 +201,9 @@ class ABCChunk(AbstractABCDataHolder):
     def close(self):
         self.exitstack.close()
         self._unset_handles()
+
+    def __len__(self):
+        return self.len[0]
 
     def _get_iterable(self, iterable):
         if self.load_chunk_to_memory:
@@ -318,7 +354,8 @@ if __name__ == '__main__':
     slice_start = list(range(0, 7000, 100))
     slice_end = list(range(99, 7099, 100))
     slice_params = zip(slice_start, slice_end)
-    filename = '/home/artonson/tmp/abc/abc_0000_obj_v00.7z'
+    filename = 'abc_0000_obj_v00.7z'
+    a = ABC7ZFile(filename)
 #    for i,j in slice_params:
 #        read_slice(filename, (i, j))
 #        break
