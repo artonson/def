@@ -29,6 +29,7 @@ ABC_7Z_FILEMASK = 'abc_{chunk}_{modality}_v{version}.7z'  # abc_0000_feat_v00.7z
 ABC_7Z_REGEX = re.compile('abc_(\d{4})_([a-z-]+)_v(\d{2}).7z')  # abc_0000_feat_v00.7z
 ABC_INAR_FILEMASK = '{dirname}/{dirname}_{hash}_{modalityex}_{number}.{ext}'  # '00000002/00000002_1ffb81a71e5b402e966b9341_features_001.yml'
 
+
 def _compose_filemask(chunks, modalities, version):
 
     chunk_mask = '*'
@@ -75,18 +76,25 @@ class AbstractABCDataHolder(Mapping, Iterable, AbstractContextManager, ABC):
 
     @abstractmethod
     def _unset_handles(self): pass
+
     @abstractmethod
     def close(self): pass
+
     @abstractmethod
     def _isopen(self): pass
+
     @abstractmethod
     def _open(self): pass
+
     @abstractmethod
     def __len__(self): pass
+
     @abstractmethod
     def __iter__(self): pass
+
     @abstractmethod
-    def __getitem__(self): pass
+    def __getitem__(self, key): pass
+
 
 # ABCItem is the primary data instance in ABC, containing
 # all the modalities in the form of bitstreams, supporting
@@ -126,36 +134,23 @@ class ABC7ZFile(AbstractABCDataHolder):
         self.modality = None
 
     def get(self, name):
-        try:
-            if name not in self._names_set:
-                raise ValueError
-            bytes_io = BytesIO(self.archive_handle.getmember(name).read())
-            item_id = _extract_inar_id(name)
-
-        except ValueError:
-            print('Archive does not contain requested filename: {}'.format(name))
-            raise
-
+        if name not in self._names_set:  # O(log n)
+            raise ValueError('Archive does not contain requested filename: {}'.format(name))
+        bytes_io = BytesIO(self.archive_handle.getmember(name).read())
+        item_id = _extract_inar_id(name)
         return ABCItem(self.filename, name, item_id, **{self.modality: bytes_io})
 
     def __iter__(self):
-        try:
-            if not self._isopen():
-                raise Exception
-            for name in self.archive_handle.getnames():
-                yield self.get(name)
-        except Exception:
-            print('ABC7ZFile is not open!')
-            raise
-    
+        if not self._isopen():
+            raise ValueError('I/O operation on closed file.')
+        for name in self.archive_handle.getnames():
+            yield self.get(name)
+
     def _isopen(self):
-        return (self.filename is not None and
-                self.modality is not None and
-                self.file_handle is not None and
-                self.archive_handle is not None and
-                self._names_list is not None and
-                self._names_set is not None)
-    
+        return all(obj is not None for obj in
+                   [self.filename, self.modality, self.file_handle,
+                    self.archive_handle, self._names_list, self._names_set])
+
     def __len__(self):
         return len(self._names_set)
 
