@@ -1,0 +1,16 @@
+numpy>=1.16.0
+scipy
+matplotlib
+scikit-image>=0.14
+jupyter==1.0.0
+tqdm
+Pillow
+ipyparallel
+trimesh
+glob2
+h5py
+PyYAML
+joblib
+torch
+torchvision
+tensorboardX
