@@ -144,7 +144,7 @@ class ABC7ZFile(AbstractABCDataHolder):
             raise ValueError('I/O operation on closed file.')
 
         if name not in self._names_set:  # O(log n)
-            raise ValueError('Archive does not contain requested filename: {}'.format(name))
+            raise KeyError('Archive does not contain requested filename: {}'.format(name))
 
         bytes_io = BytesIO(self.archive_handle.getmember(name).read())
         item_id = _extract_inar_id(name)
