@@ -129,7 +129,7 @@ class ABC7ZFile(AbstractABCDataHolder):
     def _open(self):
         self.file_handle = open(self.filename, 'rb') 
         self.archive_handle = py7zlib.Archive7z(self.file_handle)
-        self._names_list = self.archive_handle.getnames() # rewrite with list and tree
+        self._names_list = self.archive_handle.getnames()
         self._names_set = set(self._names_list)
         self.format = self._names_list[0].split('.')[-1]
 
@@ -140,15 +140,17 @@ class ABC7ZFile(AbstractABCDataHolder):
         self.modality = None
 
     def get(self, name):
+        if not self._isopen():
+            raise ValueError('I/O operation on closed file.')
+
         if name not in self._names_set:  # O(log n)
             raise ValueError('Archive does not contain requested filename: {}'.format(name))
+
         bytes_io = BytesIO(self.archive_handle.getmember(name).read())
         item_id = _extract_inar_id(name)
         return ABCItem(self.filename, name, item_id, **{self.modality: bytes_io})
 
     def __iter__(self):
-        if not self._isopen():
-            raise ValueError('I/O operation on closed file.')
         for name in self.archive_handle.getnames():
             yield self.get(name)
 
@@ -161,10 +163,10 @@ class ABC7ZFile(AbstractABCDataHolder):
         return len(self._names_set)
 
     def __getitem__(self, key):
-        assert self._isopen()
         if isinstance(key, int):
             name = self._names_list[key]
             return self.get(name)
+
         elif isinstance(key, slice):
             names = list(islice(self._names_list, key.start, key.stop, key.step))
             return (self.get(name) for name in names)
