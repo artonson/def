@@ -215,39 +215,6 @@ class ABCChunk(AbstractABCDataHolder):
     def __len__(self):
         return self.len
 
-    def _get_iterable(self, iterable):
-        if self.load_chunk_to_memory:
-            # if we cannot be sure that archive interiors are ordered
-            # in the same way for all archives, we load them into memory
-            iterables = zip(*self._preload(iterable))
-        else:
-            # otherwise, we try to iterate as on-the-fly as possible
-            # specifically, we read items from each archive until all requested modalities
-            # have been found, then merge and yield a unified item
-            # (this could be useful if the archives are mostly aligned, but contain broken items)
-            iterables = zip(*iterable)
-
-        return iterables
-    
-    def _iterator(self, iterables, read_items_by_id, pathnames, archivenames):
-        for items in iterables:
-            # TODO implement checks for raised exceptions during iterations
-            for item, file in zip(items, self.file_handles):
-                 read_items_by_id[item.item_id][file.modality] = item
-                 pathnames[item.item_id][file.modality] = item.pathname
-                 archivenames[item.item_id][file.modality] = item.archive_pathname
-
-            ids_to_yield = [item_id for item_id, read_modalities in read_items_by_id.items()]
-            for item_id in ids_to_yield:
-                read_modalities = read_items_by_id.pop(item_id)
-                read_pathnames = pathnames.pop(item_id)
-                read_achivenames = archivenames.pop(item_id)
-                bytes_io = {modality: getattr(item, modality)
-                            for modality, item in read_modalities.items()}
-                merged_item = ABCItem(pathname=read_pathnames, archive_pathname=read_achivenames, item_id=item_id, **bytes_io)
-
-                yield merged_item
-
     def get(self, name):
         # this condition verifies whether this function
         # is used by user or by class methods
@@ -260,7 +227,7 @@ class ABCChunk(AbstractABCDataHolder):
         pathnames = {} # pathnames for each modality
         archivenames = {} # archive pathnames for each modality
         bytes_io = {}
-
+        
         for file_handle in self.file_handles:
             modality = file_handle.modality
             name = _make_name_from_id(item_id, modality)
@@ -268,7 +235,6 @@ class ABCChunk(AbstractABCDataHolder):
             pathnames[modality] = item.pathname
             archivenames[modality] = item.archive_pathname
             bytes_io[modality] = getattr(item, modality)
-        
         return ABCItem(pathname=pathnames, archive_pathname=archivenames, item_id=item_id, **bytes_io)
 
     def __iter__(self):
@@ -284,40 +250,12 @@ class ABCChunk(AbstractABCDataHolder):
             raise ValueError('I/O operation on closed file.') 
         if isinstance(key, int):
             
-            #single_file_handle = [[file_handle[key]] for file_handle in self.file_handles] 
-            #iterables = self._get_iterable(single_file_handle) 
-
-            #read_items_by_id = defaultdict(dict)  # maps item + modality into
-            #pathnames = defaultdict(dict) # pathnames for each modality
-            #archivenames = defaultdict(dict) # archive pathnames for each modality
-
-            #merged_item = (item for item in self._iterator(iterables, read_items_by_id, pathnames, archivenames))
             return self.get(self._names_list[key])
 
         elif isinstance(key, slice):
-            #slice_file_handles = [file_handle[key.start:key.stop:key.step] for file_handle in self.file_handles]
-
-            #iterables = self._get_iterable(slice_file_handles)
-
-            #read_items_by_id = defaultdict(dict)  # maps item + modality into
-            #pathnames = defaultdict(dict) # pathnames for each modality
-            #archivenames = defaultdict(dict) # archive pathnames for each modality
-
-            #merged_item = (item for item in self._iterator(iterables, read_items_by_id, pathnames, archivenames))
             
             return (self.get(item_id) for item_id in self._names_list[key])
                 
-
-    def _preload(self, iterable):
-        """Physically load entire chunk into working memory. Return tuple of iterables."""
-        import warnings
-        loaded_data = []
-        for filename, file_handle in zip(self.filenames, iterable):
-            warnings.warn('Loading large file {} into memory'.format(filename))
-            loaded_data.append([item for item in file_handle])
-        return loaded_data
-
-
 class ABCData(AbstractABCDataHolder):
     def __init__(self, data_dir, modalities=ALL_ABC_MODALITIES, chunks=None,
                  shape_representation='trimesh', version='00'):
@@ -339,6 +277,7 @@ class ABCData(AbstractABCDataHolder):
         self.data_files = {chunk: list(chunk_files)
                            for chunk, chunk_files in groupby(self.data_files, key=chunk_getter)}
         self.chunks = list(self.data_files.keys())
+        
         self.lens = [len(ABCChunk(self.data_files[chunk])) for chunk in self.data_files.keys()]     
 
     def close(self):
@@ -367,40 +306,52 @@ class ABCData(AbstractABCDataHolder):
         if isinstance(key, int):
             for id, item_len in enumerate(self.lens):
                 if key < (curr_key + item_len):
+                    files_by_key = self.data_files[self.chunks[id]]
                     break
                 curr_key += item_len
 
-            files_by_key = self.data_files[self.chunks[id-1]]
             relative_key = key - curr_key
             item = ABCChunk(files_by_key)[relative_key]
             return item
  
         elif isinstance(key, slice):
-            for id, item_len in enumerate(self.lens):
-                if key.start < (curr_key + item_len):
-                    id_1 = id-1
-                    curr_start = curr_key
-                if key.stop < (curr_key + item_len):
-                    id_2 = id-1
-                    curr_stop = curr_key
-                    break
-                curr_key += item_len
-
             items = []
-            relative_start = key.start - curr_start
-            for id in range(id_1, id_2):
-                files_by_key = self.data_files[self.chunks[id]]
-                relative_stop = self.lens[id]
-                items.append([item for item in ABCChunk(files_by_key)[relative_start:relative_stop:key.step]])
-                if key.step is not None:
-                    relative_start = key.step - relative_stop % key.step - 1
-                else:
-                    relative_start = 0
-            relative_stop = key.stop - curr_stop
-            files_by_key = self.data_files[self.chunks[id_2+1]]
-            items.append([item for item in ABCChunk(files_by_key)[relative_start:relative_stop:key.step]])
-            return (i for i in items)
+            curr_key = 0
+            if key.start < 0:
+                start = sum(self.lens) + key.start
+            else:
+                start = key.start
 
+            if key.stop < 0:
+                stop = sum(self.lens) + key.stop            
+            else:
+                stop = key.stop
+            for id, item_len in enumerate(self.lens):
+                if stop < (curr_key + item_len):
+                    files_by_key = self.data_files[self.chunks[id]]        
+                    break
+                elif start < (curr_key + item_len): 
+                    files_by_key = self.data_files[self.chunks[id]]
+                    relative_stop = self.lens[id]
+                    relative_start = start - curr_key
+                    
+                    chunk = ABCChunk(files_by_key)[relative_start:relative_stop:key.step]
+                    items.append(chunk)
+                    
+                    if key.step is None: 
+                        start = curr_key
+                    else:
+                        start = key.step - relative_stop % key.step - 1 + curr_key
+                
+                curr_key += item_len
+            if key.stop > 0: 
+                relative_stop = key.stop - curr_key
+            else:
+                relative_stop = stop
+            relative_start = start - curr_key
+            chunk = ABCChunk(files_by_key)[relative_start:relative_stop:key.step]
+            items.append(chunk)
+            return (i for i in (j for j in items))
         
 # testing use case #1: looping over all data in the entire dataset
 # testing use case #2: looping over all data in specific chunks (subset of dataset)
@@ -455,20 +406,20 @@ if __name__ == '__main__':
 #        break
 
     filename_1 = '/home/artonson/tmp/abc/abc_0000_obj_v00.7z'
-    filename_2 = '/home/artonson/tmp/abc/abc_0000_feat_v00.7z'
+    filename_2 = 'abc_0001_feat_v00.7z'
     filenames = [filename_1, filename_2]   
     chunk = ABCChunk(filenames)
-    print('chunk created')
-    read_chunk(filenames, key1=100, key2=110)
-    print('ABCData:')
-    dataset = ABCData('/home/artonson/tmp/abc/', modalities=['obj', 'feat'])
-    for item in dataset:
-        print(item)
-        break
-    print('key test #1')
-    print(dataset[0])
-    print('key test #2')
-    for chunk in dataset[0:10]:
+#    print('chunk created')
+#    read_chunk(filenames, key1=100, key2=110)
+#    print('ABCData:')
+    dataset = ABCData('/home/gbobrovskih', modalities=['obj', 'feat'])
+#    for item in dataset:
+#        print(item)
+#        break
+#    print('key test #1')
+#    print(dataset[0])
+#    print('key test #2')
+    for chunk in dataset[7160:7180]:
         for item in chunk:
             print('item:', len(item.obj.getvalue()))
     
