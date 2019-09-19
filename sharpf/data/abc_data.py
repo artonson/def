@@ -168,7 +168,6 @@ class ABC7ZFile(AbstractABCDataHolder):
 
     def __getitem__(self, key):
         self._check_open()
-
         if isinstance(key, int):
             name = self._names_list[key]
             return self.get(name)
