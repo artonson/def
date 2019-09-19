@@ -139,10 +139,12 @@ class ABC7ZFile(AbstractABCDataHolder):
         self.filename = None
         self.modality = None
 
-    def get(self, name):
+    def _check_open(self):
         if not self._isopen():
             raise ValueError('I/O operation on closed file.')
 
+    def get(self, name):
+        self._check_open()
         if name not in self._names_set:  # O(log n)
             raise KeyError('Archive does not contain requested filename: {}'.format(name))
 
@@ -151,6 +153,7 @@ class ABC7ZFile(AbstractABCDataHolder):
         return ABCItem(self.filename, name, item_id, **{self.modality: bytes_io})
 
     def __iter__(self):
+        self._check_open()
         for name in self.archive_handle.getnames():
             yield self.get(name)
 
@@ -160,9 +163,12 @@ class ABC7ZFile(AbstractABCDataHolder):
                     self.archive_handle, self._names_list, self._names_set])
 
     def __len__(self):
+        self._check_open()
         return len(self._names_set)
 
     def __getitem__(self, key):
+        self._check_open()
+
         if isinstance(key, int):
             name = self._names_list[key]
             return self.get(name)
