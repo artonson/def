@@ -8,6 +8,7 @@ from enum import Enum
 import glob
 import re
 import os
+from operator import attrgetter
 
 import py7zlib
 
@@ -70,11 +71,11 @@ def _make_name_from_id(item_id, modality):
 
 class AbstractABCDataHolder(Mapping, Iterable, AbstractContextManager, ABC):
     """ An abstract parent class inherited from childred which operate with ABC 7z files  """
-    
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self._isopen():
             self.close()
-    
+
     def __enter__(self):
         self._open()
         return self
@@ -100,6 +101,8 @@ class AbstractABCDataHolder(Mapping, Iterable, AbstractContextManager, ABC):
     @abstractmethod
     def __getitem__(self, key): pass
 
+    @abstractmethod
+    def __contains__(self, key): pass
 
 # ABCItem is the primary data instance in ABC, containing
 # all the modalities in the form of bitstreams, supporting
@@ -110,51 +113,81 @@ ABCItem = namedtuple(
     defaults=(None for modality in ALL_ABC_MODALITIES))
 
 
+def values_attrgetter(d, attr):
+    """Returns dict with original keys and values set to getattr(value, attr)"""
+    return {key: attrgetter(attr)(value) for key, value in d.items()}
+
+
 class ABC7ZFile(AbstractABCDataHolder):
     """A helper class for reading 7z files."""
 
     def __init__(self, filename):
         self.filename = filename
-        self.modality = _extract_modality(filename)
-        assert self.modality in ALL_ABC_MODALITIES, 'unknown modality: "{}"'.format(self.modality)
+        try:
+            self.modality = _extract_modality(filename)
+        except:
+            raise ValueError('cannot understand data modality for file "{}"'.format(self.filename))
+        if self.modality not in ALL_ABC_MODALITIES:
+            raise ValueError('unknown modality: "{}"'.format(self.modality))
         self._unset_handles()
         self._open()
 
     def _unset_handles(self):
+        self.filename = None
+        self.modality = None
         self.file_handle = None
         self.archive_handle = None
         self._names_list = None
         self._names_set = None
 
     def _open(self):
-        self.file_handle = open(self.filename, 'rb') 
+        self.file_handle = open(self.filename, 'rb')
         self.archive_handle = py7zlib.Archive7z(self.file_handle)
         self._names_list = self.archive_handle.getnames()
         self._names_set = set(self._names_list)
+        self._name_by_id = {_extract_inar_id(name): name for name in self._names_list}
         self.format = self._names_list[0].split('.')[-1]
 
     def close(self):
         self.file_handle.close()
         self._unset_handles()
-        self.filename = None
-        self.modality = None
 
     def _check_open(self):
         if not self._isopen():
             raise ValueError('I/O operation on closed file.')
 
-    def get(self, name):
-        self._check_open()
-        if name not in self._names_set:  # O(log n)
-            raise KeyError('Archive does not contain requested filename: {}'.format(name))
+    def __contains__(self, key):
+        return key in self._names_set or key in self._name_by_id
 
-        bytes_io = BytesIO(self.archive_handle.getmember(name).read())
-        item_id = _extract_inar_id(name)
-        return ABCItem(self.filename, name, item_id, **{self.modality: bytes_io})
+    @property
+    def ids(self):
+        return self._name_by_id.keys()
+
+    @property
+    def names(self):
+        return self._names_set
+
+    def get(self, key):
+        """Get item from file using a string identifier.
+        :param key: either a string archive pathname of the item,
+                    or its string identifier
+        """
+        self._check_open()
+        if key in self._names_set:  # O(log n)
+            archive_pathname = key
+            item_id = _extract_inar_id(key)
+        elif key in self._name_by_id:  # O(log n)
+            archive_pathname = self._name_by_id[key]
+            item_id = key
+        else:
+            raise KeyError('Archive does not contain requested object "{}"'.format(key))
+
+        bytes_io = BytesIO(self.archive_handle.getmember(archive_pathname).read())
+        return ABCItem(self.filename, archive_pathname, item_id, **{self.modality: bytes_io})
 
     def __iter__(self):
         self._check_open()
-        for name in self.archive_handle.getnames():
+        for name in self._names_list:
             yield self.get(name)
 
     def _isopen(self):
@@ -167,100 +200,128 @@ class ABC7ZFile(AbstractABCDataHolder):
         return len(self._names_set)
 
     def __getitem__(self, key):
+        """Get item from file using a integer or slice-based identifer.
+        :param key: either an zero-based integer index of the item,
+                    or a slice of such indexes"""
         self._check_open()
         if isinstance(key, int):
             name = self._names_list[key]
             return self.get(name)
 
         elif isinstance(key, slice):
-            names = list(islice(self._names_list, key.start, key.stop, key.step))
+            names = islice(self._names_list, key.start, key.stop, key.step)
             return (self.get(name) for name in names)
 
-    
+
 class ABCChunk(AbstractABCDataHolder):
     """A chunk is a collection of files (with different modalities),
     that iterates over all files simultaneously."""
 
-    def __init__(self, filenames, load_chunk_to_memory=False):
-        self.filenames = filenames
-        self.required_modalities = {_extract_modality(filename) for filename in filenames}
-        self.file_handles = []
-        self.len = None
+    def __init__(self, filenames):
+        self.filename_by_modality = {_extract_modality(filename): filename
+                                     for filename in filenames}
+        self.handle_by_modality = {}
         self.exitstack = ExitStack()
-        self.load_chunk_to_memory = load_chunk_to_memory
         self._unset_handles()
         self._open()
 
     def _unset_handles(self):
-        self.file_handles = None
+        self.filename_by_modality = None
+        self.handle_by_modality = None
+        self._names_list = None
+        self._ids = None
 
     def _open(self):
-        self.file_handles = [self.exitstack.enter_context(ABC7ZFile(filename))
-                                 for filename in self.filenames]
-        self._names_set = set(map(_extract_inar_id, self.file_handles[0]._names_list))
-        for file_handle in self.file_handles:
-            curr_names = set(map(_extract_inar_id, file_handle._names_list))
-            self._names_set = self._names_set.intersection(curr_names)
-        self._names_list = list(self._names_set)
-        self.len = len(self._names_set)
+        self.handle_by_modality = {
+            modality: self.exitstack.enter_context(ABC7ZFile(filename))
+            for modality, filename in self.filename_by_modality.items()
+        }
+        # we can only iterate over files existing simultaneously in all archives
+        self._ids = set.intersection(
+            *(handle.ids for handle in self.handle_by_modality.values()))
+        # list of objects is the same, but ordered as in the first file
+        any_handle = next(iter(self.handle_by_modality.values()))
+        self._id_list = [_id for _id in any_handle.ids if _id in self._ids]
+
+    @property
+    def ids(self):
+        return self._ids
 
     def _isopen(self):
-        return all(obj is not None 
-                for obj in [self.filenames, self.len, self.required_modalities, self.file_handles])
+        handles_are_ok = all(handle._isopen() for handle in self.handle_by_modality.values())
+        we_are_ok = all(obj is not None
+                        for obj in [self.filename_by_modality, self.handle_by_modality,
+                                    self._names_list, self._ids])
+        return we_are_ok and handles_are_ok
 
     def close(self):
-        self.filenames = None
-        self.required_modalities = None
-        self._names_set = None
-        self._names_list
-        self.len = None
         self.exitstack.close()
-        self._unset_handles()        
+        self._unset_handles()
 
-    def __len__(self):
-        return self.len
-
-    def get(self, name):
-        # this condition verifies whether this function
-        # is used by user or by class methods
-        if len(name.split('_')) == 4:
-            item_id = _extract_inar_id(name)
-        elif len(name.split('_')) == 3:
-            item_id = name 
-        
-        read_items_by_id = {}  # maps item + modality into
-        pathnames = {} # pathnames for each modality
-        archivenames = {} # archive pathnames for each modality
-        bytes_io = {}
-        
-        for file_handle in self.file_handles:
-            modality = file_handle.modality
-            name = _make_name_from_id(item_id, modality)
-            item = file_handle.get(name)
-            pathnames[modality] = item.pathname
-            archivenames[modality] = item.archive_pathname
-            bytes_io[modality] = getattr(item, modality)
-        return ABCItem(pathname=pathnames, archive_pathname=archivenames, item_id=item_id, **bytes_io)
-
-    def __iter__(self):
+    def _check_open(self):
         if not self._isopen():
             raise ValueError('I/O operation on closed file.')
-        
-        for item_id in self._names_set:
-            item = self.get(item_id)
-            yield item
+
+    def get_one(self, key, modality=None):
+        """Get item from file using a string identifier or a string name.
+        :param key: either a string archive pathname of the item,
+                    or its string identifier
+        :param modality: (optional) specify which modality to use
+        """
+        if None is modality:
+            # don't want to specify the modality: search for the match
+            for handle in self.handle_by_modality.values():
+                if key in handle:
+                    return handle.get(key)
+        else:
+            handle = self.handle_by_modality.get(modality)
+            if None is modality:
+                raise ValueError('unknown modality: "{}"'.format(modality))
+            return handle.get(key)
+
+    def get(self, item_id):
+        """Get (merged) item from chunk using its unique string identifier."""
+        self._check_open()
+        item_by_modality = {modality: handle.get(item_id)
+                            for modality, handle in self.handle_by_modality.items()}
+        merged_item = ABCItem(
+            pathname={modality: item.pathname
+                      for modality, item in item_by_modality.items()},
+            archive_pathname={modality: item.archive_pathname
+                              for modality, item in item_by_modality.items()},
+            item_id=item_id,
+            **{modality: attrgetter(modality)(item)
+               for modality, item in item_by_modality.items()})
+        return merged_item
+
+    def __iter__(self):
+        self._check_open()
+        for item_id in self._names_list:
+            yield self.get(item_id)
 
     def __getitem__(self, key):
-        if not self._isopen():
-            raise ValueError('I/O operation on closed file.') 
+        self._check_open()
+
         if isinstance(key, int):
-            
             return self.get(self._names_list[key])
 
         elif isinstance(key, slice):
-            
             return (self.get(item_id) for item_id in self._names_list[key])
-                
+
+    def __len__(self):
+        return len(self._names_list)
+
+    def __contains__(self, key):
+        """Support queries such as:
+        >>> item_id in chunk  # True if all modalities of this ID are present
+        >>> item_name in chunk  # True if some file in the chunk has this name
+        """
+        we_have_id = key in self.ids
+        files_have_name = any(key in handle.names
+                              for handle in self.filename_by_modality.values())
+        return we_have_id or files_have_name
+
+
 class ABCData(AbstractABCDataHolder):
     def __init__(self, data_dir, modalities=ALL_ABC_MODALITIES, chunks=None,
                  shape_representation='trimesh', version='00'):
@@ -274,7 +335,7 @@ class ABCData(AbstractABCDataHolder):
 
     def _unset_handles(self):
         self.data_files = None
-        
+
     def _open(self):
         filemasks = _compose_filemask(self.chunks, self.modalities, self.version)
         self.data_files = [glob.glob(os.path.join(self.data_dir, filemask))[0] for filemask in filemasks]
@@ -282,8 +343,8 @@ class ABCData(AbstractABCDataHolder):
         self.data_files = {chunk: list(chunk_files)
                            for chunk, chunk_files in groupby(self.data_files, key=chunk_getter)}
         self.chunks = list(self.data_files.keys())
-        
-        self.lens = [len(ABCChunk(self.data_files[chunk])) for chunk in self.data_files.keys()]     
+
+        self.lens = [len(ABCChunk(self.data_files[chunk])) for chunk in self.data_files.keys()]
 
     def close(self):
         self._unset_handles()
@@ -318,7 +379,7 @@ class ABCData(AbstractABCDataHolder):
             relative_key = key - curr_key
             item = ABCChunk(files_by_key)[relative_key]
             return item
- 
+
         elif isinstance(key, slice):
             items = []
             curr_key = 0
@@ -328,28 +389,28 @@ class ABCData(AbstractABCDataHolder):
                 start = key.start
 
             if key.stop < 0:
-                stop = sum(self.lens) + key.stop            
+                stop = sum(self.lens) + key.stop
             else:
                 stop = key.stop
             for id, item_len in enumerate(self.lens):
                 if stop < (curr_key + item_len):
-                    files_by_key = self.data_files[self.chunks[id]]        
+                    files_by_key = self.data_files[self.chunks[id]]
                     break
-                elif start < (curr_key + item_len): 
+                elif start < (curr_key + item_len):
                     files_by_key = self.data_files[self.chunks[id]]
                     relative_stop = self.lens[id]
                     relative_start = start - curr_key
-                    
+
                     chunk = ABCChunk(files_by_key)[relative_start:relative_stop:key.step]
                     items.append(chunk)
-                    
-                    if key.step is None: 
+
+                    if key.step is None:
                         start = curr_key
                     else:
                         start = key.step - relative_stop % key.step - 1 + curr_key
-                
+
                 curr_key += item_len
-            if key.stop > 0: 
+            if key.stop > 0:
                 relative_stop = key.stop - curr_key
             else:
                 relative_stop = stop
@@ -357,7 +418,7 @@ class ABCData(AbstractABCDataHolder):
             chunk = ABCChunk(files_by_key)[relative_start:relative_stop:key.step]
             items.append(chunk)
             return (i for i in (j for j in items))
-        
+
 # testing use case #1: looping over all data in the entire dataset
 # testing use case #2: looping over all data in specific chunks (subset of dataset)
 # testing use case #3: looping over specified modalities in the entire dataset
@@ -395,10 +456,10 @@ def read_chunk(filenames, key1=0, key2=10, step=1):
 
         #print('test whole chunk')
         #print(print_chunk_test(chunk))
-       
+
 def read_dataset(directory, modalities=['obj', 'feat'], key1=0, key2=-1, step=1):
     dataset = ABCData(directory, modalities)
-    pass    
+    pass
 
 if __name__ == '__main__':
     slice_start = list(range(0, 7000, 100))
@@ -412,7 +473,7 @@ if __name__ == '__main__':
 
     filename_1 = '/home/artonson/tmp/abc/abc_0000_obj_v00.7z'
     filename_2 = 'abc_0001_feat_v00.7z'
-    filenames = [filename_1, filename_2]   
+    filenames = [filename_1, filename_2]
     chunk = ABCChunk(filenames)
 #    print('chunk created')
 #    read_chunk(filenames, key1=100, key2=110)
@@ -427,7 +488,7 @@ if __name__ == '__main__':
     for chunk in dataset[7160:7180]:
         for item in chunk:
             print('item:', len(item.obj.getvalue()))
-    
+
     #for i,j in slice_params:
     #    read_slice(filename, (i, j))
 #   parallel = Parallel(n_jobs=40, verbose=10)
@@ -435,4 +496,4 @@ if __name__ == '__main__':
 #
 #    parallel(
 #        delayed_read_slice(filename, sp) for sp in slice_params
-#   
+#
