@@ -122,6 +122,7 @@ class ABC7ZFile(AbstractABCDataHolder):
     """A helper class for reading 7z files."""
 
     def __init__(self, filename):
+        self._unset_handles()
         self.filename = filename
         try:
             self.modality = _extract_modality(filename)
@@ -129,7 +130,6 @@ class ABC7ZFile(AbstractABCDataHolder):
             raise ValueError('cannot understand data modality for file "{}"'.format(self.filename))
         if self.modality not in ALL_ABC_MODALITIES:
             raise ValueError('unknown modality: "{}"'.format(self.modality))
-        self._unset_handles()
         self._open()
 
     def _unset_handles(self):
@@ -218,11 +218,11 @@ class ABCChunk(AbstractABCDataHolder):
     that iterates over all files simultaneously."""
 
     def __init__(self, filenames):
+        self._unset_handles()
         self.filename_by_modality = {_extract_modality(filename): filename
                                      for filename in filenames}
         self.handle_by_modality = {}
         self.exitstack = ExitStack()
-        self._unset_handles()
         self._open()
 
     def _unset_handles(self):
