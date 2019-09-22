@@ -323,7 +323,7 @@ class ABCChunk(AbstractABCDataHolder):
         """
         we_have_id = key in self.ids
         files_have_name = any(key in handle.names
-                              for handle in self.filename_by_modality.values())
+                              for handle in self.handle_by_modality.values())
         return we_have_id or files_have_name
 
 
