@@ -1,2 +1,0 @@
-/home/Albert.Matveev/sharp/dataset_fine/abc_05_sharp_1024_patches_normalized_4pps_selected_short_curves_surfaces_train.hdf5
-/home/Albert.Matveev/sharp/dataset_fine/abc_06_sharp_1024_patches_normalized_4pps_selected_short_curves_surfaces_train.hdf5
