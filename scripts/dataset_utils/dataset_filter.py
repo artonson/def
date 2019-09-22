@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 
 import argparse
+import json
 import os
 
-from scripts.dataset_utils.shape import SequentialFilter, load_from_options
+from scripts.dataset_utils.shape import load_from_options
 from sharpf.data.abc_data import ABCData, ABCModality
 
 from joblib import Parallel, delayed
@@ -11,17 +12,17 @@ from joblib import Parallel, delayed
 
 @delayed
 def filter_meshes_worker(filter_fn, item):
-    is_ok = filter_fn(item.obj)
-    return item.pathname, item.archive_filename, is_ok
+    is_ok = filter_fn(item)
+    return item.pathname, item.archive_filename, item.item_id, is_ok
 
 
 def filter_meshes(options):
     """Filter the shapes using a number of filters, saving intermediate results."""
 
     # create the required filter objects
-    sequential_filter = SequentialFilter([
-        load_from_options(filter_name, options.__dict__)
-        for filter_name in options.filters])
+    with open(options.filter_config) as filter_config:
+        json_config = json.load(filter_config)
+        shape_filter = load_from_options(json_config)
 
     # create the data source iterator
     abc_data = ABCData(options.data_dir,
@@ -31,7 +32,7 @@ def filter_meshes(options):
 
     # run the filtering job in parallel
     parallel = Parallel(n_jobs=options.n_jobs)
-    delayed_iterable = (filter_meshes_worker(sequential_filter, item) for item in abc_data)
+    delayed_iterable = (filter_meshes_worker(shape_filter, item) for item in abc_data)
     output = parallel(delayed_iterable)
 
     # write out the results
@@ -50,8 +51,8 @@ def parse_args():
     parser.add_argument('-i', '--input-dir', required=True, help='input dir with ABC dataset.')
     parser.add_argument('-c', '--chunk', required=True, help='ABC chunk id to process.')
     parser.add_argument('-o', '--output-dir', required=True, help='output dir.')
-
-    parser.add_argument('-o', '--output-file', required=True, help='output filename.')
+    parser.add_argument('-g', '--filter-config', dest='filter_config',
+                        required=True, help='filter configuration file.')
 
     return parser.parse_args()
 
