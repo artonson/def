@@ -248,11 +248,9 @@ class ABCChunk(AbstractABCDataHolder):
         return self._ids
 
     def _isopen(self):
-        handles_are_ok = all(handle._isopen() for handle in self.handle_by_modality.values())
-        we_are_ok = all(obj is not None
-                        for obj in [self.filename_by_modality, self.handle_by_modality,
-                                    self._id_list, self._ids])
-        return we_are_ok and handles_are_ok
+        return all(obj is not None
+                   for obj in [self.filename_by_modality, self.handle_by_modality,
+                               self._id_list, self._ids])
 
     def close(self):
         self.exitstack.close()
@@ -270,14 +268,14 @@ class ABCChunk(AbstractABCDataHolder):
         """
         if None is modality:
             # don't want to specify the modality: search for the match
-            for handle in self.handle_by_modality.values():
+            for known_modality, handle in self.handle_by_modality.items():
                 if key in handle:
-                    return handle.get(key)
-        else:
-            handle = self.handle_by_modality.get(modality)
-            if None is modality:
-                raise ValueError('unknown modality: "{}"'.format(modality))
-            return handle.get(key)
+                    modality = known_modality
+
+        handle = self.handle_by_modality.get(modality)
+        if None is handle:
+            raise ValueError('unknown modality: "{}"'.format(modality))
+        return handle.get(key)
 
     def get(self, item_id):
         """Get (merged) item from chunk using its unique string identifier."""
