@@ -1,5 +1,5 @@
 from collections.abc import Iterable, ByteString, Mapping
-from collections import defaultdict
+from collections import OrderedDict
 from contextlib import ExitStack, AbstractContextManager
 from itertools import groupby, islice
 from abc import ABC, abstractmethod
@@ -112,6 +112,11 @@ ABCItem = namedtuple(
     'pathname archive_pathname item_id ' + ' '.join(ALL_ABC_MODALITIES),
     defaults=(None for modality in ALL_ABC_MODALITIES))
 
+MergedABCItem = namedtuple(
+    'MergedABCItem',
+    'pathname_by_modality archive_pathname_by_modality item_id ' + ' '.join(ALL_ABC_MODALITIES),
+    defaults=(None for modality in ALL_ABC_MODALITIES))
+
 
 def values_attrgetter(d, attr):
     """Returns dict with original keys and values set to getattr(value, attr)"""
@@ -145,7 +150,9 @@ class ABC7ZFile(AbstractABCDataHolder):
         self.archive_handle = py7zlib.Archive7z(self.file_handle)
         self._names_list = self.archive_handle.getnames()
         self._names_set = set(self._names_list)
-        self._name_by_id = {_extract_inar_id(name): name for name in self._names_list}
+        self._name_by_id = OrderedDict([
+            (_extract_inar_id(name), name) for name in self._names_list
+        ])
         self.format = self._names_list[0].split('.')[-1]
 
     def close(self):
@@ -282,11 +289,11 @@ class ABCChunk(AbstractABCDataHolder):
         self._check_open()
         item_by_modality = {modality: handle.get(item_id)
                             for modality, handle in self.handle_by_modality.items()}
-        merged_item = ABCItem(
-            pathname={modality: item.pathname
-                      for modality, item in item_by_modality.items()},
-            archive_pathname={modality: item.archive_pathname
-                              for modality, item in item_by_modality.items()},
+        merged_item = MergedABCItem(
+            pathname_by_modality={modality: item.pathname
+                                  for modality, item in item_by_modality.items()},
+            archive_pathname_by_modality={modality: item.archive_pathname
+                                          for modality, item in item_by_modality.items()},
             item_id=item_id,
             **{modality: attrgetter(modality)(item)
                for modality, item in item_by_modality.items()})
