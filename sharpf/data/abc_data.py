@@ -228,7 +228,7 @@ class ABCChunk(AbstractABCDataHolder):
     def _unset_handles(self):
         self.filename_by_modality = None
         self.handle_by_modality = None
-        self._names_list = None
+        self._id_list = None
         self._ids = None
 
     def _open(self):
@@ -238,7 +238,7 @@ class ABCChunk(AbstractABCDataHolder):
         }
         # we can only iterate over files existing simultaneously in all archives
         self._ids = set.intersection(
-            *(handle.ids for handle in self.handle_by_modality.values()))
+            *(set(handle.ids) for handle in self.handle_by_modality.values()))
         # list of objects is the same, but ordered as in the first file
         any_handle = next(iter(self.handle_by_modality.values()))
         self._id_list = [_id for _id in any_handle.ids if _id in self._ids]
@@ -251,7 +251,7 @@ class ABCChunk(AbstractABCDataHolder):
         handles_are_ok = all(handle._isopen() for handle in self.handle_by_modality.values())
         we_are_ok = all(obj is not None
                         for obj in [self.filename_by_modality, self.handle_by_modality,
-                                    self._names_list, self._ids])
+                                    self._id_list, self._ids])
         return we_are_ok and handles_are_ok
 
     def close(self):
@@ -296,20 +296,20 @@ class ABCChunk(AbstractABCDataHolder):
 
     def __iter__(self):
         self._check_open()
-        for item_id in self._names_list:
+        for item_id in self._id_list:
             yield self.get(item_id)
 
     def __getitem__(self, key):
         self._check_open()
 
         if isinstance(key, int):
-            return self.get(self._names_list[key])
+            return self.get(self._id_list[key])
 
         elif isinstance(key, slice):
-            return (self.get(item_id) for item_id in self._names_list[key])
+            return (self.get(item_id) for item_id in self._id_list[key])
 
     def __len__(self):
-        return len(self._names_list)
+        return len(self._id_list)
 
     def __contains__(self, key):
         """Support queries such as:
