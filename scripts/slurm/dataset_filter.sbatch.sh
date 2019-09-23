@@ -41,5 +41,6 @@ singularity exec \
     --input-dir ${CONT_DATA_DIR} \
     --chunk ${SLURM_ARRAY_TASK_ID} \
     --output-dir ${CONT_OUT_DIR} \
-    --jobs ${CPUS_PER_TASK}
+    --jobs ${CPUS_PER_TASK} \
+    --filter-config ${CONT_CODE_DIR}/scripts/dataset_utils/dataset_filter_config.json
 
