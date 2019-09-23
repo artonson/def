@@ -83,7 +83,7 @@ class AllFilter(ShapeFilter):
             filter_objs.append(
                 load_from_options(filter_config)
             )
-        return filter_objs
+        return cls(filter_objs)
 
 
 FILTER_DICT = {

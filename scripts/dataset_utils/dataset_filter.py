@@ -7,15 +7,19 @@ import os
 import trimesh
 
 from scripts.dataset_utils.shape import load_from_options
-from sharpf.data.abc_data import ABCData, ABCModality, ABCChunk, ABC_7Z_FILEMASK
+from sharpf.data.abc_data import ABCData, ABCModality, ABCChunk, ABC_7Z_FILEMASK, MergedABCItem
 
 from joblib import Parallel, delayed
 
 
 @delayed
 def filter_meshes_worker(filter_fn, item):
-    item.obj = trimesh.load(item.obj, 'obj')
-    is_ok = filter_fn(item)
+    item_trm = MergedABCItem(
+        pathname_by_modality=item.pathname_by_modality,
+        archive_pathname_by_modality=item.archive_pathname_by_modality,
+        item_id=item.item_id,
+        obj=trimesh.load(item.obj, 'obj'))
+    is_ok = filter_fn(item_trm)
     return item.pathname, item.archive_filename, item.item_id, is_ok
 
 
