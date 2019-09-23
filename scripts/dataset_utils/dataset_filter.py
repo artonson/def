@@ -3,6 +3,7 @@
 import argparse
 import json
 import os
+from itertools import chain
 
 import trimesh
 
@@ -13,14 +14,18 @@ from joblib import Parallel, delayed
 
 
 @delayed
-def filter_meshes_worker(filter_fn, item):
-    item_trm = MergedABCItem(
-        pathname_by_modality=item.pathname_by_modality,
-        archive_pathname_by_modality=item.archive_pathname_by_modality,
-        item_id=item.item_id,
-        obj=trimesh.load(item.obj, 'obj'))
-    is_ok = filter_fn(item_trm)
-    return item.pathname, item.archive_filename, item.item_id, is_ok
+def filter_meshes_worker(filter_fn, data_filename, slice_start, slice_end):
+    processed_items = []
+    with ABCChunk([data_filename]) as data_holder:
+        for item in data_holder[slice_start:slice_end]:
+            item_trm = MergedABCItem(
+                pathname_by_modality=item.pathname_by_modality,
+                archive_pathname_by_modality=item.archive_pathname_by_modality,
+                item_id=item.item_id,
+                obj=trimesh.load(item.obj, 'obj'))
+            is_ok = filter_fn(item_trm)
+            processed_items.append((item.pathname_by_modality, item.archive_pathname_by_modality, item.item_id, is_ok))
+    return processed_items
 
 
 def filter_meshes(options):
@@ -55,27 +60,36 @@ def filter_meshes(options):
     # )
     abc_data = ABCChunk([obj_filename])
 
+    processes_to_spawn = 10 * options.n_jobs
+    chunk_size = len(abc_data) // processes_to_spawn
+    abc_data_slices = [(start, start + chunk_size)
+                       for start in range(0, len(abc_data), chunk_size)]
+
     # run the filtering job in parallel
     parallel = Parallel(n_jobs=options.n_jobs)
-    delayed_iterable = (filter_meshes_worker(shape_filter, item) for item in abc_data)
-    output = parallel(delayed_iterable)
+    delayed_iterable = (filter_meshes_worker(shape_filter, obj_filename, *data_slice)
+                        for data_slice in abc_data_slices)
+    output_by_slice = parallel(delayed_iterable)
 
     # write out the results
     output_filename = os.path.join(options.output_dir,'{}.txt'.format(options.chunk.zfill(4)))
     with open(output_filename, 'w') as output_file:
         output_file.write('\n'.join([
-            '{} {}'.format(pathname, archive_filename)
-            for pathname, archive_filename, is_ok in output if is_ok
+            '{} {}'.format(pathname_by_modality['obj'], archive_pathname_by_modality['obj'])
+            for pathname_by_modality, archive_pathname_by_modality, item_id, is_ok in chain(*output_by_slice) if is_ok
         ]))
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('-j', '--jobs', type=int, default=4, help='CPU jobs to use in parallel [default: 4].')
-    parser.add_argument('-i', '--input-dir', required=True, help='input dir with ABC dataset.')
+    parser.add_argument('-j', '--jobs', dest='n_jobs',
+                        type=int, default=4, help='CPU jobs to use in parallel [default: 4].')
+    parser.add_argument('-i', '--input-dir', dest='input_dir',
+                        required=True, help='input dir with ABC dataset.')
     parser.add_argument('-c', '--chunk', required=True, help='ABC chunk id to process.')
-    parser.add_argument('-o', '--output-dir', required=True, help='output dir.')
+    parser.add_argument('-o', '--output-dir', dest='output_dir',
+                        required=True, help='output dir.')
     parser.add_argument('-g', '--filter-config', dest='filter_config',
                         required=True, help='filter configuration file.')
 
