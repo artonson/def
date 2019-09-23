@@ -7,8 +7,8 @@ from itertools import chain
 
 import trimesh
 
-from scripts.dataset_utils.shape import load_from_options
-from sharpf.data.abc_data import ABCData, ABCModality, ABCChunk, ABC_7Z_FILEMASK, MergedABCItem
+from sharpf.utils.shape import load_from_options
+from sharpf.data.abc_data import ABCModality, ABCChunk, ABC_7Z_FILEMASK, MergedABCItem
 
 from joblib import Parallel, delayed
 

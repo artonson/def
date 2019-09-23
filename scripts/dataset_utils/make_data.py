@@ -2,15 +2,11 @@
 
 import argparse
 
-from scripts.dataset_utils.shape import SequentialFilter, load_from_options
+from sharpf.utils.shape import SequentialFilter, load_from_options
 from sharpf.data.abc_data import ABCData, ABCModality
 
 from joblib import Parallel, delayed
-import datetime
-from abc import ABC
 
-import numpy as np
-import yaml
 
 # Method scheme:
 # 1) Obtain an archive filename as input.
