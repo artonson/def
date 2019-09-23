@@ -14,3 +14,4 @@ joblib
 torch
 torchvision
 tensorboardX
+pylzma
