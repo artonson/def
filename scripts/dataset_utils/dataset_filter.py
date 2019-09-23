@@ -1,16 +1,22 @@
 #!/usr/bin/env python3
 
 import argparse
+from itertools import chain
 import json
 import os
-from itertools import chain
+import sys
 
 import trimesh
+from joblib import Parallel, delayed
+
+__dir__ = os.path.normpath(
+    os.path.join(
+        os.path.realpath(__file__), '..', '..')
+)
+sys.path[1:1] = [__dir__]
 
 from sharpf.utils.shape import load_from_options
 from sharpf.data.abc_data import ABCModality, ABCChunk, ABC_7Z_FILEMASK, MergedABCItem
-
-from joblib import Parallel, delayed
 
 
 @delayed
