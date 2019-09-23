@@ -49,7 +49,7 @@ def filter_meshes(options):
     #                    shape_representation='trimesh')
 
     obj_filename = os.path.join(
-        options.data_dir,
+        options.input_dir,
         ABC_7Z_FILEMASK.format(
             chunk=options.chunk.zfill(4),
             modality=ABCModality.OBJ.value,
