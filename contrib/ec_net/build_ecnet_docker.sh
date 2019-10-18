@@ -7,27 +7,25 @@ set -e
 # 	 -u:  dockerhub username to create an image under
 #	 -p:  push the build image to the dockerhub under given username
 
-if [[ $# -lt 2 ]]
-then
-    echo "build_ecnet_docker.sh -u <dockerhub_username> -p"
-    exit 1
-fi
+usage() { echo "Usage: $0 [-u <dockerhub_username>] [-p]" >&2; }
 
-while getopts "u:" opt
+while getopts "u:p" opt
 do
     case ${opt} in
-        u) USERNAME=$OPTARG;;
+        u) USERNAME=${OPTARG}; echo "Building container under dockerhub_username ${USERNAME}";;
+        p) PUSH_FLAG=true; echo "Will push image to dockerhub";;
+        *) usage; exit 1 ;;
     esac
 done
 
 if [[ ! ${USERNAME} ]]; then
-    echo "dockerhub username is not set";
-    exit 1
+    USERNAME=$(whoami)
+    echo "dockerhub_username is not set; building container under username ${USERNAME}"
 fi
 
 IMAGE_NAME="${USERNAME}/sharp_features_ec_net:latest"
 CONTAINER_NAME="sharp_features_ec_net_container"
-DOCKERFILE="$(dirname `realpath $0`)/Dockerfile"
+DOCKERFILE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"/Dockerfile
 
 echo "******* BUILDING THE IMAGE FROM DOCKERFILE *******"
 nvidia-docker build \
@@ -37,13 +35,13 @@ nvidia-docker build \
 
 echo "******* BUILDING CUSTOM TF OPS *******"
 docker run --runtime=nvidia --name "${CONTAINER_NAME}" ${IMAGE_NAME} /bin/bash -c "cd /home/EC-Net/code/tf_ops/grouping && ./tf_grouping_compile.sh && \
-    						  cd ../interpolation && ./tf_interpolate_compile.sh && \ 
+    						  cd ../interpolation && ./tf_interpolate_compile.sh && \
                                                   cd ../sampling && ./tf_sampling_compile.sh" 
 
 echo "******* COMMITTING THE CONTAINER  *******"
 docker commit ${CONTAINER_NAME} ${IMAGE_NAME}
 
-if echo $* | grep -e "-p" -q
+if [[ ${PUSH_FLAG} ]]
 then
     echo "******* LOGGING TO DOCKER HUB *******"
     docker login

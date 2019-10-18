@@ -22,9 +22,9 @@ do
     case ${opt} in
         u) USERNAME=$OPTARG;;
         i) INPUT=$OPTARG;;
-	o) OUTPUT=$OPTARG;;
-	d) IMAGE_NAME=$OPTARG;;
-	c) CONTAINER_NAME=$OPTARG;; 
+        o) OUTPUT=$OPTARG;;
+        d) IMAGE_NAME=$OPTARG;;
+        c) CONTAINER_NAME=$OPTARG;;
         g) GPU_ENV=$OPTARG;;
         *) echo "No reasonable options found!";;
     esac
