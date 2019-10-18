@@ -1,29 +1,42 @@
 #!/bin/bash
 
 set -e
-set -x
 
-# example launch string:
-# ./build_docker.sh [-p]
-#     -p:       push the build image to the dockerhub under 'gbobrovskih' username
+# example launch string:#
+# ./build_cgal4-14_docker.sh -u <dockerhub username> [-p]
+# 	 -u:  dockerhub username to create an image under
+#	 -p:  push the build image to the dockerhub under given username
 
-IMAGE_NAME="gbobrovskih/cgal_4-14"
-IMAGE_NAME_TAG="${IMAGE_NAME}:latest"
-DOCKERFILE="$(dirname `realpath $0`)/Dockerfile"     # full pathname of Dockerfile
+usage() { echo "Usage: $0 [-u <dockerhub_username>] [-p]" >&2; }
 
-echo "******* BUILDING IMAGE ${IMAGE_NAME} *******"
+while getopts "u:p" opt
+do
+    case ${opt} in
+        u) USERNAME=${OPTARG}; echo "Building container under dockerhub_username ${USERNAME}";;
+        p) PUSH_FLAG=true; echo "Will push image to dockerhub";;
+        *) usage; exit 1 ;;
+    esac
+done
 
+if [[ ! ${USERNAME} ]]; then
+    USERNAME=$(whoami)
+    echo "dockerhub_username is not set; building container under username ${USERNAME}"
+fi
+
+IMAGE_NAME="${USERNAME}/cgal_4-14:latest"
+DOCKERFILE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"/Dockerfile
+
+echo "******* BUILDING THE IMAGE FROM DOCKERFILE *******"
 docker build \
-    --file ${DOCKERFILE} \
-    --tag ${IMAGE_NAME_TAG} \
+    --file "${DOCKERFILE}" \
+    --tag "${IMAGE_NAME}" \
     .
 
-
-if echo $* | grep -e "-p" -q
+if [[ ${PUSH_FLAG} ]]
 then
     echo "******* LOGGING TO DOCKER HUB *******"
     docker login
 
     echo "******* PUSHING IMAGE TO DOCKER HUB *******"
-    docker push ${IMAGE_NAME_TAG}
+    docker push "${IMAGE_NAME}"
 fi
