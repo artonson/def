@@ -18,7 +18,6 @@ RUN apt-get update \
   && apt-get install -y libcgal-dev \
      libcgal-demo
 
-#    threshold = 0.15 
 # Create a non-root user and switch to it.
 RUN adduser --disabled-password --gecos '' --shell /bin/bash user
 RUN echo "user ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/90-user
