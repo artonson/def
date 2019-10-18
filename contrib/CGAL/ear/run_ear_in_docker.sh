@@ -42,7 +42,7 @@ SHARED_MEM="25g"        # amount of shared memory to reserve for the prefetchers
 CONTAINER="gbobrovskih/cgal_4-14:latest"
 docker inspect --type=image ${CONTAINER} >/dev/null || docker pull ${CONTAINER}
 
-HOST_CODE_DIR=$(realpath $(dirname `realpath $0`)/code)     # dirname of THIS file
+HOST_CODE_DIR=$(realpath $(dirname `realpath $0`)/src)     # dirname of THIS file
 CONT_CODE_DIR="/home/usr/code/"
 CONT_DATA_DIR="/home/usr/data/"
 CONT_LOG_DIR="/home/usr/logs/"
