@@ -1,10 +1,12 @@
 #include <CGAL/Simple_cartesian.h>
-#include <CGAL/edge_aware_upsample_point_set.h>
 #include <CGAL/IO/read_xyz_points.h>
 #include <CGAL/IO/write_xyz_points.h>
 #include <CGAL/pca_estimate_normals.h>
 #include <vector>
 #include <fstream>
+
+#include "edge_aware_upsample_point_set.h"
+
 // types
 typedef CGAL::Simple_cartesian<double> Kernel;
 typedef Kernel::Point_3 Point;

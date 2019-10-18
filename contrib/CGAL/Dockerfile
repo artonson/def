@@ -55,7 +55,3 @@ RUN cd /home/user/code/ear && make
 COPY voronoi_1/src /home/user/code/voronoi_1
 RUN cd /home/user/code/voronoi_1 && make
 
-# RUN cd /home/user && wget https://raw.githubusercontent.com/artonson/sharp_features/master/CGAL/voronoi_1_scripts/code/voronoi_1.cpp?token=AFP53RFQKG5GBHJD77V3WOC5WANDK -O voronoi_1.cpp && g++ -o voronoi_1 /home/user/voronoi_1.cpp -I/CGAL-4.14.1/include -lCGAL -lgmp
-# RUN wget https://raw.githubusercontent.com/artonson/sharp_features/master/CGAL/ear_scripts/code/edge_aware_upsample_point_set.h?token=AFP53RCHKTHP75CNJADFSNS5WAPVK -O edge_aware_upsample_point_set.h && mv edge_aware_upsample_point_set.h /CGAL-4.14.1/include/CGAL/edge_aware_upsample_point_set.h
-# RUN cd /home/user && wget https://raw.githubusercontent.com/artonson/sharp_features/master/CGAL/ear_scripts/code/edge_aware_upsampling.cpp?token=AFP53RAYBL77CSBXXMNMZ5C5WAP4C -O edge_aware_upsampling.cpp && g++ -o edge_aware /home/user/edge_aware_upsampling.cpp -I/CGAL-4.14.1/include -lCGAL -lgmp
-
