@@ -29,17 +29,23 @@ DOCKERFILE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"/D
 
 echo "******* BUILDING THE IMAGE FROM DOCKERFILE *******"
 nvidia-docker build \
-    --file ${DOCKERFILE} \
-    --tag ${IMAGE_NAME} \
+    --file "${DOCKERFILE}" \
+    --tag "${IMAGE_NAME}" \
     . 
 
 echo "******* BUILDING CUSTOM TF OPS *******"
-docker run --runtime=nvidia --name "${CONTAINER_NAME}" ${IMAGE_NAME} /bin/bash -c "cd /home/EC-Net/code/tf_ops/grouping && ./tf_grouping_compile.sh && \
-    						  cd ../interpolation && ./tf_interpolate_compile.sh && \
-                                                  cd ../sampling && ./tf_sampling_compile.sh" 
+TF_OPS_DIR="/home/EC-Net/code/tf_ops"
+docker run \
+    --runtime=nvidia \
+    --name "${CONTAINER_NAME}" \
+    "${IMAGE_NAME}" \
+    /bin/sh \
+        -c "cd ${TF_OPS_DIR}/grouping && ./tf_grouping_compile.sh && \\
+            cd ${TF_OPS_DIR}/interpolation && ./tf_interpolate_compile.sh && \\
+            cd ${TF_OPS_DIR}/sampling && ./tf_sampling_compile.sh"
 
 echo "******* COMMITTING THE CONTAINER  *******"
-docker commit ${CONTAINER_NAME} ${IMAGE_NAME}
+docker commit "${CONTAINER_NAME}" "${IMAGE_NAME}"
 
 if [[ ${PUSH_FLAG} ]]
 then
@@ -47,7 +53,7 @@ then
     docker login
 
     echo "******* PUSHING IMAGE TO DOCKER HUB *******"
-    docker push ${IMAGE_NAME}
+    docker push "${IMAGE_NAME}"
 fi
 
 docker container rm "${CONTAINER_NAME}"
