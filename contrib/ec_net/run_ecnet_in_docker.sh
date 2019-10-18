@@ -66,7 +66,7 @@ INPUT_FILE_CONTAINER="${DATA_PATH_CONTAINER}/$(basename "${INPUT_FILE}")"
 OUTPUT_FILE_CONTAINER="${DATA_PATH_CONTAINER}/$(basename "${OUTPUT_FILE}")"
 
 SPLIT_DATA_PATH_CONTAINER="${DATA_PATH_CONTAINER}/xyz_splitted"
-SPLIT_INPUT_CONTAINER="${SPLIT_DATA_PATH_CONTAINER}"'/*.xyz'
+SPLIT_INPUT_CONTAINER="${SPLIT_DATA_PATH_CONTAINER}/*.xyz"
 CODE_PATH_CONTAINER="/home/EC-Net/code"
 MODEL_PATH_CONTAINER="/home/EC-Net/model/pretrain"
 
@@ -106,7 +106,7 @@ nvidia-docker run \
         python main.py \\
           --phase test \\
           --log_dir ${MODEL_PATH_CONTAINER} \\
-          --eval_input ${SPLIT_INPUT_CONTAINER} \\
+          --eval_input '${SPLIT_INPUT_CONTAINER}' \\
           --eval_output ${OUTPUT_FILE_CONTAINER} \\
           1>${LOGS_PATH_CONTAINER}/out.out \\
           2>${LOGS_PATH_CONTAINER}/err.err"
