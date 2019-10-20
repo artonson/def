@@ -1,0 +1,44 @@
+import numpy as np
+import torch
+from dataset_sharp import PointCloudDataset
+import argparse
+from tqdm import tqdm
+
+def run(args):
+    modelPath = args.modelPath
+    xyz_file = args.inputPath
+    outputPath = args.outputPath
+    r_factor = args.radiusFactor
+
+    np.warnings.filterwarnings('ignore')
+    dataset = PointCloudDataset([xyz_file], training=False, r_factor_range=(r_factor, r_factor))
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=64, shuffle=False, num_workers=8)
+
+    model = torch.jit.load(modelPath)
+
+    print('Evaluating...')
+
+    result = []
+
+    for batch_idx, data_values in tqdm(enumerate(dataloader), total=len(dataloader)):
+        data_values = [val.squeeze().cuda() for val in data_values[:-1]]
+        pred = model(*data_values)
+        result.append(pred.cpu().detach().squeeze().numpy())
+
+    result = np.concatenate(result)
+    np.savetxt(outputPath, result)
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    
+    parser.add_argument('inputPath', nargs='?', help='Input XYZ file containing points and normals', 
+                        default='blade_mls.xyz')
+    parser.add_argument('outputPath', nargs='?', help='Output text file containing sharpness field values', 
+                        default='sharpness_values.txt')
+    parser.add_argument('-m', '--modelPath', help='Path of pretrained model',
+                        default='sharpness_model.pt')
+    parser.add_argument('-r', '--radiusFactor', type=float, help='Neighborhood radius factor',
+                         default=5.0)
+
+    args = parser.parse_args()
+    run(args)
