@@ -10,7 +10,7 @@ import torch.optim
 
 from util.logging import create_logger
 #import util.dataloading as dataloading
-from vectran.models import load_model
+from models import load_model
 from vectran.util.os import require_empty
 from vectran.util.visualization import make_ranked_images_from_loader_and_model
 from vectran.data.graphics_primitives import PT_LINE
@@ -26,7 +26,8 @@ def make_loaders_fn(options):
     return DataLoader(ABCData(partition='train', num_points=args.num_points), num_workers=8,
                               batch_size=options.train_batch_size, shuffle=False, drop_last=False),
            DataLoader(ABCData(partition='val', num_points=options.num_points),
-                             batch_size=options.val_batch_size, shuffle=False, drop_last=False)
+                             batch_size=options.val_batch_size, shuffle=False, drop_last=False),
+           None # add mini val
 
 def prepare_batch_on_device(batch_data, device):
     data, label = batch_data[0].to(device), batch_data[-1].to(device).squeeze()
@@ -94,7 +95,7 @@ def main(options):
     #if options.dataloader_type == 'handcrafted':
     #    loader_params.update(handcrafted_train_paths=options.handcrafted_train_paths, handcrafted_val_paths=options.handcrafted_val_paths, handcrafted_val_part=options.handcrafted_val_part)
     #train_loader, val_loader, val_mini_loader = make_loaders_fn(**loader_params)
-    train_loader, test_loader = make_loaders_fn(options)
+    train_loader, test_loader, val_mini_loader = make_loaders_fn(options)
 
     logger.info('Total number of train patches: ~{}'.format(len(train_loader) * options.train_batch_size))
     logger.info('Total number of val patches: ~{}'.format(len(val_loader) * options.val_batch_size))
@@ -150,12 +151,12 @@ def main(options):
             val_losses_per_sample = criterion(preds, label)
             val_loss.extend(val_losses_per_sample)
             
-            y_true_vector = vmetrics.batch_numpy_to_vector(label.cpu().numpy(), RASTER_RES)
-            y_pred_vector = vmetrics.batch_numpy_to_vector(preds.cpu().numpy(), RASTER_RES)
-            for metric_name, metric in vmetrics.METRICS_BY_NAME.items():
-                metric_value = metric(y_true_vector, y_pred_vector, **METRIC_PARAMS)
-                metric_name = '{}val_{}'.format(prefix, metric_name)
-                val_metrics[metric_name].append(metric_value)
+            #y_true_vector = vmetrics.batch_numpy_to_vector(label.cpu().numpy(), RASTER_RES)
+            #y_pred_vector = vmetrics.batch_numpy_to_vector(preds.cpu().numpy(), RASTER_RES)
+            #for metric_name, metric in vmetrics.METRICS_BY_NAME.items():
+            #    metric_value = metric(y_true_vector, y_pred_vector, **METRIC_PARAMS)
+            #    metric_name = '{}val_{}'.format(prefix, metric_name)
+            #    val_metrics[metric_name].append(metric_value)
 
         # Save stuff to tensorboard for visualization
         val_loss = np.asarray(val_loss)
@@ -167,7 +168,8 @@ def main(options):
 
         _loader = _Loader()
         
-        scores = np.concatenate(val_metrics['{}val_{}'.format(prefix, 'iou_score')])
+        #scores = np.concatenate(val_metrics['{}val_{}'.format(prefix, 'iou_score')])
+        
         #worst_grid, best_grid, average_grid = make_ranked_images_from_loader_and_model(
         #    lambda input: model(input, max_lines), _loader, scores, **IMGLOG_PARAMS)
         #writer.add_image('worst/{}val'.format(prefix), worst_grid, log_i)
@@ -185,7 +187,6 @@ def main(options):
         logger.info_scalars('Computed {key} over {num_items} images: {value:.4f}', metrics_scalars,
                             num_items=len(val_loss))
     
-
     
     for epoch_i in range(epochs_completed, epochs_completed + options.epochs):
         for batch_i, batch_data in islice(enumerate(train_loader), batches_completed_in_epoch, len(train_loader)):
@@ -222,16 +223,16 @@ def main(options):
             
             if batch_i > 0 and batch_i % options.batches_before_val == 0:
                 # Save stuff to tensorboard for visualization -- this is really expensive if done each batch
-                logger.debug('    computing metrics on last train batch and logging to text files and tensorboard')
-                for name, param in model.named_parameters():
-                    writer.add_histogram(name, param.clone().cpu().data.numpy(), global_step=iter_i)
-                y_true_vector = vmetrics.batch_numpy_to_vector(label.cpu().numpy(), RASTER_RES)
-                y_pred_vector = vmetrics.batch_numpy_to_vector(preds.detach().cpu().numpy(), RASTER_RES)
-                train_metrics = {'train_{}'.format(name): metric(y_true_vector, y_pred_vector, **METRIC_PARAMS_AVG)
-                                 for name, metric in vmetrics.METRICS_BY_NAME.items()}
-                for name, value in train_metrics.items():
-                    writer.add_scalar(name, value, global_step=iter_i)
-                logger.info_scalars('Computed {key} over last batch of {num_items} images: {value:.4f}', train_metrics, num_items=len(label))
+                #logger.debug('    computing metrics on last train batch and logging to text files and tensorboard')
+                #for name, param in model.named_parameters():
+                #    writer.add_histogram(name, param.clone().cpu().data.numpy(), global_step=iter_i)
+                #y_true_vector = vmetrics.batch_numpy_to_vector(label.cpu().numpy(), RASTER_RES)
+                #y_pred_vector = vmetrics.batch_numpy_to_vector(preds.detach().cpu().numpy(), RASTER_RES)
+                #train_metrics = {'train_{}'.format(name): metric(y_true_vector, y_pred_vector, **METRIC_PARAMS_AVG)
+                #                 for name, metric in vmetrics.METRICS_BY_NAME.items()}
+                #for name, value in train_metrics.items():
+                #    writer.add_scalar(name, value, global_step=iter_i)
+                #logger.info_scalars('Computed {key} over last batch of {num_items} images: {value:.4f}', train_metrics, num_items=len(label))
 
                 logger.info('Running mini validation with {} batches'.format(len(val_mini_loader)))
                 validate(val_mini_loader, iter_i, prefix='mini')
@@ -268,12 +269,12 @@ def parse_args():
                         help='train batch size [default: 128].')
     parser.add_argument('-B', '--val-batch-size', type=int, default=128, dest='val_batch_size',
                         help='val batch size [default: 128].')
-
+    
     parser.add_argument('--batches-before-val', type=int, default=1024, dest='batches_before_val',
                         help='how many batches to train before validation [default: 1024].')
     parser.add_argument('--mini-val-batches-n-per-subset', type=int, default=12, dest='mini_val_batches_n_per_subset',
                         help='how many batches per subset to run for mini validation [default: 12].')
-    parser.add_argument('--sheduler', dest='sheduler')
+    parser.add_argument('--sheduler', dest='sheduler', default='')
 
     parser.add_argument('--model-spec', dest='model_spec_filename', required=True,
                         help='model specification JSON file to use [default: none].')
