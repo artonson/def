@@ -79,6 +79,14 @@ def main(options):
     #    loader_params.update(handcrafted_train_paths=options.handcrafted_train_paths, handcrafted_val_paths=options.handcrafted_val_paths, handcrafted_val_part=options.handcrafted_val_part)
     #train_loader, val_loader, val_mini_loader = make_loaders_fn(**loader_params)
     train_loader, val_loader, val_mini_loader = make_loaders_fn(options)
+    if options.end_batch_train is not None:
+        end_batch_train = int(options.end_batch_train)
+    else:
+        end_batch_train = len(train_loader)
+    if options.end_batch_val is not None:
+        end_batch_val = int(options.end_batch_val)
+    else:
+        end_batch_val = len(val_loader)
 
     logger.info('Total number of train patches: ~{}'.format(len(train_loader) * options.train_batch_size))
     logger.info('Total number of val patches: ~{}'.format(len(val_loader) * options.val_batch_size))
@@ -110,6 +118,9 @@ def main(options):
         epochs_completed = 0
         batches_completed_in_epoch = 0
 
+    if end_batch_train < batches_completed_in_epoch:
+            end_batch_train = batches_completed_in_epoch + 1
+
     # loss function choose
     criterion = LOSS[options.loss_funct]
     #def set_grad(var):
@@ -122,7 +133,7 @@ def main(options):
         val_loss = []
         # Model to eval
         model.eval()
-        for batch_j, batch_data_val in enumerate(loader):
+        for batch_j, batch_data_val in islice(enumerate(loader), 0, end_batch_val):
             logger.info('Validating batch {}'.format(batch_j))
             # Run through validation dataset
             with logger.print_duration('    preparing batch on device'):
@@ -130,10 +141,10 @@ def main(options):
             
             with torch.no_grad():
                 with logger.print_duration('    forward pass'):
-                    preds = model.forward(data, max_lines)
+                    preds = model.forward(data)[0] # currently model returns x, [f1, f2, f3]
             
             val_losses_per_sample = criterion(preds, label)
-            val_loss.extend(val_losses_per_sample)
+            val_loss.append(val_losses_per_sample)
             
             #y_true_vector = vmetrics.batch_numpy_to_vector(label.cpu().numpy(), RASTER_RES)
             #y_pred_vector = vmetrics.batch_numpy_to_vector(preds.cpu().numpy(), RASTER_RES)
@@ -164,11 +175,11 @@ def main(options):
             values_array[np.isnan(values_array)] = 0.  # maybe tensorboard does handle this by itself, dunno
             writer.add_histogram(name + '_hist', values_array, global_step=log_i)
         logger.info_scalars('Computed {key} over {num_items} images: {value:.4f}', metrics_scalars,
-                            num_items=len(val_loss))
+                            num_items=end_batch_val)
     
     
     for epoch_i in range(epochs_completed, epochs_completed + options.epochs):
-        for batch_i, batch_data in islice(enumerate(train_loader), batches_completed_in_epoch, len(train_loader)):
+        for batch_i, batch_data in islice(enumerate(train_loader), batches_completed_in_epoch, end_batch_train):
 
             model.train()
             iter_i = epoch_i * len(train_loader) + batch_i
@@ -180,7 +191,6 @@ def main(options):
                 batch_size = data.size()[0]
             with logger.print_duration('    forward pass'):
                 preds = model.forward(data)[0] # model returns x, (f1, f2, f3), saving only x
-            
             loss = criterion(preds, label)
             #loss = make_loss_fn(y_pred, y_true, l2_weight=l2_weight)
 
@@ -194,8 +204,8 @@ def main(options):
 
             # Output loss for each training step, as it is already computed
             logger.info('Training iteration [{item_idx} / {num_batches}] {percent:.3f}% complete, loss: {loss:.4f}'.format(
-                item_idx=batch_i, num_batches=len(train_loader),
-                percent=100. * batch_i / len(train_loader), loss=loss.item()))
+                item_idx=batch_i, num_batches=end_batch_train,
+                percent=100. * batch_i / end_batch_train, loss=loss.item()))
             writer.add_scalar('learning_rate', np.array([param_group['lr'] for param_group in optimizer.param_groups]), global_step=iter_i)
             writer.add_scalar(('train_' + options.loss_funct), loss.item(), global_step=iter_i)
             
@@ -301,6 +311,8 @@ def parse_args():
     #parser.add_argument('--l2_weight_init', required=False, dest='l2_weight_init',
     #                    help='l2_weight initialization(default 1)',
     #                    type=float, default= 1.)
+    parser.add_argument('--end-batch-train', dest='end_batch_train', help='number of the last batch in dataset slice')
+    parser.add_argument('--end-batch-val', dest='end_batch_val', help='number of the last batch in dataset slice')
 
     parser.add_argument('--verbose', action='store_true', default=False, dest='verbose',
                         help='verbose output [default: False].')
