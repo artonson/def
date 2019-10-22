@@ -17,7 +17,7 @@ from util.os import require_empty
 from tensorboardX import SummaryWriter
 #from util.tensorboard import SummaryWriter
 
-from optimizer import ScheduledOptimizer
+#from optimizer import ScheduledOptimizer
 #import metrics
 from data import ABCData
 from util.util import cal_loss
