@@ -61,12 +61,15 @@ LOGS_PATH_HOST="${LOCAL_DIR}/logs"
 LOGS_PATH_CONTAINER="/home/logs"
 CODE_PATH_HOST="${LOCAL_DIR}/src"
 CODE_PATH_CONTAINER="/home/src"
+SPLITCODE_PATH_HOST="${LOCAL_DIR}/../hdf5_utils"
+SPLITCODE_PATH_CONTAINER="/home/hdf5_utils"
 
 INPUT_FILE_CONTAINER="${DATA_PATH_CONTAINER}/$(basename "${INPUT_FILE}")"
 OUTPUT_FILE_CONTAINER="${DATA_PATH_CONTAINER}/$(basename "${OUTPUT_FILE}")"
 
 SPLIT_DATA_PATH_CONTAINER="${DATA_PATH_CONTAINER}/xyz_splitted"
 SPLIT_INPUT_CONTAINER="${SPLIT_DATA_PATH_CONTAINER}/*.xyz"
+SPLIT_OUTPUT_CONTAINER="${SPLIT_DATA_PATH_CONTAINER}/results"
 MODEL_PATH_CONTAINER="${CODE_PATH_CONTAINER}/sharpness_model.pt"
 
 echo "******* LAUNCHING IMAGE ${IMAGE_NAME} IN CONTAINER ${CONTAINER_NAME} *******"
@@ -92,18 +95,28 @@ nvidia-docker run \
     -v "${DATA_PATH_HOST}":"${DATA_PATH_CONTAINER}" \
     -v "${LOGS_PATH_HOST}":"${LOGS_PATH_CONTAINER}" \
     -v "${CODE_PATH_HOST}":"${CODE_PATH_CONTAINER}" \
+    -v "${SPLITCODE_PATH_HOST}":"${SPLITCODE_PATH_CONTAINER}" \
     "${IMAGE_NAME}" \
     /bin/bash \
-        -c "cd ${CODE_PATH_CONTAINER} && \\
-        python3 split_hdf5.py \\
+        -c "cd ${SPLITCODE_PATH_CONTAINER} && \\
+        echo 'Splitting input files...' && \\
+	python3 split_hdf5.py \\
           ${INPUT_FILE_CONTAINER} \\
           --output_dir ${SPLIT_DATA_PATH_CONTAINER} \\
           --output_format 'xyz' \\
-          --label 'data' && \\
+          --label 'data' && \
+        cd ${CODE_PATH_CONTAINER} && \\
+	echo 'Evaluating the model...' && \\
         python3 compute_sharpness.py \\
           '${SPLIT_INPUT_CONTAINER}' \\
-          ${OUTPUT_FILE_CONTAINER} \\
+          '${SPLIT_OUTPUT_CONTAINER}' \\
           -m ${MODEL_PATH_CONTAINER} \\
           -r 5.0 \\
           1>${LOGS_PATH_CONTAINER}/out.out \\
-          2>${LOGS_PATH_CONTAINER}/err.err"
+          2>${LOGS_PATH_CONTAINER}/err.err && \\
+	cd ${SPLITCODE_PATH_CONTAINER} && \\
+	echo 'Merging results...' && \\
+	python3 merge_hdf5.py \\
+	  --input_dir ${SPLIT_OUTPUT_CONTAINER} \\
+	  --input_format 'xyz' \\
+	  --output_file ${OUTPUT_FILE_CONTAINER}"

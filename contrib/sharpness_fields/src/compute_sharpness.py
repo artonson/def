@@ -16,7 +16,7 @@ def run_on_one_file(input_file, output_file, model_path, r_factor):
     model = torch.jit.load(model_path)
 
     result = []
-    for batch_idx, data_values in tqdm(enumerate(dataloader), total=len(dataloader)):
+    for batch_idx, data_values in enumerate(dataloader):
 
         data_values = [val.squeeze().cuda() for val in data_values[:-1]]
         pred = model(*data_values)
