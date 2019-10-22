@@ -7,30 +7,34 @@ import numpy as np
 import torch
 import torch.nn
 import torch.optim
+from torch.utils.data import DataLoader
+from torch.optim.lr_scheduler import CosineAnnealingLR, ExponentialLR
 
 from util.logging import create_logger
 #import util.dataloading as dataloading
 from models import load_model
-from vectran.util.os import require_empty
-from vectran.util.visualization import make_ranked_images_from_loader_and_model
-from vectran.data.graphics_primitives import PT_LINE
-from vectran.train.optimizer import ScheduledOptimizer
-from vectran.util.tensorboard import SummaryWriter
-import vectran.metrics.vector_metrics as vmetrics
-import vectran.train.supervised as supervised_loss
-from util import cal_loss
+from util.os import require_empty
+from tensorboardX import SummaryWriter
+#from util.tensorboard import SummaryWriter
 
-loss = {'cal_loss': cal_loss}
+from optimizer import ScheduledOptimizer
+#import metrics
+from data import ABCData
+from util.util import cal_loss
+
+LOSS = {'cal_loss': cal_loss}
 
 def make_loaders_fn(options):
-    return DataLoader(ABCData(partition='train', num_points=args.num_points), num_workers=8,
-                              batch_size=options.train_batch_size, shuffle=False, drop_last=False),
-           DataLoader(ABCData(partition='val', num_points=options.num_points),
-                             batch_size=options.val_batch_size, shuffle=False, drop_last=False),
+    return DataLoader(ABCData(data_path=options.data_root, partition='train', num_points=options.num_points), num_workers=8,
+                              batch_size=options.train_batch_size, shuffle=False, drop_last=False),\
+           DataLoader(ABCData(data_path=options.data_root, partition='val', num_points=options.num_points),
+                             batch_size=options.val_batch_size, shuffle=False, drop_last=False),\
            None # add mini val
 
 def prepare_batch_on_device(batch_data, device):
-    data, label = batch_data[0].to(device), batch_data[-1].to(device).squeeze()
+    data, label = batch_data
+    data = data.to(device)
+    label = label.to(device).squeeze()
     data = data.permute(0, 2, 1)
     return data, label
 
@@ -48,18 +52,6 @@ def main(options):
     if None is options.save_model_filename:
         options.save_model_filename = os.path.join(logs_dir, 'model')
 
-    #####################################################
-    # all these parameters stay unchanged for all models
-
-    #max_lines = 10
-    #
-    # If  l2_weight_change >= 0, options.l2_weight_init = 1 this is MSE or mapping_l2
-    # If  l2_weight_change <= 0, options.l2_weight_init = 0 this is L1
-    #
-    #l2_weight_change = options.l2_weight_change
-    #l2_weight = options.l2_weight_init
-
-
     if len(options.gpu) == 0:
         device = torch.device('cpu')
         prefetch_data = False
@@ -69,23 +61,14 @@ def main(options):
     else:
         raise ValueError('currenly only a single GPU is supported')
     
-    #RASTER_RES = (options.render_res, options.render_res)
-    #primitive_types = []
-    #max_primitives = {}
-    #if max_lines > 0:
-    #    primitive_types.append(PT_LINE)
-    #    max_primitives[PT_LINE] = max_lines
-
     #METRIC_PARAMS_AVG = {'average': 'mean', 'binarization': 'median', 'raster_res': RASTER_RES}
     #METRIC_PARAMS = {'binarization': 'median', 'raster_res': RASTER_RES}
-    #IMGLOG_PARAMS = {'imgrid_shape': (2, 12), 'patch_size': (150, 150), 'with_skeleton': True,
-                     'stack_grids_horizontally': False, 'skeleton_node_size': 5}
 
-    # all these parameters stay unchanged for all models
     #####################################################
+    # all these parameters stay unchanged for all models
 
     logger = create_logger(options)
-    writer = SummaryWriter(logdir=options.tboard_dir)
+    writer = SummaryWriter(options.tboard_dir)
 
     #make_loaders_fn = dataloading.prepare_loaders[options.dataloader_type]
     #train_loader_memory_constraint = options.memory_constraint # TODO could be calculated more precisely with respect to the other memory requirements
@@ -95,11 +78,12 @@ def main(options):
     #if options.dataloader_type == 'handcrafted':
     #    loader_params.update(handcrafted_train_paths=options.handcrafted_train_paths, handcrafted_val_paths=options.handcrafted_val_paths, handcrafted_val_part=options.handcrafted_val_part)
     #train_loader, val_loader, val_mini_loader = make_loaders_fn(**loader_params)
-    train_loader, test_loader, val_mini_loader = make_loaders_fn(options)
+    train_loader, val_loader, val_mini_loader = make_loaders_fn(options)
 
     logger.info('Total number of train patches: ~{}'.format(len(train_loader) * options.train_batch_size))
     logger.info('Total number of val patches: ~{}'.format(len(val_loader) * options.val_batch_size))
-    logger.info('Total number of mini val patches: ~{}'.format(len(val_mini_loader) * options.val_batch_size))
+    if val_mini_loader is not None:
+        logger.info('Total number of mini val patches: ~{}'.format(len(val_mini_loader) * options.val_batch_size))
     
     model = load_model(options.model_spec_filename).to(device)
     logger.info_trainable_params(model)
@@ -109,8 +93,10 @@ def main(options):
             lr=options.lr)
 
     if options.scheduler == 'exp':
-        scheduler = ExponentialLR(optimizer, gamma = 0.5)        
+        scheduler = ExponentialLR(opt, gamma = 0.5)
+        optimizer = opt      
     else:
+        scheduler = None
         optimizer = ScheduledOptimizer(opt)
 
     if options.init_model_filename:
@@ -124,14 +110,12 @@ def main(options):
         epochs_completed = 0
         batches_completed_in_epoch = 0
 
-    criterion = loss[options.loss_funct] #cal_loss
+    # loss function choose
+    criterion = LOSS[options.loss_funct]
     #def set_grad(var):
     #    def hook(grad):
     #        var.grad = grad
     #    return hook
-    
-    # Loss function choose
-    # make_loss_fn = supervised_loss.prepare_losses[options.loss_funct]
     
     def validate(loader, log_i, prefix=''):
         val_metrics = defaultdict(list)
@@ -170,11 +154,6 @@ def main(options):
         
         #scores = np.concatenate(val_metrics['{}val_{}'.format(prefix, 'iou_score')])
         
-        #worst_grid, best_grid, average_grid = make_ranked_images_from_loader_and_model(
-        #    lambda input: model(input, max_lines), _loader, scores, **IMGLOG_PARAMS)
-        #writer.add_image('worst/{}val'.format(prefix), worst_grid, log_i)
-        #writer.add_image('best/{}val'.format(prefix), best_grid, log_i)
-        #writer.add_image('average/{}val'.format(prefix), average_grid, log_i)
         mean_val_loss = val_loss.mean()
         writer.add_scalar(('{}val_' + options.loss_funct).format(prefix), mean_val_loss, global_step=log_i)
         logger.info('Validation loss: {:.4f}'.format(mean_val_loss))
@@ -199,10 +178,9 @@ def main(options):
             with logger.print_duration('    preparing batch on device'):
                 data, label = prepare_batch_on_device(batch_data, device)
                 batch_size = data.size()[0]
-
             with logger.print_duration('    forward pass'):
-                preds = model.forward(data, label)
-
+                preds = model.forward(data)[0] # model returns x, (f1, f2, f3), saving only x
+            
             loss = criterion(preds, label)
             #loss = make_loss_fn(y_pred, y_true, l2_weight=l2_weight)
 
@@ -212,16 +190,16 @@ def main(options):
 
             with logger.print_duration('    backward pass'):
                 loss.backward()
-                optimizer.step_and_update_lr()
+                optimizer.step()
 
             # Output loss for each training step, as it is already computed
             logger.info('Training iteration [{item_idx} / {num_batches}] {percent:.3f}% complete, loss: {loss:.4f}'.format(
                 item_idx=batch_i, num_batches=len(train_loader),
                 percent=100. * batch_i / len(train_loader), loss=loss.item()))
-            writer.add_scalar('learning_rate', optimizer.get_lr()[0], global_step=iter_i)
+            writer.add_scalar('learning_rate', np.array([param_group['lr'] for param_group in optimizer.param_groups]), global_step=iter_i)
             writer.add_scalar(('train_' + options.loss_funct), loss.item(), global_step=iter_i)
             
-            if batch_i > 0 and batch_i % options.batches_before_val == 0:
+            if batch_i > 0 and batch_i % options.batches_before_val == 0 and val_mini_loader is not None:
                 # Save stuff to tensorboard for visualization -- this is really expensive if done each batch
                 #logger.debug('    computing metrics on last train batch and logging to text files and tensorboard')
                 #for name, param in model.named_parameters():
@@ -262,7 +240,7 @@ def main(options):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-g', '--gpu', action='append', help='GPU to use, can use multiple [default: use CPU].')
+    parser.add_argument('-g', '--gpu', default='', action='append', help='GPU to use, can use multiple [default: use CPU].')
 
     parser.add_argument('-e', '--epochs', type=int, default=1, help='how many epochs to train [default: 1].')
     parser.add_argument('-b', '--train-batch-size', type=int, default=128, dest='train_batch_size',
@@ -281,7 +259,7 @@ def parse_args():
     parser.add_argument('--infer-from-spec', dest='infer_from_spec', action='store_true', default=False,
                         help='if set, --model, --save-model-file, --logging-file, --tboard-json-logging-file,'
                              'and --tboard-dir are formed automatically [default: False].')
-    parser.add_argument('--log-dir-prefix', dest='logs_dir', default='/logs',
+    parser.add_argument('--log-dir-prefix', dest='logs_dir', default='./logs',
                         help='path to root of logging location [default: /logs].')
     parser.add_argument('-m', '--init-model-file', dest='init_model_filename',
                         help='Path to initializer model file [default: none].')
@@ -291,7 +269,8 @@ def parse_args():
     parser.add_argument('--batches_before_save', type=int, default=1024, dest='batches_before_save',
                         help='how many batches to run before saving the model [default: 1024].')
 
-    parser.add_argument('--data-root', required=True, dest='data_root', help='root of the data tree (directory).')
+    parser.add_argument('--data-root', dest='data_root', help='root of the data tree (directory).')
+    parser.add_argument('--num-points', type=int, default=1024, dest='num_points')
     #parser.add_argument('--data-type', required=True, dest='dataloader_type',
     #                    help='type of the train/val data to use.', choices=dataloading.prepare_loaders.keys())
     #parser.add_argument('--handcrafted-train', required=False, action='append',
@@ -299,7 +278,7 @@ def parse_args():
     #                                                         '(sought for in preprocessed/synthetic_handcrafted).')
     #parser.add_argument('--handcrafted-val', required=False, action='append',
     #                    dest='handcrafted_val_paths', help='dirnames of handcrafted datasets used for validation '
-                                                           '(sought for in preprocessed/synthetic_handcrafted).')
+    #                                                       '(sought for in preprocessed/synthetic_handcrafted).')
     #parser.add_argument('--handcrafted-val-part', required=False, type=float, default=.1,
     #                    dest='handcrafted_val_part', help='portion of handcrafted_train used for validation')
     #parser.add_argument('-M', '--memory-constraint', required=True, type=int, dest='memory_constraint',help='maximum RAM usage in bytes.')
@@ -307,9 +286,12 @@ def parse_args():
     #parser.add_argument('-r', '--render-resolution', dest='render_res', default=64, type=int,
     #                    help='resolution used for rendering.')
 
+    parser.add_argument('--lr', type=float, required=False, dest='lr', default=0.01)
+    parser.add_argument('--scheduler', required=False, dest='scheduler', default='exp')
+
     parser.add_argument('--loss-funct', required=False, dest='loss_funct',
-                        help='Choose loss function. Default vectran_loss', choices=supervised_loss.prepare_losses.keys(),
-                        default='vectran_loss')
+                        help='Choose loss function. Default cal_loss',
+                        default='cal_loss')
 
 
     #parser.add_argument('--l2_weight_change', required=False, dest='l2_weight_change',
