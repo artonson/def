@@ -46,3 +46,12 @@ ENV PATH=$CONDA_PREFIX/bin:$PATH
 RUN pip install --upgrade pip
 RUN pip install --verbose --no-cache-dir h5py
 
+# Add copyning of our custom code to container and making it
+RUN mkdir /home/user/code
+
+COPY --chown=user ear/src /home/user/code/ear
+RUN cd /home/user/code/ear && make
+
+COPY --chown=user voronoi_1/src /home/user/code/voronoi_1
+RUN cd /home/user/code/voronoi_1 && make
+

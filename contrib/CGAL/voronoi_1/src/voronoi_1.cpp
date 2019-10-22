@@ -22,12 +22,15 @@ int main (int argc, char** argv) {
     double threshold = 0.16;
     double R = 0.2,
            r = 0.1;
-    std::string filename, name;
+    std::string filename, name, path_to_file, output_directory;
     for (int i = 1; i < argc; ++i){
         std::string arg = argv[i];
         if ((arg == "-f") || (arg == "-filename")){
             filename = argv[i+1];
-            name = filename.substr(0, filename.find("."));
+            int idx1 = filename.rfind("/");
+            int idx2 = filename.find(".");
+            path_to_file = filename.substr(0, idx1);
+            name = filename.substr(idx1+1, idx2-idx1-1);
         }
         if (arg == "-R"){
             R = std::stod(argv[i+1]);
@@ -38,6 +41,10 @@ int main (int argc, char** argv) {
         if ((arg == "-t") || (argv[i] == "-threshold")){
             threshold = std::stod(argv[i+1]);
         }
+        if ((arg == "-o") || (arg == "-output")){
+            output_directory = argv[i+1];
+        }
+        
     }
     std::ifstream stream(filename);
     
@@ -56,9 +63,10 @@ int main (int argc, char** argv) {
                       CGAL::parameters::point_map (point_map).geom_traits (Kernel()));
     // Find the points on the edges.
     // Note that this step is not expensive and can be done several time to get better results
-    std::ofstream output("points_on_edges" + name + ".xyz");
-    std::ofstream classification("points_classification_" + name + ".txt");
+    std::ofstream output(output_directory+"/points_on_edges" + name + ".xyz");
+    std::ofstream classification(output_directory+"/points_classification_" + name + ".txt");
     int i = 0;
+    std::cout << "Saving classification to " << output_directory + "/points_classification_" + name + ".txt" << "\n";
     BOOST_FOREACH(const PointVectorPair& p, points)
     {
       
@@ -73,4 +81,3 @@ int main (int argc, char** argv) {
     classification.close();
     return 0;
 }
-
