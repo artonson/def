@@ -1,6 +1,7 @@
-train_sharp.py - training and validation script
+**train_sharp.py - training and validation script**
 
-usage: train_sharp.py [-h] [-g GPU] [-e EPOCHS] [-b TRAIN_BATCH_SIZE]
+usage: 
+``` python train_sharp.py [-h] [-g GPU] [-e EPOCHS] [-b TRAIN_BATCH_SIZE]
                       [-B VAL_BATCH_SIZE]
                       [--batches-before-val BATCHES_BEFORE_VAL]
                       [--mini-val-batches-n-per-subset MINI_VAL_BATCHES_N_PER_SUBSET]
@@ -15,9 +16,10 @@ usage: train_sharp.py [-h] [-g GPU] [-e EPOCHS] [-b TRAIN_BATCH_SIZE]
                       [--end-batch-val END_BATCH_VAL] [--verbose]
                       [-l LOGGING_FILENAME] [-tl TBOARD_JSON_LOGGING_FILE]
                       [-x TBOARD_DIR] [-w]
-
-important: --data-root - path to directory which contains data/ with hdf5 files with ABC dataset (see data.py for details)
+```
+**important:** --data-root - path to directory which contains data/ with hdf5 files with ABC dataset (see data.py for details)
            --loss-funct - currently only cal_loss is implemented (default cal_loss)
            
-TODO: add metrics and consider mini-validation split
+**TODO:** - [ ] metrics 
+          - [ ] consider mini-validation split
            
