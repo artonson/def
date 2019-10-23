@@ -11,7 +11,6 @@ from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import CosineAnnealingLR, ExponentialLR
 
 from util.logging import create_logger
-#import util.dataloading as dataloading
 from models import load_model
 from util.os import require_empty
 from tensorboardX import SummaryWriter
@@ -23,6 +22,7 @@ from data import ABCData
 from util.util import cal_loss
 
 LOSS = {'cal_loss': cal_loss}
+METRIC = {}
 
 def make_loaders_fn(options):
     return DataLoader(ABCData(data_path=options.data_root, partition='train', num_points=options.num_points), num_workers=8,
@@ -102,10 +102,6 @@ def main(options):
 
     if options.scheduler == 'exp':
         scheduler = ExponentialLR(opt, gamma = 0.5)
-        optimizer = opt      
-    else:
-        scheduler = None
-        optimizer = ScheduledOptimizer(opt)
 
     if options.init_model_filename:
         checkpoint = torch.load(options.init_model_filename)
@@ -192,9 +188,6 @@ def main(options):
             with logger.print_duration('    forward pass'):
                 preds = model.forward(data)[0] # model returns x, (f1, f2, f3), saving only x
             loss = criterion(preds, label)
-            #loss = make_loss_fn(y_pred, y_true, l2_weight=l2_weight)
-
-            #l2_weight = min(max(0., l2_weight + l2_weight_change),1.)
 
             optimizer.zero_grad()
 
@@ -210,18 +203,6 @@ def main(options):
             writer.add_scalar(('train_' + options.loss_funct), loss.item(), global_step=iter_i)
             
             if batch_i > 0 and batch_i % options.batches_before_val == 0 and val_mini_loader is not None:
-                # Save stuff to tensorboard for visualization -- this is really expensive if done each batch
-                #logger.debug('    computing metrics on last train batch and logging to text files and tensorboard')
-                #for name, param in model.named_parameters():
-                #    writer.add_histogram(name, param.clone().cpu().data.numpy(), global_step=iter_i)
-                #y_true_vector = vmetrics.batch_numpy_to_vector(label.cpu().numpy(), RASTER_RES)
-                #y_pred_vector = vmetrics.batch_numpy_to_vector(preds.detach().cpu().numpy(), RASTER_RES)
-                #train_metrics = {'train_{}'.format(name): metric(y_true_vector, y_pred_vector, **METRIC_PARAMS_AVG)
-                #                 for name, metric in vmetrics.METRICS_BY_NAME.items()}
-                #for name, value in train_metrics.items():
-                #    writer.add_scalar(name, value, global_step=iter_i)
-                #logger.info_scalars('Computed {key} over last batch of {num_items} images: {value:.4f}', train_metrics, num_items=len(label))
-
                 logger.info('Running mini validation with {} batches'.format(len(val_mini_loader)))
                 validate(val_mini_loader, iter_i, prefix='mini')
 
