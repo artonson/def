@@ -1,0 +1,8 @@
+{
+  "model": "DGCNN",
+  "num_points": 1024,
+  "k": 20,
+  "dropout": 0.7,
+  "emb_dims": 1024,
+  "device": "cpu"
+}
