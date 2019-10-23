@@ -1,7 +1,7 @@
 **train_sharp.py - training and validation script**
 
 usage: 
-``` {
+``` 
       python train_sharp.py -h -g GPU -e EPOCHS -b TRAIN_BATCH_SIZE \
                       -B VAL_BATCH_SIZE
                       --batches-before-val BATCHES_BEFORE_VAL
@@ -16,7 +16,7 @@ usage:
                       --end-batch-train END_BATCH_TRAIN
                       --end-batch-val END_BATCH_VAL --verbose
                       -l LOGGING_FILENAME -tl TBOARD_JSON_LOGGING_FILE
-                      -x TBOARD_DIR -w, engine=bash }
+                      -x TBOARD_DIR -w 
 ```
 **important:** --data-root - path to directory which contains data/ with hdf5 files with ABC dataset (see data.py for details)
            --loss-funct - currently only cal_loss is implemented (default cal_loss)
