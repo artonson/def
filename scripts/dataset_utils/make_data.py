@@ -3,12 +3,11 @@
 import argparse
 import os
 import sys
-from io import BytesIO
 
-import trimesh
 from joblib import Parallel, delayed
 import numpy as np
 import yaml
+
 
 __dir__ = os.path.normpath(
     os.path.join(
@@ -17,6 +16,8 @@ __dir__ = os.path.normpath(
 sys.path[1:1] = [__dir__]
 
 from sharpf.data.abc_data import ABCModality, ABCChunk, ABC_7Z_FILEMASK, MergedABCItem
+from sharpf.data.mesh_nbhoods import NBHOOD_BY_TYPE
+from sharpf.utils.mesh_utils import trimesh_load
 
 
 # the function for patch generator: breadth-first search
@@ -34,25 +35,6 @@ def find_and_add(sets, desired_number_of_points, adjacency_graph):
             break  # stop when the patch has more than 1024 vertices
 
 
-def trimesh_load(io: BytesIO):
-    """Read the mesh: since trimesh messes the indices, this has to be done manually."""
-
-    vertices, faces = [], []
-
-    for line in io:
-        values = line.strip().split()
-        if not values: continue
-        if values[0] == 'v':
-            vertices.append(np.array(values[1:4], dtype='float'))
-        elif values[0] == 'f':
-            faces.append(np.array([values[1].split('//')[0], values[2].split('//')[0], values[3].split('//')[0]],
-                                  dtype='int'))
-
-    vertices = np.array(vertices)
-    faces = np.array(faces) - 1
-
-    mesh = trimesh.base.Trimesh(vertices=vertices, faces=faces, process=False)  # create a mesh from the vertices
-    return mesh
 
 
 def geodesic_meshvertex_patches_from_item(item, n_points=1024):
@@ -166,16 +148,6 @@ def geodesic_meshvertex_patches_from_item(item, n_points=1024):
     p_names = []  # for names of the patches in the format "initial_mesh_name_N", where N is the starting vertex index
 
 
-def euclidean_ball_patches_from_item():
-    pass
-
-
-PATCH_FUNC_BY_TYPE = {
-    'geodesic_meshvertex': geodesic_meshvertex_patches_from_item,
-    'euclidean_ball': euclidean_ball_patches_from_item,
-}
-
-
 @delayed
 def generate_patches(meshes_filename, feats_filename, data_slice, n_points, patch_type, noise_type, noise_amount):
     points = []  # for storing initial coordinates of points
@@ -187,12 +159,26 @@ def generate_patches(meshes_filename, feats_filename, data_slice, n_points, patc
     times = []  # for times (useless)
     p_names = []  # for names of the patches in the format "initial_mesh_name_N", where N is the starting vertex index
 
-    patch_func = PATCH_FUNC_BY_TYPE[patch_type]
+    nbhood_func_cls = NBHOOD_BY_TYPE[patch_type]
 
     slice_start, slice_end = data_slice
     with ABCChunk([meshes_filename, feats_filename]) as data_holder:
         for item in data_holder[slice_start:slice_end]:
-            patches_points, patches_labels, patches_normals, patches_has_sharpness = patch_func(item, n_points)
+            # load the mesh and the feature curves annoations
+            mesh = trimesh_load(item.obj)
+            features = yaml.load(item.feat, Loader=yaml.Loader)
+
+            # index the mesh using a neighbourhood functions class
+            # (this internally may call KD trees)
+            nbhood_extractor = nbhood_func_cls(mesh)
+
+            for patch_idx in range(n_patches_per_mesh):
+                pass
+                # extract neighbourhoods
+
+
+
+            patches_points, patches_labels, patches_normals, patches_has_sharpness = nbhood_extractor(centroid, radius)
 
 
 
