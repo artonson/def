@@ -148,8 +148,14 @@ def geodesic_meshvertex_patches_from_item(item, n_points=1024):
     p_names = []  # for names of the patches in the format "initial_mesh_name_N", where N is the starting vertex index
 
 
+def load_func_from_config(func_dict, config):
+    return func_dict[config['type']].from_config(config)
+
+
 @delayed
-def generate_patches(meshes_filename, feats_filename, data_slice, n_points, patch_type, noise_type, noise_amount):
+def generate_patches(meshes_filename, feats_filename, data_slice,
+                     nbhood_config, sampling_config, noise_config, annotator_config,
+                     n_nbhoods_per_mesh):
     points = []  # for storing initial coordinates of points
     points_normalized = []  # for storing normalized coordinates of points
     labels = []  # for storing 0-1 labels for non-sharp/sharp points
@@ -159,26 +165,38 @@ def generate_patches(meshes_filename, feats_filename, data_slice, n_points, patc
     times = []  # for times (useless)
     p_names = []  # for names of the patches in the format "initial_mesh_name_N", where N is the starting vertex index
 
-    nbhood_func_cls = NBHOOD_BY_TYPE[patch_type]
+    nbhood_extractor = load_func_from_config(NBHOOD_BY_TYPE, nbhood_config)
+    sampler = load_func_from_config(SAMPLING_BY_TYPE, sampling_config)
+    noiser = load_func_from_config(NOISE_BY_TYPE, noise_config)
+    annotator = load_func_from_config(ANNOTATOR_BY_TYPE, annotator_config)
 
     slice_start, slice_end = data_slice
     with ABCChunk([meshes_filename, feats_filename]) as data_holder:
         for item in data_holder[slice_start:slice_end]:
-            # load the mesh and the feature curves annoations
+            # load the mesh and the feature curves annotations
             mesh = trimesh_load(item.obj)
             features = yaml.load(item.feat, Loader=yaml.Loader)
 
             # index the mesh using a neighbourhood functions class
-            # (this internally may call KD trees)
-            nbhood_extractor = nbhood_func_cls(mesh)
+            # (this internally may call indexing, so for repeated invocation one passes the mesh)
+            nbhood_extractor.index(mesh)
 
-            for patch_idx in range(n_patches_per_mesh):
-                pass
-                # extract neighbourhoods
+            for patch_idx in range(n_nbhoods_per_mesh):
+                # extract neighbourhood
+                nbhood, orig_vert_indices, orig_face_indexes = nbhood_extractor.get_nbhood()
+
+                # sample the neighbourhood to form a point patch
+                point_sample = sampler.sample(nbhood)
+
+                # create a noisy sample
+                noisy_point_sample = noiser.make_noise(point_sample, nbhood)
+
+                # create annotations
+                annotations = annotator.annotate(noisy_point_sample, nbhood, features)
 
 
 
-            patches_points, patches_labels, patches_normals, patches_has_sharpness = nbhood_extractor(centroid, radius)
+            patches_points, patches_labels, patches_normals, patches_has_sharpness =
 
 
 

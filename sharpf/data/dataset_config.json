@@ -1,0 +1,18 @@
+{
+  "neighbourhood": {
+    "type": "random_euclidean_sphere",
+    "n_vertices": 500,
+    "centroid": 0,
+    "radius": 10.0,
+    "radius_delta": 0.5
+  },
+  "sampling": {
+    "n_points": 4096,
+  },
+  "noise": {
+    ""
+  },
+  "annotation": {
+    ""
+  }
+}
