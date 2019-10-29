@@ -1,0 +1,23 @@
+{
+  "kind": "GenericPointBasedNet",
+  "encoder_blocks": [
+    {
+      "kind": "point_block_nlfai",
+      "neighbours": {
+        "kind": "neighbour_base"
+      },
+      "local_transform": {
+        "kind": "local_base"
+      },
+      "features": {
+        "kind": "conv_base"
+      },
+      "aggregation": {
+        "kind": "aggregation_base"
+      },
+      "interpolation": {
+        "kind": "interpolation_base"
+      }
+    }
+  ]
+}

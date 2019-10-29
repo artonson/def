@@ -4,10 +4,11 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
 from sharpf.modules.base import ParameterizedModule, load_with_spec
 
 
-class ConvBase(ParameterizedModule):
+class InterpolationBase(ParameterizedModule):
     """
     ConvBase - Abstract class for Convolution methods for ParameterizedPointNet.
     Current class deals with point projection from one dimensionality to another.
@@ -37,6 +38,6 @@ class ConvBase(ParameterizedModule):
         return out
 
 
-conv_module_by_kind = {
-    'conv_base': ConvBase
+interpolation_module_by_kind = {
+    'interpolation_base': InterpolationBase
 }

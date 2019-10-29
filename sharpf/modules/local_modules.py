@@ -7,7 +7,7 @@ import torch.nn.functional as F
 from sharpf.modules.base import ParameterizedModule, load_with_spec
 
 
-class ConvBase(ParameterizedModule):
+class LocalTransformBase(ParameterizedModule):
     """
     ConvBase - Abstract class for Convolution methods for ParameterizedPointNet.
     Current class deals with point projection from one dimensionality to another.
@@ -37,6 +37,6 @@ class ConvBase(ParameterizedModule):
         return out
 
 
-conv_module_by_kind = {
-    'conv_base': ConvBase
+local_module_by_kind = {
+    'local_base': LocalTransformBase
 }

@@ -1,11 +1,11 @@
 import json
-  
-from models.model_ablation_n_att_3 import DGCNN
-from modules.base import load_with_spec
+
+from .generic import GenericPointBasedNet
+from sharpf.modules.base import load_with_spec
 
 
 MODEL_BY_NAME = {
-    'DGCNN': DGCNN,
+    'GenericPointBasedNet': GenericPointBasedNet,
 }
 
 

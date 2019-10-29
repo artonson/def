@@ -12,7 +12,7 @@ from torch.optim.lr_scheduler import CosineAnnealingLR, ExponentialLR
 
 from util.logging import create_logger
 #import util.dataloading as dataloading
-from models import load_model
+from sharpf.models import load_model
 from util.os import require_empty
 from tensorboardX import SummaryWriter
 #from util.tensorboard import SummaryWriter

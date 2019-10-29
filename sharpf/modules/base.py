@@ -13,7 +13,7 @@ class ParameterizedModule(torch.nn.Module, ABC):
 
 
 def load_with_spec(spec, module_dict=None):
-    spec_kind = spec['model']
+    spec_kind = spec['kind']
     if spec_kind.startswith('torch.nn.'):
         # loading default torch modules
         torch_nn, classname = spec_kind.rsplit('.', maxsplit=1)
@@ -27,3 +27,4 @@ def load_with_spec(spec, module_dict=None):
             return spec_cls()  # instantiate default parameterization
         else:
             return spec_cls.from_spec(spec)
+
