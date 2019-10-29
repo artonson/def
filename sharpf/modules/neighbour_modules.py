@@ -8,7 +8,7 @@ import torch.nn.functional as F
 from sharpf.modules.base import ParameterizedModule, load_with_spec
 
 
-class NeighourBase(ParameterizedModule):
+class NeighbourBase(ParameterizedModule):
     """
     PatchBase - Abstract class for patches preparation in ParameterizedPointNet
     Current class deals with: - sampling, aka centroids determination
@@ -37,5 +37,5 @@ class NeighourBase(ParameterizedModule):
 
 
 neighbour_module_by_kind = {
-    'neighbour_base': NeighourBase
+    'neighbour_base': NeighbourBase
 }
