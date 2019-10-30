@@ -7,7 +7,8 @@
     "radius_delta": 0.5
   },
   "sampling": {
-    "n_points": 4096,
+    "type": "poisson_disk",
+    "n_points": 4096
   },
   "noise": {
     ""

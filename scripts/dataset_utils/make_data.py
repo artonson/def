@@ -8,6 +8,8 @@ from joblib import Parallel, delayed
 import numpy as np
 import yaml
 
+from sharpf.data.noisers import NOISE_BY_TYPE
+from sharpf.data.point_samplers import SAMPLER_BY_TYPE
 
 __dir__ = os.path.normpath(
     os.path.join(
@@ -166,7 +168,7 @@ def generate_patches(meshes_filename, feats_filename, data_slice,
     p_names = []  # for names of the patches in the format "initial_mesh_name_N", where N is the starting vertex index
 
     nbhood_extractor = load_func_from_config(NBHOOD_BY_TYPE, nbhood_config)
-    sampler = load_func_from_config(SAMPLING_BY_TYPE, sampling_config)
+    sampler = load_func_from_config(SAMPLER_BY_TYPE, sampling_config)
     noiser = load_func_from_config(NOISE_BY_TYPE, noise_config)
     annotator = load_func_from_config(ANNOTATOR_BY_TYPE, annotator_config)
 
@@ -186,10 +188,10 @@ def generate_patches(meshes_filename, feats_filename, data_slice,
                 nbhood, orig_vert_indices, orig_face_indexes = nbhood_extractor.get_nbhood()
 
                 # sample the neighbourhood to form a point patch
-                point_sample = sampler.sample(nbhood)
+                points, normals = sampler.sample(nbhood)
 
                 # create a noisy sample
-                noisy_point_sample = noiser.make_noise(point_sample, nbhood)
+                noisy_point_sample = noiser.make_noise(points, normals)
 
                 # create annotations
                 annotations = annotator.annotate(noisy_point_sample, nbhood, features)
