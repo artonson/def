@@ -1,6 +1,6 @@
 import json
 
-from .generic import GenericPointBasedNet
+from .generic import GenericPointBasedNet, DGCNN
 from sharpf.modules.base import load_with_spec
 
 
