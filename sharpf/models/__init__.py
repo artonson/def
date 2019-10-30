@@ -6,6 +6,7 @@ from sharpf.modules.base import load_with_spec
 
 MODEL_BY_NAME = {
     'GenericPointBasedNet': GenericPointBasedNet,
+    'DGCNN': DGCNN
 }
 
 
