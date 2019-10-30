@@ -41,10 +41,9 @@ class DGCNN(ParameterizedModule):
         features = self.decoder_blocks[0](concatenated_features)
         num_point = points.size(1)
         expand = torch.repeat_interleave(features, num_point, 1)
-        print(expand.shape)
         features = self.decoder_blocks[1](torch.cat((expand,concatenated_features), dim=2))
         features = self.decoder_blocks[2](features)
-            
+        features = features.squeeze()
         return features
 
     @classmethod
