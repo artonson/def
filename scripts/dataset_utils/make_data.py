@@ -3,11 +3,13 @@
 import argparse
 import os
 import sys
+from copy import deepcopy
 
 from joblib import Parallel, delayed
 import numpy as np
 import yaml
 
+from sharpf.data.annotation import ANNOTATOR_BY_TYPE
 from sharpf.data.noisers import NOISE_BY_TYPE
 from sharpf.data.point_samplers import SAMPLER_BY_TYPE
 
@@ -154,6 +156,26 @@ def load_func_from_config(func_dict, config):
     return func_dict[config['type']].from_config(config)
 
 
+def compute_curves_nbhood(features, vert_indices, face_indexes):
+    """Extracts curves for the neighbourhood."""
+    nbhood_sharp_curves = []
+    for curve in features['curves']:
+        nbhood_vert_indices = np.array([
+            vert_index for vert_index in curve['vert_indices']
+            if vert_index + 1 in vert_indices
+        ])
+        if len(nbhood_vert_indices) == 0:
+            continue
+        for index, reindex in zip(vert_indices, np.arange(len(vert_indices))):
+            nbhood_vert_indices[np.where(nbhood_vert_indices == index - 1)] = reindex
+        nbhood_curve = deepcopy(curve)
+        nbhood_curve['vert_indices'] = nbhood_vert_indices
+        nbhood_sharp_curves.append(nbhood_curve)
+
+    nbhood_features = {'curves': nbhood_sharp_curves}
+    return nbhood_features
+
+
 @delayed
 def generate_patches(meshes_filename, feats_filename, data_slice,
                      nbhood_config, sampling_config, noise_config, annotator_config,
@@ -193,8 +215,9 @@ def generate_patches(meshes_filename, feats_filename, data_slice,
                 # create a noisy sample
                 noisy_point_sample = noiser.make_noise(points, normals)
 
-                # create annotations
-                annotations = annotator.annotate(noisy_point_sample, nbhood, features)
+                # create annotations: condition the features onto the nbhood, then compute the TSharpDF
+                nbhood_features = compute_curves_nbhood(features, orig_vert_indices, orig_face_indexes)
+                distances, directions = annotator.annotate(nbhood, nbhood_features, noisy_point_sample)
 
 
 

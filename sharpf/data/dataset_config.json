@@ -11,9 +11,11 @@
     "n_points": 4096
   },
   "noise": {
-    ""
+    "type": "normals_gaussian",
+    "scale": 0.2
   },
   "annotation": {
-    ""
+    "type": "resampling",
+    "sharp_discretization": 0.1
   }
 }
