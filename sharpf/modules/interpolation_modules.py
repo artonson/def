@@ -11,8 +11,8 @@ from contrib.pointweb.lib.pointops.functions import pointops
 
 class InterpolationBase(ParameterizedModule):
     """
-    ConvBase - Abstract class for Convolution methods for ParameterizedPointNet.
-    Current class deals with point projection from one dimensionality to another.
+    InterpolateBase - Abstract class for Interpolation methods for ParameterizedPointNet.
+    Current class deals with point upsampling.
 
     ...
 
@@ -22,13 +22,13 @@ class InterpolationBase(ParameterizedModule):
     Methods
     -------
     forward(x)
-       Performs a convolution operation
+       Performs an imterpolation operation
 
     """
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
-        input: x: batch of points for convolution, shape = (B, C_in, N, M)
+        input: x: batch of points for interpolation, shape = (B, C_in, N_in, M_in)
                   B - batch size,
                   C_in - number of features
                   N_in - number of points
@@ -37,11 +37,6 @@ class InterpolationBase(ParameterizedModule):
         """
         out = x
         return out
-
-
-interpolation_module_by_kind = {
-    'interpolation_base': InterpolationBase
-}
 
 
 class PointNet2Interpolation(ParameterizedModule):
@@ -87,3 +82,9 @@ class PointNet2Interpolation(ParameterizedModule):
             new_features = interpolated_feats
 
         return new_features.unsqueeze(-1)
+
+
+interpolation_module_by_kind = {
+    'interpolation_base': InterpolationBase,
+    'pointnet2_interpolation': PointNet2Interpolation
+}

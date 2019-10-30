@@ -11,7 +11,7 @@ from contrib.pointweb.lib.pointops.functions import pointops
 
 class NeighbourBase(ParameterizedModule):
     """
-    PatchBase - Abstract class for patches preparation in ParameterizedPointNet
+    NeighbourBase - Abstract class for patches preparation in ParameterizedPointNet
     Current class deals with: - sampling, aka centroids determination
                               - grouping, aka local region set construction
 
@@ -35,11 +35,6 @@ class NeighbourBase(ParameterizedModule):
         """
         new_features = xyz
         return new_features
-
-
-neighbour_module_by_kind = {
-    'neighbour_base': NeighbourBase
-}
 
 
 class PointNet2SamplingAndGrouping(NeighbourBase):
@@ -67,3 +62,50 @@ class PointNet2SamplingAndGrouping(NeighbourBase):
         output: new_features: (b, c+3, m, nsample)
         """
         return self.op(xyz, new_xyz, features, idx)
+
+
+class NeighourKNN(NeighourBase):
+    """
+    NeighbourBase - Abstract class for patches preparation in ParameterizedPointNet
+    Current class deals with: - sampling, aka centroids determination
+                              - grouping, aka local region set construction
+
+    ...
+
+    Attributes
+    ----------
+
+    Methods
+    -------
+    forward(x)
+       Prepares kNN indices for each point
+    """
+
+    def __init__(self, k, **kwargs):
+        super().__init__(**kwargs)
+        self.k = k
+
+    def forward(self, x):
+        """
+        input: x: batch of points for local transformation, shape = (B, N, C, M_in)
+                  B - batch size,
+                  N_in - number of points,
+                  C_in - number of features,
+                  M_in - number of patches
+        output: x: (B, N, C, M_in) tensor
+                idx: indices of nearest neighbour points for each point, shape = (B, N, M_out) tensor
+        """
+        if x.size(-1) == 1:
+            x = x.squeeze(-1)
+        inner = -2*torch.matmul(x, x.transpose(2, 1))
+        xx = torch.sum(x**2, dim=2, keepdim=True)
+        pairwise_distance = -xx.transpose(2, 1) - inner - xx
+        idx = pairwise_distance.topk(k=self.k, dim=-1)[1] 
+        return x, idx
+
+
+neighbour_module_by_kind = {
+    'neighbour_base': NeighourBase,
+    'pointnet2_sampling_grouping': PointNet2SamplingAndGrouping,
+    'neighbour_knn': NeighourKNN
+}
