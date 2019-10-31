@@ -170,10 +170,10 @@ def make_patches(options):
     output_files = [
         os.path.join(
             options.output_dir,
-            'abc_{chunk}_{slice}.hdf5'.format(chunk=options.chunk.zfill(4),
-                                         slice='_'.join(data_slice))
+            'abc_{chunk}_{slice_start}_{slice_end}.hdf5'.format(
+                chunk=options.chunk.zfill(4), slice_start=slice_start, slice_end=slice_end)
         )
-        for data_slice in abc_data_slices]
+        for slice_start, slice_end in abc_data_slices]
 
     # run the filtering job in parallel
     parallel = Parallel(n_jobs=options.n_jobs)
