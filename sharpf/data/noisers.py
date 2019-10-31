@@ -54,7 +54,15 @@ class NormalsGaussianNoise(NoiserFunc):
         return cls(config['scale'])
 
 
+class NoNoise(NoiserFunc):
+    def make_noise(self, points, normals, **kwargs): return points
+
+    @classmethod
+    def from_config(cls, config): return cls()
+
+
 NOISE_BY_TYPE = {
+    'no_noise': NoNoise,
     'isotropic_gaussian': IsotropicGaussianNoise,
     'normals_gaussian': NormalsGaussianNoise,
 }

@@ -32,10 +32,10 @@ class SharpnessResamplingAnnotator(AnnotatorFunc):
     """Sample lots of points on sharp edges,
     compute distances from the input point clouds
     to the closest sharp points."""
-    def __init__(self, distance_upper_bound, n_sharp_points):
+    def __init__(self, distance_upper_bound, sharp_discretization):
         super(SharpnessResamplingAnnotator, self).__init__()
         self.distance_upper_bound = distance_upper_bound
-        self.n_sharp_points = n_sharp_points
+        self.sharp_discretization = sharp_discretization
 
     def _resample_sharp_edges(self, mesh_patch, features):
         sharp_points = []
@@ -74,27 +74,19 @@ class SharpnessResamplingAnnotator(AnnotatorFunc):
         tree = KDTree(sharp_points)
         distances, vert_indices = tree.query(points, distance_upper_bound=self.distance_upper_bound)
 
-        mask_point = distances == np.inf
-        mask_sharp = vert_indices < len(sharp_samples)
-        vert_indices = vert_indices[mask_sharp]
+        far_from_sharp = distances == np.inf  # boolean mask marking objects far away from sharp curves
+        distances[far_from_sharp] = self.distance_upper_bound
 
-        directions = np.zeros_like(point_samples)
-        directions[~mask_point] = sharp_samples[vert_indices] - point_samples[~mask_point]
+        # compute directions for points close to sharp curves
+        directions = np.zeros_like(points)
+        directions[~far_from_sharp] = sharp_points[vert_indices[~far_from_sharp]] - points[~far_from_sharp]
+        directions[~far_from_sharp] /= np.linalg.norm(directions[~far_from_sharp], axis=1)
 
-        distances[mask_point] = distance_upper_bound
-
-        # adding noise to regular boundary samples
-        noise = (np.random.rand(*sharp_samples.shape) - 0.5) * 2 * noise_ampl
-        edge_samples = sharp_samples + noise
-        vert = np.concatenate([point_samples, sharp_samples])
-        distances = np.concatenate([distances, np.linalg.norm(noise, axis=1)])
-        directions = np.concatenate([directions, noise])
-        return vert, distances, directions
-
+        return distances, directions
 
     @classmethod
     def from_config(cls, config):
-        return cls(config['distance_upper_bound'], config['n_sharp_points'])
+        return cls(config['distance_upper_bound'], config['sharp_discretization'])
 
 
 ANNOTATOR_BY_TYPE = {
