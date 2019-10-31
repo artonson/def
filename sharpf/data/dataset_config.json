@@ -9,7 +9,9 @@
   },
   "sampling": {
     "type": "poisson_disk",
-    "n_points": 4096
+    "n_points": 4096,
+    "upsampling_factor": 2,
+    "poisson_disk_radius": 0.5
   },
   "noise": {
     "type": "normals_gaussian",

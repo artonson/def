@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 import trimesh
 # TODO add to contrib and docker
+import igl
 import point_cloud_utils as pcu
 
 
@@ -35,31 +36,37 @@ class PoissonDiskSampler(SamplerFunc):
     based on "Parallel Poisson Disk Sampling with Spectrum
     Analysis on Surface". (Implementation by fwilliams) """
     # https://github.com/marmakoide/mesh-blue-noise-sampling/blob/master/mesh-sampling.py
+    def __init__(self, n_points, upsampling_factor, poisson_disk_radius):
+        super().__init__(n_points)
+        self.upsampling_factor = upsampling_factor
+        self.poisson_disk_radius = poisson_disk_radius
+
     def sample(self, mesh):
+        # Generate very dense subdivision samples on the mesh (v, f, n)
+        dense_points, dense_faces = igl.upsample(mesh.vertices, mesh.faces, self.upsampling_factor)
 
-        # v is a nv by 3 NumPy array of vertices
-        # f is an nf by 3 NumPy array of face indexes into v
-        # n is a nv by 3 NumPy array of vertex normals
-        v, f, n, _ = pcu.read_ply("my_model.ply")
-        bbox = np.max(v, axis=0) - np.min(v, axis=0)
-        bbox_diag = np.linalg.norm(bbox)
-
-        # Generate very dense  random samples on the mesh (v, f, n)
-        # Note that this function works with no normals, just pass in an empty array np.array([], dtype=v.dtype)
-        # v_dense is an array with shape (100*v.shape[0], 3) where each row is a point on the mesh (v, f)
-        # n_dense is an array with shape (100*v.shape[0], 3) where each row is a the normal of a point in v_dense
-        v_dense, n_dense = pcu.sample_mesh_random(v, f, n, num_samples=v.shape[0] * 100)
+        # compute vertex normals by pushing to trimesh
+        umesh = trimesh.base.Trimesh(vertices=dense_points, faces=dense_faces, process=False, validate=False)
+        dense_points = np.array(umesh.vertices, order='C')
+        dense_normals = np.array(umesh.vertex_normals, order='C')
 
         # Downsample v_dense to be from a blue noise distribution:
         #
-        # v_poisson is a downsampled version of v where points are separated by approximately
+        # `points` is a downsampled version of `dense_points` where points are separated by approximately
         # `radius` distance, use_geodesic_distance indicates that the distance should be measured on the mesh.
         #
-        # n_poisson are the corresponding normals of v_poisson
-        v_poisson, n_poisson = pcu.sample_mesh_poisson_disk(
-            v_dense, f, n_dense, radius=0.01 * bbox_diag, use_geodesic_distance=True)
+        # `normals` are the corresponding normals of `points`
+        points, normals = pcu.sample_mesh_poisson_disk(
+            dense_points, dense_faces, dense_normals,
+            radius=self.poisson_disk_radius, use_geodesic_distance=True)
 
-        return points, normals
+        # ensure that we are returning exactly n_points
+        return_idx = np.random.choice(np.arange(), size=self.n_points, replace=False)
+        return points[return_idx], normals[return_idx]
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(config['n_points'], config['upsampling_factor'], config['poisson_disk_radius'])
 
 
 class TrianglePointPickingSampler(SamplerFunc):
