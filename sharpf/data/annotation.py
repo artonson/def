@@ -80,7 +80,7 @@ class SharpnessResamplingAnnotator(AnnotatorFunc):
         # compute directions for points close to sharp curves
         directions = np.zeros_like(points)
         directions[~far_from_sharp] = sharp_points[vert_indices[~far_from_sharp]] - points[~far_from_sharp]
-        directions[~far_from_sharp] /= np.linalg.norm(directions[~far_from_sharp], axis=1)
+        directions[~far_from_sharp] /= np.linalg.norm(directions[~far_from_sharp], axis=1, keepdims=True)
 
         return distances, directions
 
