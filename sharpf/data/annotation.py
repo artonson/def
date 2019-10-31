@@ -42,20 +42,19 @@ class SharpnessResamplingAnnotator(AnnotatorFunc):
         for curve in features['curves']:
             if curve['sharp']:
                 sharp_vert_indices = curve['vert_indices']
+                # there may be no sharp edges, but single vertices may be present -- add them
+                sharp_points.append(mesh_patch.vertices[sharp_vert_indices])
                 sharp_edges = np.array([
                     pair_i_j for pair_i_j in itertools.combinations(np.unique(sharp_vert_indices), 2)
                     if (mesh_patch.edges == pair_i_j).all(axis=1).any(axis=0)
                 ])
-                first, second = mesh_patch.vertices[sharp_edges[:, 0]], mesh_patch.vertices[sharp_edges[:, 1]]
-                sharp_points.append(first)
-                sharp_points.append(second)
-
-                # quite an ugly way to estimate the number of points to sample on edge
-                n_points_per_edge = np.linalg.norm(first - second, axis=1) / self.sharp_discretization
-                d_points_per_edge = 1. / n_points_per_edge
-                for n, v1, v2 in zip(n_points_per_edge, first, second):
-                    t = np.linspace(d_points_per_edge, 1 - d_points_per_edge, n)
-                    sharp_points.append(np.outer(t, v1) + np.outer(1 - t, v2))
+                if len(sharp_edges) > 0:
+                    first, second = mesh_patch.vertices[sharp_edges[:, 0]], mesh_patch.vertices[sharp_edges[:, 1]]
+                    n_points_per_edge = np.linalg.norm(first - second, axis=1) / self.sharp_discretization
+                    d_points_per_edge = 1. / n_points_per_edge
+                    for n, v1, v2 in zip(n_points_per_edge, first, second):
+                        t = np.linspace(d_points_per_edge, 1 - d_points_per_edge, n)
+                        sharp_points.append(np.outer(t, v1) + np.outer(1 - t, v2))
 
         sharp_points = np.concatenate(sharp_points)
         return sharp_points
