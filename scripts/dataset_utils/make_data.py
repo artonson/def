@@ -129,7 +129,7 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
         for i, face_indices in enumerate(orig_face_indexes):
             face_dataset[i] = face_indices.flatten()
 
-        has_sharp = np.stack(patch['has_sharp'] for patch in point_patches).astype(bool)
+        has_sharp = np.stack([patch['has_sharp'] for patch in point_patches]).astype(bool)
         hdf5file.create_dataset('has_sharp', data=has_sharp, dtype=np.bool)
 
 

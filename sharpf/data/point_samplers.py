@@ -4,6 +4,7 @@ import numpy as np
 import trimesh
 # TODO add to contrib and docker
 import igl
+from scipy.spatial import KDTree
 import point_cloud_utils as pcu
 
 
@@ -79,9 +80,20 @@ class TrianglePointPickingSampler(SamplerFunc):
         return points, normals
 
 
+class LloydSampler(SamplerFunc):
+    """Sample using the Lloyd algorithm"""
+    def sample(self, mesh):
+        points = pcu.sample_mesh_lloyd(mesh.vertices, mesh.faces, self.n_points)
+        tree = KDTree(mesh.vertices)
+        _, vert_indices = tree.query(points)
+        normals = mesh.vertex_normals[vert_indices]
+        return points, normals
+
+
 SAMPLER_BY_TYPE = {
     'poisson_disk': PoissonDiskSampler,
     'tpp': TrianglePointPickingSampler,
+    'lloyd': LloydSampler,
 }
 
 
