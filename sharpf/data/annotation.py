@@ -70,7 +70,7 @@ class SharpnessResamplingAnnotator(AnnotatorFunc):
         sharp_points = self._resample_sharp_edges(mesh_patch, features_patch)
 
         # compute distances from each input point to the sharp points
-        tree = KDTree(sharp_points)
+        tree = KDTree(sharp_points, leafsize=100)
         distances, vert_indices = tree.query(points, distance_upper_bound=self.distance_upper_bound)
 
         far_from_sharp = distances == np.inf  # boolean mask marking objects far away from sharp curves

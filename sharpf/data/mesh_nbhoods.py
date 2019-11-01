@@ -49,7 +49,7 @@ class EuclideanSphere(NeighbourhoodFunc):
 
     def index(self, mesh):
         self.mesh = mesh
-        self.tree = KDTree(mesh.vertices)
+        self.tree = KDTree(mesh.vertices, leafsize=100)
 
     def get_nbhood(self):
         # select vertices falling within euclidean sphere

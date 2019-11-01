@@ -98,7 +98,7 @@ class LloydSampler(SamplerFunc):
     """Sample using the Lloyd algorithm"""
     def sample(self, mesh):
         points = pcu.sample_mesh_lloyd(mesh.vertices, mesh.faces, self.n_points)
-        tree = KDTree(mesh.vertices)
+        tree = KDTree(mesh.vertices, leafsize=100)
         _, vert_indices = tree.query(points)
         normals = mesh.vertex_normals[vert_indices]
         return points, normals
