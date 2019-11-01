@@ -47,7 +47,7 @@ class PoissonDiskSampler(SamplerFunc):
         # keep in mind that each call to `igl.upsample` generates 4x the points,
         # then compute the upsampling factor K from the relation:
         # 4^K n = 10 n_points
-        upsampling_factor = np.ceil(np.log(self.n_points * 10. / len(mesh.vertices)) / np.log(4))
+        upsampling_factor = np.ceil(np.log(self.n_points * 10. / len(mesh.vertices)) / np.log(4)).astype(int)
         # Generate very dense subdivision samples on the mesh (v, f, n)
         dense_points, dense_faces = igl.upsample(mesh.vertices, mesh.faces, upsampling_factor)
 
