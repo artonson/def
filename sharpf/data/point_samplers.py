@@ -43,8 +43,13 @@ class PoissonDiskSampler(SamplerFunc):
         self.poisson_disk_radius = poisson_disk_radius
 
     def sample(self, mesh):
+        # Intuition: take 10x the number of needed n_points,
+        # keep in mind that each call to `igl.upsample` generates 4x the points,
+        # then compute the upsampling factor K from the relation:
+        # 4^K n = 10 n_points
+        upsampling_factor = np.ceil(np.log(self.n_points * 10. / len(mesh.vertices)) / np.log(4))
         # Generate very dense subdivision samples on the mesh (v, f, n)
-        dense_points, dense_faces = igl.upsample(mesh.vertices, mesh.faces, self.upsampling_factor)
+        dense_points, dense_faces = igl.upsample(mesh.vertices, mesh.faces, upsampling_factor)
 
         # compute vertex normals by pushing to trimesh
         umesh = trimesh.base.Trimesh(vertices=dense_points, faces=dense_faces, process=False, validate=False)
@@ -57,9 +62,28 @@ class PoissonDiskSampler(SamplerFunc):
         # `radius` distance, use_geodesic_distance indicates that the distance should be measured on the mesh.
         #
         # `normals` are the corresponding normals of `points`
-        points, normals = pcu.sample_mesh_poisson_disk(
-            dense_points, dense_faces, dense_normals,
-            radius=self.poisson_disk_radius, use_geodesic_distance=True)
+        poisson_disk_radius = float(np.mean(umesh.edges_unique_length))
+        i, n_iter = 0, 10
+        interval_left, interval_right = None, None
+        while i < n_iter:
+            i += 1
+            points, normals = pcu.sample_mesh_poisson_disk(
+                dense_points, dense_faces, dense_normals,
+                radius=poisson_disk_radius, use_geodesic_distance=True)
+            if self.n_points < len(points) < 1.1 * self.n_points:
+                break
+            elif len(points) < self.n_points:
+                interval_right = poisson_disk_radius
+                if None is not interval_left:
+                    poisson_disk_radius = (interval_left + interval_right) / 2.
+                else:
+                    poisson_disk_radius /= 2.
+            else:  # if len(points) > 1.1 * self.n_points
+                interval_left = poisson_disk_radius
+                if None is not interval_right:
+                    poisson_disk_radius = (interval_left + interval_right) / 2.
+                else:
+                    poisson_disk_radius *= 2.
 
         # ensure that we are returning exactly n_points
         return_idx = np.random.choice(np.arange(len(points)), size=self.n_points, replace=False)

@@ -103,13 +103,13 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
                 ))
 
     with h5py.File(output_file, 'w') as hdf5file:
-        points = np.stack(patch['points'] for patch in point_patches)
+        points = np.stack([patch['points'] for patch in point_patches])
         hdf5file.create_dataset('points', data=points, dtype=np.float64)
 
-        distances = np.stack(patch['distances'] for patch in point_patches)
+        distances = np.stack([patch['distances'] for patch in point_patches])
         hdf5file.create_dataset('distances', data=distances, dtype=np.float64)
 
-        directions = np.stack(patch['directions'] for patch in point_patches)
+        directions = np.stack([patch['directions'] for patch in point_patches])
         hdf5file.create_dataset('directions', data=directions, dtype=np.float64)
 
         item_ids = [patch['item_id'] for patch in point_patches]
