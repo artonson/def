@@ -11,13 +11,8 @@ from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import CosineAnnealingLR, ExponentialLR
 
 from util.logging import create_logger
-from models import load_model
 from util.os import require_empty
 from tensorboardX import SummaryWriter
-#from util.tensorboard import SummaryWriter
-
-#from optimizer import ScheduledOptimizer
-#import metrics
 from data import ABCData
 from util.util import cal_loss
 
