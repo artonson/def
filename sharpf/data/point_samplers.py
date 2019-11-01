@@ -1,10 +1,9 @@
 from abc import ABC, abstractmethod
 
 import numpy as np
-import trimesh
-# TODO add to contrib and docker
-import igl
 from scipy.spatial import KDTree
+import trimesh
+import igl
 import point_cloud_utils as pcu
 
 

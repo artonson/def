@@ -63,3 +63,10 @@ RUN pip install --verbose --no-cache-dir torch-cluster
 RUN pip install --verbose --no-cache-dir torch-spline-conv
 RUN pip install torch-geometric
 
+# Install geometry-related packages
+RUN git clone git@github.com:geometryprocessing/libigl-python-bindings.git \
+ && cd libigl-python-bindings \
+ && python setup.py install
+RUN git clone git@github.com:fwilliams/point-cloud-utils.git \
+ && cd point-cloud-utils \
+ && python setup.py install
