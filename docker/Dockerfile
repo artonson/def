@@ -56,6 +56,12 @@ COPY requirements.txt /opt/requirements.txt
 RUN pip install --upgrade pip \
  && pip install --default-timeout=1000 -r /opt/requirements.txt
 
+# Install PyTorch Geometric.
+ENV PATH=/usr/local/cuda/bin:$PATH
+ENV CPATH=/usr/local/cuda/include:$CPATH
+ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
+ENV DYLD_LIBRARY_PATH=/usr/local/cuda/lib:$DYLD_LIBRARY_PATH
+
 # Install pytorch_geometric and friends
 RUN pip install --verbose --no-cache-dir torch-scatter
 RUN pip install --verbose --no-cache-dir torch-sparse
@@ -64,9 +70,4 @@ RUN pip install --verbose --no-cache-dir torch-spline-conv
 RUN pip install torch-geometric
 
 # Install geometry-related packages
-RUN git clone git@github.com:geometryprocessing/libigl-python-bindings.git \
- && cd libigl-python-bindings \
- && python setup.py install
-RUN git clone git@github.com:fwilliams/point-cloud-utils.git \
- && cd point-cloud-utils \
- && python setup.py install
+RUN conda install -c conda-forge igl point_cloud_utils
