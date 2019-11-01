@@ -37,11 +37,6 @@ class PoissonDiskSampler(SamplerFunc):
     based on "Parallel Poisson Disk Sampling with Spectrum
     Analysis on Surface". (Implementation by fwilliams) """
     # https://github.com/marmakoide/mesh-blue-noise-sampling/blob/master/mesh-sampling.py
-    def __init__(self, n_points, upsampling_factor, poisson_disk_radius):
-        super().__init__(n_points)
-        self.upsampling_factor = upsampling_factor
-        self.poisson_disk_radius = poisson_disk_radius
-
     def sample(self, mesh):
         # Intuition: take 10x the number of needed n_points,
         # keep in mind that each call to `igl.upsample` generates 4x the points,
@@ -88,10 +83,6 @@ class PoissonDiskSampler(SamplerFunc):
         # ensure that we are returning exactly n_points
         return_idx = np.random.choice(np.arange(len(points)), size=self.n_points, replace=False)
         return points[return_idx], normals[return_idx]
-
-    @classmethod
-    def from_config(cls, config):
-        return cls(config['n_points'], config['upsampling_factor'], config['poisson_disk_radius'])
 
 
 class TrianglePointPickingSampler(SamplerFunc):
