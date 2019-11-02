@@ -1,13 +1,14 @@
 #!/bin/bash
 
-#SBATCH --job-name=sharpf_dataset_filter
+#SBATCH --job-name=sharpf_make_data
 #SBATCH --output=array_%A_%a.out
 #SBATCH --error=array_%A_%a.err
-#SBATCH --array=1-2
-#SBATCH --time=08:00:00
+#SBATCH --array=1-20
+#SBATCH --time=12:00:00
 #SBATCH --partition=cpu_big
 #SBATCH --cpus-per-task=24
 #SBATCH --ntasks-per-node=1
+#SBATCH --mem=100000
 
 set -x
 CPUS_PER_TASK=24
