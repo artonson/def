@@ -50,7 +50,6 @@ def compute_curves_nbhood(features, vert_indices, face_indexes):
     return nbhood_features
 
 
-@delayed
 def generate_patches(meshes_filename, feats_filename, data_slice, config, output_file):
     n_patches_per_mesh = config['n_patches_per_mesh']
     nbhood_extractor = load_func_from_config(NBHOOD_BY_TYPE, config['neighbourhood'])
@@ -180,8 +179,8 @@ def make_patches(options):
         for slice_start, slice_end in abc_data_slices]
 
     # run the filtering job in parallel
-    parallel = Parallel(n_jobs=options.n_jobs)
-    delayed_iterable = (generate_patches(obj_filename, feat_filename, data_slice, config, out_filename)
+    parallel = Parallel(n_jobs=options.n_jobs, backend='multiprocessing')
+    delayed_iterable = (delayed(generate_patches)(obj_filename, feat_filename, data_slice, config, out_filename)
                         for data_slice, out_filename in zip(abc_data_slices, output_files))
     parallel(delayed_iterable)
 
