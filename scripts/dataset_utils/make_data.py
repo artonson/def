@@ -88,6 +88,7 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
                     has_sharp = any(curve['sharp'] for curve in nbhood_features['curves'])
                     patch_info = {
                         'points': noisy_points,
+                        'normals': normals,
                         'distances': distances,
                         'directions': directions,
                         'item_id': item.item_id,
@@ -105,6 +106,9 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
     with h5py.File(output_file, 'w') as hdf5file:
         points = np.stack([patch['points'] for patch in point_patches])
         hdf5file.create_dataset('points', data=points, dtype=np.float64)
+
+        normals = np.stack([patch['normals'] for patch in point_patches])
+        hdf5file.create_dataset('normals', data=normals, dtype=np.float64)
 
         distances = np.stack([patch['distances'] for patch in point_patches])
         hdf5file.create_dataset('distances', data=distances, dtype=np.float64)
