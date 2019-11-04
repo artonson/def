@@ -12,13 +12,13 @@
       },
       "features": {
         "kind": "stacked_conv",
-        "channels": [6,64,64],
+        "channels": [6, 64, 64],
         "blocks": 2
       },
       "aggregation": {
         "kind": "aggregation_max",
         "dim": -1,
-        "keepdim": True
+        "keepdim": true
       },
       "interpolation": {
         "kind": "interpolation_base"
@@ -35,13 +35,13 @@
       },
       "features": {
         "kind": "stacked_conv",
-        "channels": [128,64,64],
+        "channels": [128, 64, 64],
         "blocks": 2
       },
       "aggregation": {
         "kind": "aggregation_max",
         "dim": -1,
-        "keepdim": True
+        "keepdim": true
       },
       "interpolation": {
         "kind": "interpolation_base"
@@ -58,13 +58,13 @@
       },
       "features": {
         "kind": "stacked_conv",
-        "channels": [128,64,64],
+        "channels": [128, 64, 64],
         "blocks": 2
       },
       "aggregation": {
         "kind": "aggregation_max",
         "dim": -1,
-        "keepdim": True
+        "keepdim": true
       },
       "interpolation": {
         "kind": "interpolation_base"
@@ -82,13 +82,13 @@
       },
       "features": {
         "kind": "stacked_conv",
-        "channels": [192,1024],
+        "channels": [192, 1024],
         "blocks": 1
       },
       "aggregation": {
         "kind": "aggregation_max",
-        "keepdim": True,
-        "dim": 1
+        "keepdim": true,
+        "dim": 2
       },
       "interpolation": {
         "kind": "interpolation_base"
@@ -104,7 +104,7 @@
       },
       "features": {
         "kind": "stacked_conv",
-        "channels": [1024+192,512,256],
+        "channels": [1216, 512, 256],
         "blocks": 2
       },
       "aggregation": {
@@ -124,10 +124,10 @@
       },
       "features": {
         "kind": "stacked_conv",
-        "channels": [256,1],
+        "channels": [256, 1],
         "blocks": 1,
-        "bn": False,
-        "relu": False
+        "bn": 0,
+        "relu": 0
       },
       "aggregation": {
         "kind": "aggregation_base"
@@ -135,6 +135,6 @@
       "interpolation": {
         "kind": "interpolation_base"
       }
-    },
+    }
   ]
 }

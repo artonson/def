@@ -1,6 +1,7 @@
 from sharpf.modules import module_by_kind
 from sharpf.modules.base import ParameterizedModule, load_with_spec
 import torch
+from torch import nn
 
 
 class GenericPointBasedNet(ParameterizedModule):
@@ -28,8 +29,8 @@ class GenericPointBasedNet(ParameterizedModule):
 class DGCNN(ParameterizedModule):
     def __init__(self, encoder_blocks, decoder_blocks, **kwargs):
         super().__init__(**kwargs)
-        self.encoder_blocks = encoder_blocks
-        self.decoder_blocks = decoder_blocks
+        self.encoder_blocks = nn.ModuleList(encoder_blocks)
+        self.decoder_blocks = nn.ModuleList(decoder_blocks)
 
     def forward(self, points):
         activations = [points]
@@ -37,11 +38,11 @@ class DGCNN(ParameterizedModule):
         for block in self.encoder_blocks:
             features = block(features)
             activations.append(features)
-        concatenated_features =  torch.cat(activations[1:], dim=2)   
+        concatenated_features = torch.cat(activations[1:], dim=2)
         features = self.decoder_blocks[0](concatenated_features)
         num_point = points.size(1)
-        expand = torch.repeat_interleave(features, num_point, 1)
-        features = self.decoder_blocks[1](torch.cat((expand,concatenated_features), dim=2))
+        expand = torch.repeat_interleave(features, num_point, 2)
+        features = self.decoder_blocks[1](torch.cat((expand, concatenated_features), dim=2))
         features = self.decoder_blocks[2](features)
         features = features.squeeze()
         return features

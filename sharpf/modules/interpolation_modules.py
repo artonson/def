@@ -59,8 +59,8 @@ class PointNet2Interpolation(ParameterizedModule):
             (B, C2 + C1, n) tensor of the features of the unknown features
     """
 
-    def __init__(self):
-        super().__init__()
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
 
     def forward(self,
                 unknown: torch.Tensor,

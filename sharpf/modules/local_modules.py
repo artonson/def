@@ -68,19 +68,25 @@ class LocalDynamicGraph(LocalTransformBase):
         """
         idx = x[1]
         x = x[0]
-        batch_size = x.size(0)
-        num_points = x.size(1)
-        num_dims = x.size(2)
-        k = idx.size(2)
-        idx_base = torch.arange(0, batch_size).view(-1, 1, 1)*num_points
-        idx += idx_base
+
+        batch_size, num_points, num_dims = x.shape
+        k = idx.shape[2]
+
+        x = x.transpose(2, 1)
+        x = x.view(batch_size, -1, num_points)
+        idx_base = torch.arange(0, batch_size, device=x.device).view(-1, 1, 1) * num_points
+        idx = idx + idx_base
         idx = idx.view(-1)
-        x = x.transpose(2, 1).contiguous()
-        feature = x.view(batch_size*num_points, -1)[idx, :]
-        feature = feature.view(batch_size, num_points, k, num_dims) 
-        x = x.view(batch_size, num_points, 1, num_dims).repeat(1, 1, k, 1)        
-        out = torch.cat((feature-x, x), dim=3).permute(0, 1, 3, 2)
-        return out
+
+        x = x.transpose(2, 1)
+        # (batch_size, num_points, num_dims)  -> (batch_size*num_points, num_dims) #   batch_size * num_points * k + range(0, batch_size*num_points)
+
+        feature = x.view(batch_size * num_points, -1)[idx, :]
+
+        feature = feature.view(batch_size, num_points, k, num_dims)
+        x = x.view(batch_size, num_points, 1, num_dims).repeat(1, 1, k, 1)
+        feature = torch.cat((feature - x, x), dim=3).permute(0, 1, 3, 2)
+        return feature
 
 
 local_module_by_kind = {

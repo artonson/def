@@ -29,16 +29,17 @@ def download():
 #        os.system('rm %s' % (zipfile))
 
 
-def load_data(data_path, partition):
-#    download()
-    BASE_DIR = os.path.dirname(data_path)#os.path.abspath(__file__))
+def load_data(data_path, partition, data_label, target_label):
+    BASE_DIR = os.path.dirname(data_path)
     DATA_DIR = os.path.join(BASE_DIR, 'data')
     all_data = []
     all_label = []
-    for h5_name in glob.glob(os.path.join(DATA_DIR, '*%s.hdf5'%partition)):
+
+    for h5_name in glob.glob(os.path.join(DATA_DIR, '*.hdf5')):
+        print(h5_name)
         f = h5py.File(h5_name)
-        data = f['data'][:].astype('float32')
-        label = f['label'][:].astype('float32')
+        data = f[data_label][:].astype('float32')
+        label = f[target_label][:].astype('float32')
         f.close()
         all_data.append(data)
         all_label.append(label)
@@ -73,21 +74,21 @@ def rotate_pointcloud(pointcloud):
 
 
 class ABCData(Dataset):
-    def __init__(self, data_path, num_points, partition='train'):
-        self.data, self.label = load_data(data_path, partition)
+    def __init__(self, data_path, num_points, partition='train', data_label='data', target_label='distances'):
+        self.data, self.label = load_data(data_path, partition, data_label, target_label)
         self.num_points = num_points
         self.partition = partition        
 
     def __getitem__(self, item):
         pointcloud = self.data[item][:self.num_points]
         label = self.label[item][:self.num_points]
-#        print(pointcloud.shape,label.shape)
-        points_labels = np.hstack([pointcloud,label])
+
+        points_labels = np.hstack([pointcloud, label.reshape(-1, 1)])
         if self.partition == 'train':
-            points_labels[:,:3] = rotate_pointcloud(points_labels[:,:3])
-#            pointcloud = translate_pointcloud(pointcloud)
+            points_labels[:, :3] = rotate_pointcloud(points_labels[:, :3])
             np.random.shuffle(points_labels)
-        return points_labels[:,:3], points_labels[:,-1]
+
+        return points_labels[:, :3], points_labels[:, -1]
 
     def __len__(self):
         return self.data.shape[0]

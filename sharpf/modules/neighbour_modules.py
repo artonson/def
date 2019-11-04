@@ -44,8 +44,8 @@ class PointNet2SamplingAndGrouping(NeighbourBase):
         radius: float32, Radius of ball
         nsample: int32, Maximum number of features to gather in the ball
     """
-    def __init__(self, radius=None, nsample=32, use_xyz=True):
-        super().__init__()
+    def __init__(self, radius=None, nsample=32, use_xyz=True, **kwargs):
+        super().__init__(**kwargs)
         self.radius, self.nsample, self.use_xyz = radius, nsample, use_xyz
         self.op = pointops.QueryAndGroup(radius, nsample, use_xyz)
 
@@ -97,10 +97,11 @@ class NeighourKNN(NeighbourBase):
         """
         if x.size(-1) == 1:
             x = x.squeeze(-1)
-        inner = -2*torch.matmul(x, x.transpose(2, 1))
-        xx = torch.sum(x**2, dim=2, keepdim=True)
+
+        inner = -2 * torch.matmul(x, x.transpose(2, 1))
+        xx = torch.sum(x ** 2, dim=2, keepdim=True)
         pairwise_distance = -xx.transpose(2, 1) - inner - xx
-        idx = pairwise_distance.topk(k=self.k, dim=-1)[1] 
+        idx = pairwise_distance.topk(k=self.k, dim=-1)[1]  # (batch_size, num_points, k)
         return x, idx
 
 

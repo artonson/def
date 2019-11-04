@@ -107,9 +107,9 @@ class AggregationMaxPooling(AggregationBase):
                   M_in - number of points in the neighbourhood
         output: out: (B, N_out, C_out, M_out) tensor
         """
-        x = x.transpose(2,1).contiguous()
+        x = x.transpose(2, 1).contiguous()
         out = self.max_pool(x)
-        out = out.transpose(2,1).contiguous()
+        out = out.transpose(2, 1).contiguous()
         return out
 
 

@@ -72,25 +72,25 @@ class StackedConv(ConvBase):
         """
         input: x: batch of points for convolution, shape = (B, C_in, N_in, M_in)
                   B - batch size,
-                  C_in - number of features
                   N_in - number of points
+                  C_in - number of features
                   M_in - number of patches
-        output: out: (B, C_out, N_out, M_out) tensor
+        output: out: (B, N_out, C_out, M_out) tensor
         """
-        x = x.transpose(2,1).contiguous()
-        out = self.conv(x)
-        out = out.transpose(2,1).contiguous()
-        return out
+        out = self.conv(x.transpose(2, 1))
+        return out.transpose(2, 1)
 
 
-def conv_model_creator(channels=[6,64], kernel_size=1, blocks=1, bn=True, relu=True):
+def conv_model_creator(channels=(6, 64), kernel_size=1, blocks=1, bn=True, relu=True):
     layers = []
     assert blocks == len(channels)-1, 'wrong number of blocks'
         
     for i in range(blocks):
-        layer = nn.Sequential(nn.Conv2d(channels[i], channels[i+1], kernel_size=kernel_size, bias=False),
-                               nn.BatchNorm2d(channels[i+1]) if bn else ConvBase(),
-                               nn.ReLU(inplace=True) if relu else ConvBase(),)
+        layer = nn.Sequential(
+            nn.Conv2d(channels[i], channels[i+1], kernel_size=kernel_size, bias=False),
+            nn.BatchNorm2d(channels[i+1]) if bn else ConvBase(),
+            nn.ReLU(inplace=True) if relu else ConvBase(),
+        )
         layers.append(layer)
     
     return nn.Sequential(*layers)
