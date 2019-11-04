@@ -10,7 +10,7 @@ from unittest import TestCase
 
 import urllib.request
 
-from sharpf.data.abc_data import ABC7ZFile, ABCChunk, ABCModality, ABCItem, _extract_inar_id, MergedABCItem, ALL_ABC_MODALITIES
+from sharpf.data.abc.abc_data import ABC7ZFile, ABCChunk, ABCModality, ABCItem, _extract_inar_id, MergedABCItem, ALL_ABC_MODALITIES
 
 OBJ_URL = 'https://box.skoltech.ru/index.php/s/r17FSLbWI9NRmme/download'
 FEAT_URL = 'https://box.skoltech.ru/index.php/s/JapYt3PAn50gq8u/download'

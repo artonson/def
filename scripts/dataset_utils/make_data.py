@@ -1,159 +1,206 @@
 #!/usr/bin/env python3
 
 import argparse
+import json
+from copy import deepcopy
+import os
+import sys
 
-from sharpf.utils.shape import SequentialFilter, load_from_options
-from sharpf.data.abc_data import ABCData, ABCModality
-
+import h5py
 from joblib import Parallel, delayed
+import numpy as np
+import yaml
+
+__dir__ = os.path.normpath(
+    os.path.join(
+        os.path.dirname(os.path.realpath(__file__)), '..', '..')
+)
+sys.path[1:1] = [__dir__]
+
+from sharpf.data.abc.abc_data import ABCModality, ABCChunk, ABC_7Z_FILEMASK
+from sharpf.data.annotation import ANNOTATOR_BY_TYPE
+from sharpf.data.mesh_nbhoods import NBHOOD_BY_TYPE
+from sharpf.data.noisers import NOISE_BY_TYPE
+from sharpf.data.point_samplers import SAMPLER_BY_TYPE
+from sharpf.utils.common import eprint
+from sharpf.utils.mesh_utils import trimesh_load
 
 
-# Method scheme:
-# 1) Obtain an archive filename as input.
-# 2) Locate the corresponding object and feature files.
-# 3) Filter the shapes using a number of filters, saving intermediate results.
-# 4) Crop patches from the shapes, saving to intermediate output files.
-# 5) Save dataset from the patches, saving to torch.FloatStorage .
+def load_func_from_config(func_dict, config):
+    return func_dict[config['type']].from_config(config)
 
 
-@delayed
-def filter_meshes_worker(filter_fn, item):
-    item.archive_filename
-    item.name
+def compute_curves_nbhood(features, vert_indices, face_indexes):
+    """Extracts curves for the neighbourhood."""
+    nbhood_sharp_curves = []
+    for curve in features['curves']:
+        nbhood_vert_indices = np.array([
+            vert_index for vert_index in curve['vert_indices']
+            if vert_index + 1 in vert_indices
+        ])
+        if len(nbhood_vert_indices) == 0:
+            continue
+        for index, reindex in zip(vert_indices, np.arange(len(vert_indices))):
+            nbhood_vert_indices[np.where(nbhood_vert_indices == index - 1)] = reindex
+        nbhood_curve = deepcopy(curve)
+        nbhood_curve['vert_indices'] = nbhood_vert_indices
+        nbhood_sharp_curves.append(nbhood_curve)
 
-    is_ok = filter_fn(item.obj)
-    return item.archive_filename, item.name, is_ok
+    nbhood_features = {'curves': nbhood_sharp_curves}
+    return nbhood_features
 
 
+def generate_patches(meshes_filename, feats_filename, data_slice, config, output_file):
+    n_patches_per_mesh = config['n_patches_per_mesh']
+    nbhood_extractor = load_func_from_config(NBHOOD_BY_TYPE, config['neighbourhood'])
+    sampler = load_func_from_config(SAMPLER_BY_TYPE, config['sampling'])
+    noiser = load_func_from_config(NOISE_BY_TYPE, config['noise'])
+    annotator = load_func_from_config(ANNOTATOR_BY_TYPE, config['annotation'])
 
-def filter_shapes(options):
-    """Filter the shapes using a number of filters, saving intermediate results."""
+    slice_start, slice_end = data_slice
+    with ABCChunk([meshes_filename, feats_filename]) as data_holder:
+        point_patches = []
+        for item in data_holder[slice_start:slice_end]:
+            # load the mesh and the feature curves annotations
+            try:
+                mesh = trimesh_load(item.obj)
+                features = yaml.load(item.feat, Loader=yaml.Loader)
 
-    # create the required filter objects
-    sequential_filter = SequentialFilter([
-        load_from_options(filter_name, options.__dict__)
-        for filter_name in options.filters])
+                # index the mesh using a neighbourhood functions class
+                # (this internally may call indexing, so for repeated invocation one passes the mesh)
+                nbhood_extractor.index(mesh)
 
-    # create the data source iterator
-    abc_data = ABCData(options.data_dir, modalities=[ABCModality.FEAT],
-                       shape_representation='trimesh')
+                for patch_idx in range(n_patches_per_mesh):
+                    # extract neighbourhood
+                    nbhood, orig_vert_indices, orig_face_indexes = nbhood_extractor.get_nbhood()
 
-    # run the filtering job in parallel
-    parallel = Parallel(n_jobs=options.n_jobs)
-    delayed_iterable = (filter_meshes_worker(sequential_filter, item) for item in abc_data)
-    output = parallel(delayed_iterable)
+                    # sample the neighbourhood to form a point patch
+                    points, normals = sampler.sample(nbhood)
 
-    # write out the results
-    with open(options.output_filename, 'w') as output_file:
-        output_file.write('\n'.join([
-            '{} {}'.format(archive_filename, name)
-            for archive_filename, name, is_ok in output if is_ok
-        ]))
+                    # create a noisy sample
+                    noisy_points = noiser.make_noise(points, normals)
+
+                    # create annotations: condition the features onto the nbhood, then compute the TSharpDF
+                    nbhood_features = compute_curves_nbhood(features, orig_vert_indices, orig_face_indexes)
+                    distances, directions = annotator.annotate(nbhood, nbhood_features, noisy_points)
+
+                    has_sharp = any(curve['sharp'] for curve in nbhood_features['curves'])
+                    patch_info = {
+                        'points': noisy_points,
+                        'normals': normals,
+                        'distances': distances,
+                        'directions': directions,
+                        'item_id': item.item_id,
+                        'orig_vert_indices': orig_vert_indices,
+                        'orig_face_indexes': orig_face_indexes,
+                        'has_sharp': has_sharp
+                    }
+                    point_patches.append(patch_info)
+
+            except Exception as e:
+                eprint('Error processing item {item_id} from chunk {chunk}: {what}'.format(
+                    item_id=item.item_id, chunk='[{},{}]'.format(meshes_filename, feats_filename), what=e
+                ))
+
+    with h5py.File(output_file, 'w') as hdf5file:
+        points = np.stack([patch['points'] for patch in point_patches])
+        hdf5file.create_dataset('points', data=points, dtype=np.float64)
+
+        normals = np.stack([patch['normals'] for patch in point_patches])
+        hdf5file.create_dataset('normals', data=normals, dtype=np.float64)
+
+        distances = np.stack([patch['distances'] for patch in point_patches])
+        hdf5file.create_dataset('distances', data=distances, dtype=np.float64)
+
+        directions = np.stack([patch['directions'] for patch in point_patches])
+        hdf5file.create_dataset('directions', data=directions, dtype=np.float64)
+
+        item_ids = [patch['item_id'] for patch in point_patches]
+        hdf5file.create_dataset('item_id', data=np.string_(item_ids), dtype=h5py.string_dtype(encoding='ascii'))
+
+        orig_vert_indices = [patch['orig_vert_indices'].astype('int32') for patch in point_patches]
+        vert_dataset = hdf5file.create_dataset('orig_vert_indices',
+                                               shape=(len(orig_vert_indices),),
+                                               dtype=h5py.special_dtype(vlen=np.int32))
+        for i, vert_indices in enumerate(orig_vert_indices):
+            vert_dataset[i] = vert_indices
+
+        orig_face_indexes = [patch['orig_face_indexes'].astype('int32') for patch in point_patches]
+        face_dataset = hdf5file.create_dataset('orig_face_indexes',
+                                               shape=(len(orig_face_indexes),),
+                                               dtype=h5py.special_dtype(vlen=np.int32))
+        for i, face_indices in enumerate(orig_face_indexes):
+            face_dataset[i] = face_indices.flatten()
+
+        has_sharp = np.stack([patch['has_sharp'] for patch in point_patches]).astype(bool)
+        hdf5file.create_dataset('has_sharp', data=has_sharp, dtype=np.bool)
 
 
 def make_patches(options):
-    pass
+    """Filter the shapes using a number of filters, saving intermediate results."""
 
+    # create the data source iterator
+    # abc_data = ABCData(options.data_dir,
+    #                    modalities=[ABCModality.FEAT.value, ABCModality.OBJ.value],
+    #                    chunks=[options.chunk],
+    #                    shape_representation='trimesh')
 
+    obj_filename = os.path.join(
+        options.input_dir,
+        ABC_7Z_FILEMASK.format(
+            chunk=options.chunk.zfill(4),
+            modality=ABCModality.OBJ.value,
+            version='00'
+        )
+    )
+    feat_filename = os.path.join(
+        options.input_dir,
+        ABC_7Z_FILEMASK.format(
+            chunk=options.chunk.zfill(4),
+            modality=ABCModality.FEAT.value,
+            version='00'
+        )
+    )
+    abc_data = ABCChunk([obj_filename, feat_filename])
 
-def make_torch_storage(options):
-    pass
+    with open(options.dataset_config) as config_file:
+        config = json.load(config_file)
+
+    processes_to_spawn = 10 * options.n_jobs
+    chunk_size = len(abc_data) // processes_to_spawn
+    abc_data_slices = [(start, start + chunk_size)
+                       for start in range(0, len(abc_data), chunk_size)]
+    output_files = [
+        os.path.join(
+            options.output_dir,
+            'abc_{chunk}_{slice_start}_{slice_end}.hdf5'.format(
+                chunk=options.chunk.zfill(4), slice_start=slice_start, slice_end=slice_end)
+        )
+        for slice_start, slice_end in abc_data_slices]
+
+    # run the filtering job in parallel
+    parallel = Parallel(n_jobs=options.n_jobs, backend='multiprocessing')
+    delayed_iterable = (delayed(generate_patches)(obj_filename, feat_filename, data_slice, config, out_filename)
+                        for data_slice, out_filename in zip(abc_data_slices, output_files))
+    parallel(delayed_iterable)
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('-j', '--jobs', type=int, default=4, help='CPU jobs to use in parallel [default: 4].')
-
-    subparsers = parser.add_subparsers(dest='command', help='sub-command help')
-
-    # create the parser for the "filter" command
-    stats_parser = subparsers.add_parser('filter', help='select meshes according to the specified filters.')
-    stats_parser.add_argument('--data-root', required=True, dest='data_root', help='root of the data tree (directory).')
-
-    stats_parser.add_argument('-f', '--filter', choices=[], action='append', dest='filters',
-                              help='the filters to use (can be multiple).')
-    stats_parser.add_argument('bar', type=int, help='bar help')
-    stats_parser.add_argument('bar', type=int, help='bar help')
-    stats_parser.add_argument('bar', type=int, help='bar help')
-    stats_parser.add_argument('bar', type=int, help='bar help')
-
-
-    # create the parser for the "patches" command
-    patches_parser = subparsers.add_parser('patches', help='generate patches ')
-    patches_parser.add_argument('bar', type=int, help='bar help')
-
-
-
-    # create the parser for the "dataset" command
-    dataset_parser = subparsers.add_parser('dataset', help='generate torch-based dataset from selected patches.')
-    dataset_parser.add_argument('bar', type=int, help='bar help')
-
-
-    parser.add_argument('-e', '--epochs', type=int, default=1, help='how many epochs to train [default: 1].')
-    parser.add_argument('-b', '--train-batch-size', type=int, default=128, dest='train_batch_size',
-                        help='train batch size [default: 128].')
-    parser.add_argument('-B', '--val-batch-size', type=int, default=128, dest='val_batch_size',
-                        help='val batch size [default: 128].')
-    parser.add_argument('--batches-before-val', type=int, default=1024, dest='batches_before_val',
-                        help='how many batches to train before validation [default: 1024].')
-    parser.add_argument('--batches-before-imglog', type=int, default=12, dest='batches_before_imglog',
-                        help='log images each batches-before-imglog validation batches [default: 12].')
-    parser.add_argument('--mini-val-batches-n-per-subset', type=int, default=12, dest='mini_val_batches_n_per_subset',
-                        help='how many batches per subset to run for mini validation [default: 12].')
-
-    parser.add_argument('--model-spec', dest='model_spec_filename', required=True,
-                        help='model specification JSON file to use [default: none].')
-    parser.add_argument('--infer-from-spec', dest='infer_from_spec', action='store_true', default=False,
-                        help='if set, --model, --save-model-file, --logging-file, --tboard-json-logging-file,'
-                             'and --tboard-dir are formed automatically [default: False].')
-    parser.add_argument('--log-dir-prefix', dest='logs_dir', default='/logs',
-                        help='path to root of logging location [default: /logs].')
-    parser.add_argument('-m', '--init-model-file', dest='init_model_filename',
-                        help='Path to initializer model file [default: none].')
-
-    parser.add_argument('-s', '--save-model-file', dest='save_model_filename',
-                        help='Path to output vectorization model file [default: none].')
-    parser.add_argument('--batches_before_save', type=int, default=1024, dest='batches_before_save',
-                        help='how many batches to run before saving the model [default: 1024].')
-
-    parser.add_argument('--data-root', required=True, dest='data_root', help='root of the data tree (directory).')
-    parser.add_argument('--data-type', required=True, dest='dataloader_type',
-                        help='type of the train/val data to use.', choices=dataloading.prepare_loaders.keys())
-    parser.add_argument('--handcrafted-train', required=False, action='append',
-                        dest='handcrafted_train_paths', help='dirnames of handcrafted datasets used for training '
-                                                             '(sought for in preprocessed/synthetic_handcrafted).')
-    parser.add_argument('--handcrafted-val', required=False, action='append',
-                        dest='handcrafted_val_paths', help='dirnames of handcrafted datasets used for validation '
-                                                           '(sought for in preprocessed/synthetic_handcrafted).')
-    parser.add_argument('--handcrafted-val-part', required=False, type=float, default=.1,
-                        dest='handcrafted_val_part', help='portion of handcrafted_train used for validation')
-    parser.add_argument('-M', '--memory-constraint', required=True, type=int, dest='memory_constraint',help='maximum RAM usage in bytes.')
-
-    parser.add_argument('-r', '--render-resolution', dest='render_res', default=64, type=int,
-                        help='resolution used for rendering.')
-
-    parser.add_argument('--verbose', action='store_true', default=False, dest='verbose',
-                        help='verbose output [default: False].')
-    parser.add_argument('-l', '--logging-file', dest='logging_filename',
-                        help='Path to output logging text file [default: output to stdout only].')
-    parser.add_argument('-tl', '--tboard-json-logging-file', dest='tboard_json_logging_file',
-                        help='Path to output logging JSON file with scalars [default: none].')
-    parser.add_argument('-x', '--tboard-dir', dest='tboard_dir',
-                        help='Path to tensorboard [default: do not log events].')
-    parser.add_argument('-w', '--overwrite', action='store_true', default=False,
-                        help='If set, overwrite existing logs [default: exit if output dir exists].')
+    parser.add_argument('-j', '--jobs', dest='n_jobs',
+                        type=int, default=4, help='CPU jobs to use in parallel [default: 4].')
+    parser.add_argument('-i', '--input-dir', dest='input_dir',
+                        required=True, help='input dir with ABC dataset.')
+    parser.add_argument('-c', '--chunk', required=True, help='ABC chunk id to process.')
+    parser.add_argument('-o', '--output-dir', dest='output_dir',
+                        required=True, help='output dir.')
+    parser.add_argument('-g', '--dataset-config', dest='dataset_config',
+                        required=True, help='dataset configuration file.')
 
     return parser.parse_args()
 
 
 if __name__ == '__main__':
     options = parse_args()
-
-    function_to_run = {
-        'filter': filter_shapes,
-        'patch': make_patches,
-        'dataset': make_torch_storage,
-    }[options.command]
-
-    function_to_run(options)
+    make_patches(options)

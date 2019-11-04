@@ -1,0 +1,23 @@
+{
+  "n_patches_per_mesh": 10,
+  "neighbourhood": {
+    "type": "random_euclidean_sphere",
+    "n_vertices": 500,
+    "centroid": 0,
+    "radius": 10.0,
+    "radius_delta": 0.5
+  },
+  "sampling": {
+    "type": "poisson_disk",
+    "n_points": 4096
+  },
+  "noise": {
+    "type": "normals_gaussian",
+    "scale": 3.2
+  },
+  "annotation": {
+    "type": "resampling",
+    "sharp_discretization": 0.1,
+    "distance_upper_bound": 1.0
+  }
+}
