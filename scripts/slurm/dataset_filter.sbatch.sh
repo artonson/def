@@ -3,9 +3,9 @@
 #SBATCH --job-name=sharpf_dataset_filter
 #SBATCH --output=array_%A_%a.out
 #SBATCH --error=array_%A_%a.err
-#SBATCH --array=0-9
+#SBATCH --array=40-99
 #SBATCH --time=01:00:00
-#SBATCH --partition=cpu_big
+#SBATCH --partition=gpu_big
 #SBATCH --cpus-per-task=24
 #SBATCH --ntasks-per-node=1
 
