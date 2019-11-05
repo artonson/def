@@ -61,6 +61,8 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
     with ABCChunk([meshes_filename, feats_filename]) as data_holder:
         point_patches = []
         for item in data_holder[slice_start:slice_end]:
+            eprint("Processing chunk file {chunk}, item {item}".format(
+                chunk=meshes_filename, item=item.item_id))
             # load the mesh and the feature curves annotations
             try:
                 mesh = trimesh_load(item.obj)
