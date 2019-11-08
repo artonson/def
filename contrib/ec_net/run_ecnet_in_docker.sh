@@ -10,13 +10,14 @@ set -e
 #	-c: 	docker container name
 #	-g: 	comma-separated gpu indexes
 
-usage() { echo "Usage: $0 -i <input_file> -o <output_file> -d <docker_image_name> -c <container_name> -g <gpu_indexes>" >&2; }
+usage() { echo "Usage: $0 -i <input_file> -o <output_file> -l <label> -d <docker_image_name> -c <container_name> -g <gpu_indexes>" >&2; }
 
-while getopts "i:o:d:c:g:" opt
+while getopts "i:o:l:d:c:g:" opt
 do
     case ${opt} in
         i) INPUT_FILE=$OPTARG;;
         o) OUTPUT_FILE=$OPTARG;;
+        l) DATA_LABEL=$OPTARG;;
         d) IMAGE_NAME=$OPTARG;;
         c) CONTAINER_NAME=$OPTARG;;
         g) GPU_ENV=$OPTARG;;
@@ -32,6 +33,12 @@ fi
 
 if [[ ! ${OUTPUT_FILE} ]]; then
     echo "output_file is not set";
+    usage
+    exit 1
+fi
+
+if [[ ! ${DATA_LABEL} ]]; then
+    echo "data_label is not set";
     usage
     exit 1
 fi
@@ -57,16 +64,18 @@ fi
 DATA_PATH_HOST="$( cd "$( dirname "${INPUT_FILE}" )" >/dev/null 2>&1 && pwd )"
 DATA_PATH_CONTAINER="/home/data"
 LOCAL_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
-LOGS_PATH_HOST="${LOCAL_DIR}"/logs
+LOGS_PATH_HOST="${LOCAL_DIR}/logs"
 LOGS_PATH_CONTAINER="/home/logs"
-SPLITCODE_PATH_HOST="${LOCAL_DIR}"/src
-SPLITCODE_PATH_CONTAINER="/home/split"
+
+SPLITCODE_PATH_HOST="${LOCAL_DIR}/../hdf5_utils"
+SPLITCODE_PATH_CONTAINER="/home/hdf5_utils"
 
 INPUT_FILE_CONTAINER="${DATA_PATH_CONTAINER}/$(basename "${INPUT_FILE}")"
 OUTPUT_FILE_CONTAINER="${DATA_PATH_CONTAINER}/$(basename "${OUTPUT_FILE}")"
 
 SPLIT_DATA_PATH_CONTAINER="${DATA_PATH_CONTAINER}/xyz_splitted"
 SPLIT_INPUT_CONTAINER="${SPLIT_DATA_PATH_CONTAINER}/*.xyz"
+SPLIT_OUTPUT_CONTAINER="${DATA_PATH_CONTAINER}/results_splitted"
 CODE_PATH_CONTAINER="/home/EC-Net/code"
 MODEL_PATH_CONTAINER="/home/EC-Net/model/pretrain"
 
@@ -75,15 +84,16 @@ echo "  "
 echo "  HOST OPTIONS:"
 echo "  input path:           ${INPUT_FILE}"
 echo "  output path:          ${OUTPUT_FILE}"
+echo "  split code path:      ${SPLITCODE_PATH_HOST}"
 echo "  logs path:            ${LOGS_PATH_HOST}"
-echo "  wrapper code path:    ${SPLITCODE_PATH_CONTAINER}"
 echo "  "
 echo "  CONTAINER OPTIONS:"
 echo "  code path:            ${CODE_PATH_CONTAINER}"
-echo "  wrapper code path:    ${SPLITCODE_PATH_CONTAINER}"
+echo "  split code path:      ${SPLITCODE_PATH_CONTAINER}"
 echo "  model path:           ${MODEL_PATH_CONTAINER}"
 echo "  input path:           ${INPUT_FILE_CONTAINER}"
 echo "  split input path:     ${SPLIT_INPUT_CONTAINER}"
+echo "  split output path:    ${SPLIT_OUTPUT_CONTAINER}"
 echo "  output path:          ${OUTPUT_FILE_CONTAINER}"
 echo "  logs path:            ${LOGS_PATH_CONTAINER}"
 
@@ -97,16 +107,18 @@ nvidia-docker run \
     "${IMAGE_NAME}" \
     /bin/bash \
         -c "cd ${SPLITCODE_PATH_CONTAINER} && \\
+        echo 'Splitting input files...' && \\
         python split_hdf5.py \\
           ${INPUT_FILE_CONTAINER} \\
           --output_dir ${SPLIT_DATA_PATH_CONTAINER} \\
           --output_format 'xyz' \\
-          --label 'data' && \\
+          --label ${DATA_LABEL} && \\
         cd ${CODE_PATH_CONTAINER} && \\
+        echo 'Evaluating the model...' && \\
         python main.py \\
           --phase test \\
           --log_dir ${MODEL_PATH_CONTAINER} \\
           --eval_input '${SPLIT_INPUT_CONTAINER}' \\
-          --eval_output ${OUTPUT_FILE_CONTAINER} \\
+          --eval_output ${SPLIT_OUTPUT_CONTAINER} \\
           1>${LOGS_PATH_CONTAINER}/out.out \\
-          2>${LOGS_PATH_CONTAINER}/err.err"
+          2>${LOGS_PATH_CONTAINER}/err.err &&"
