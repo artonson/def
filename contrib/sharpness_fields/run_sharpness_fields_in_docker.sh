@@ -10,13 +10,14 @@ set -e
 #	-c: 	docker container name
 #	-g: 	comma-separated gpu indexes
 
-usage() { echo "Usage: $0 -i <input_file> -o <output_file> -d <docker_image_name> -c <container_name> -g <gpu_indexes>" >&2; }
+usage() { echo "Usage: $0 -i <input_file> -o <output_file> -l <label> -d <docker_image_name> -c <container_name> -g <gpu_indexes>" >&2; }
 
-while getopts "i:o:d:c:g:" opt
+while getopts "i:o:l:d:c:g:" opt
 do
     case ${opt} in
         i) INPUT_FILE=$OPTARG;;
         o) OUTPUT_FILE=$OPTARG;;
+        l) DATA_LABEL=$OPTARG;;
         d) IMAGE_NAME=$OPTARG;;
         c) CONTAINER_NAME=$OPTARG;;
         g) GPU_ENV=$OPTARG;;
@@ -32,6 +33,12 @@ fi
 
 if [[ ! ${OUTPUT_FILE} ]]; then
     echo "output_file is not set";
+    usage
+    exit 1
+fi
+
+if [[ ! ${DATA_LABEL} ]]; then
+    echo "data_label is not set";
     usage
     exit 1
 fi
@@ -104,7 +111,7 @@ nvidia-docker run \
           ${INPUT_FILE_CONTAINER} \\
           --output_dir ${SPLIT_DATA_PATH_CONTAINER} \\
           --output_format 'xyz' \\
-          --label 'data' && \
+          --label ${DATA_LABEL} && \\
         cd ${CODE_PATH_CONTAINER} && \\
 	echo 'Evaluating the model...' && \\
         python3 compute_sharpness.py \\
