@@ -2,6 +2,7 @@ import argparse
 from collections import defaultdict
 from itertools import islice
 import os.path
+import sys
 
 import numpy as np
 import torch
@@ -9,14 +10,20 @@ import torch.nn
 import torch.optim
 from torch.utils.data import DataLoader
 from torch.optim.lr_scheduler import CosineAnnealingLR, ExponentialLR
-
 from tensorboardX import SummaryWriter
+
+__dir__ = os.path.normpath(
+    os.path.join(
+        os.path.dirname(os.path.realpath(__file__)), '..')
+)
+sys.path[1:1] = [__dir__]
 
 from sharpf.util.logging import create_logger
 from sharpf.models import load_model
 from sharpf.util.os import require_empty
 from sharpf.data.data import ABCData
 from sharpf.util.util import cal_loss
+
 
 LOSS = {'cal_loss': cal_loss}
 
