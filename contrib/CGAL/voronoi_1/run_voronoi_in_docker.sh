@@ -89,4 +89,4 @@ docker run \
     --mount type=bind,source=${HOST_DATA_DIR},target=${CONT_DATA_DIR} \
     --mount type=bind,source=${HOST_LOG_DIR},target=${CONT_LOG_DIR} \
     --workdir ${CONT_CODE_DIR} \
-    ${CONTAINER} /bin/bash -c "echo \"compiling voronoi_1.cpp\"; g++ -o voronoi src/voronoi_1.cpp -lCGAL -I/CGAL-4.14.1/include -lgmp; python src/read_data_voronoi.py -d ${CONT_DATA_DIR} -o ${CONT_LOG_DIR} -R ${RR} -r ${Rr} -t ${THRESH};" 
+    ${CONTAINER} /bin/bash -c "sudo chown 1000 ${CONT_LOG_DIR};echo \"compiling /home/user/code/voronoi_1/voronoi_1.cpp\"; g++ -o voronoi /home/user/code/voronoi_1/voronoi_1.cpp -lCGAL -I/CGAL-4.14.1/include -lgmp; python src/read_data_voronoi.py -d ${CONT_DATA_DIR} -o ${CONT_LOG_DIR} -R ${RR} -r ${Rr} -t ${THRESH};" 
