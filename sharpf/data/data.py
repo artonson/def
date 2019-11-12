@@ -7,62 +7,44 @@
 @Time: 2018/10/13 6:21 PM
 """
 
-
 import os
-import sys
 import glob
 import h5py
 import numpy as np
+from scipy.spatial import KDTree
 from torch.utils.data import Dataset
 
 
-def download():
-    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    DATA_DIR = os.path.join(BASE_DIR, 'data')
-#    if not os.path.exists(DATA_DIR):
-#        os.mkdir(DATA_DIR)
-#    if not os.path.exists(os.path.join(DATA_DIR, 'modelnet40_ply_hdf5_2048')):
-#        www = 'https://shapenet.cs.stanford.edu/media/modelnet40_ply_hdf5_2048.zip'
-#        zipfile = os.path.basename(www)
-#        os.system('wget %s; unzip %s' % (www, zipfile))
-#        os.system('mv %s %s' % (zipfile[:-4], DATA_DIR))
-#        os.system('rm %s' % (zipfile))
-
-
 def load_data(data_path, partition, data_label, target_label):
-    BASE_DIR = os.path.dirname(data_path)
-    DATA_DIR = os.path.join(BASE_DIR, 'data')
     all_data = []
     all_label = []
-
-    for h5_name in glob.glob(os.path.join(DATA_DIR, '*.hdf5')):
-        print(h5_name)
-        f = h5py.File(h5_name)
+    for h5_name in glob.glob(os.path.join(data_path, partition, '*.hdf5')):
+        f = h5py.File(h5_name, 'r')
         data = f[data_label][:].astype('float32')
-        label = f[target_label][:].astype('float32')
+        if target_label == 'directions':
+            label = np.concatenate(
+                (f['distances'][:].astype('float32')[:, :, None], f[target_label][:].astype('float32')), axis=-1)
+        else:
+            label = f[target_label][:].astype('float32')
         f.close()
+        data = data - data.mean(1)[:, None, :]
+
         all_data.append(data)
         all_label.append(label)
     all_data = np.concatenate(all_data, axis=0)
     all_label = np.concatenate(all_label, axis=0)
+
+    patch_nan_inds = np.unique(np.where(np.isnan(all_label))[0])
+    for i in patch_nan_inds:
+        nan_inds = np.unique(np.where(np.isnan(all_label[i]))[0])
+        non_nan_inds = np.setdiff1d(np.arange(len(all_label[i])), nan_inds)
+        tree = KDTree(all_data[i, non_nan_inds], leafsize=100)
+        _, non_nan_indices = tree.query(all_data[i, nan_inds])
+        all_label[i, nan_inds] = all_label[i][non_nan_inds][non_nan_indices]
     return all_data, all_label
 
 
-#def translate_pointcloud(pointcloud):
-#    xyz1 = np.random.uniform(low=2./3., high=3./2., size=[3])
-#    xyz2 = np.random.uniform(low=-0.2, high=0.2, size=[3])
-#       
-#    translated_pointcloud = np.add(np.multiply(pointcloud, xyz1), xyz2).astype('float32')
-#    return translated_pointcloud
-#
-#
-#def jitter_pointcloud(pointcloud, sigma=0.01, clip=0.02):
-#    N, C = pointcloud.shape
-#    pointcloud += np.clip(sigma * np.random.randn(N, C), -1*clip, clip)
-#    return pointcloud
-    
-def rotate_pointcloud(pointcloud):
-    rotated_data = np.zeros(pointcloud.shape, dtype=np.float32)
+def rotate_pointcloud(pointcloud, label=None):
     rotation_angle = np.random.uniform() * 2 * np.pi
     cosval = np.cos(rotation_angle)
     sinval = np.sin(rotation_angle)
@@ -70,33 +52,43 @@ def rotate_pointcloud(pointcloud):
                                 [0, 1, 0],
                                 [-sinval, 0, cosval]])
     rotated_data = np.dot(pointcloud, rotation_matrix)
-    return rotated_data
+    if label is not None:
+        rotated_label = np.dot(label, rotation_matrix)
+        return rotated_data, rotated_label
+    else:
+        return rotated_data
+
+
+def scale_pointcloud(pointcloud):
+    scale = np.random.uniform(0.5, 2)
+    scaled_data = pointcloud * scale
+    return scaled_data
 
 
 class ABCData(Dataset):
-    def __init__(self, data_path, num_points, partition='train', data_label='data', target_label='distances'):
+    def __init__(self, data_path, num_points, partition, data_label, target_label):
         self.data, self.label = load_data(data_path, partition, data_label, target_label)
         self.num_points = num_points
-        self.partition = partition        
+        self.partition = partition
+        self.target_label = target_label
 
     def __getitem__(self, item):
         pointcloud = self.data[item][:self.num_points]
         label = self.label[item][:self.num_points]
+        if len(label.shape) == 1:
+            label = label.reshape(-1, 1)
 
-        points_labels = np.hstack([pointcloud, label.reshape(-1, 1)])
+        points_labels = np.hstack([pointcloud, label])
         if self.partition == 'train':
-            points_labels[:, :3] = rotate_pointcloud(points_labels[:, :3])
+            if self.target_label == 'directions':
+                points_labels[:,:3], points_labels[:,4:] = rotate_pointcloud(points_labels[:,:3], points_labels[:,4:])
+            else:
+                points_labels[:,:3] = rotate_pointcloud(points_labels[:,:3])
+            points_labels[:,:3] = scale_pointcloud(points_labels[:,:3])
             np.random.shuffle(points_labels)
-
-        return points_labels[:, :3], points_labels[:, -1]
+        return points_labels[:, :3], points_labels[:,3:]
 
     def __len__(self):
         return self.data.shape[0]
 
 
-if __name__ == '__main__':
-    train = ABCData(1024)
-    test = ABCData(1024, 'test')
-    for data, label in train:
-        print(data.shape)
-        print(label.shape)

@@ -9,7 +9,7 @@ import torch
 import torch.nn
 import torch.optim
 from torch.utils.data import DataLoader
-from torch.optim.lr_scheduler import CosineAnnealingLR, ExponentialLR
+from torch.optim.lr_scheduler import ExponentialLR
 from tensorboardX import SummaryWriter
 
 __dir__ = os.path.normpath(
@@ -22,19 +22,26 @@ from sharpf.util.logging import create_logger
 from sharpf.models import load_model
 from sharpf.util.os import require_empty
 from sharpf.data.data import ABCData
-from sharpf.util.util import cal_loss
+from sharpf.util.util import bce_loss, smooth_l1_loss, smooth_l1_reg_loss
 
 
-LOSS = {'cal_loss': cal_loss}
+LOSS = {
+    'has_sharp': bce_loss,
+    'segment_sharp': bce_loss,
+    'regress_sharpdf': smooth_l1_loss,
+    'regress_sharpdirf': smooth_l1_reg_loss
+}
 
 
 def make_loaders_fn(options):
-    return DataLoader(ABCData(data_path=options.data_root, partition='',
-                              num_points=options.num_points, data_label='data', target_label='distances'),
+    return DataLoader(ABCData(data_path=options.data_root, partition='train',
+                              num_points=options.num_points, data_label=options.data_label,
+                              target_label=options.target_label),
                       num_workers=8,
                       batch_size=options.train_batch_size, shuffle=False, drop_last=False), \
-           DataLoader(ABCData(data_path=options.data_root, partition='', num_points=options.num_points,
-                              data_label='data', target_label='distances'),
+           DataLoader(ABCData(data_path=options.data_root, partition='test',
+                              num_points=options.num_points,
+                              data_label=options.data_label, target_label=options.target_label),
                       batch_size=options.val_batch_size, shuffle=False, drop_last=False), \
            None  # add mini val
 
@@ -260,7 +267,6 @@ def parse_args():
                         help='path to root of logging location [default: /logs].')
     parser.add_argument('-m', '--init-model-file', dest='init_model_filename',
                         help='Path to initializer model file [default: none].')
-
     parser.add_argument('-s', '--save-model-file', dest='save_model_filename',
                         help='Path to output vectorization model file [default: none].')
     parser.add_argument('--batches_before_save', type=int, default=1024, dest='batches_before_save',
@@ -268,35 +274,17 @@ def parse_args():
 
     parser.add_argument('--data-root', dest='data_root', help='root of the data tree (directory).')
     parser.add_argument('--num-points', type=int, default=1024, dest='num_points')
-    # parser.add_argument('--data-type', required=True, dest='dataloader_type',
-    #                    help='type of the train/val data to use.', choices=dataloading.prepare_loaders.keys())
-    # parser.add_argument('--handcrafted-train', required=False, action='append',
-    #                    dest='handcrafted_train_paths', help='dirnames of handcrafted datasets used for training '
-    #                                                         '(sought for in preprocessed/synthetic_handcrafted).')
-    # parser.add_argument('--handcrafted-val', required=False, action='append',
-    #                    dest='handcrafted_val_paths', help='dirnames of handcrafted datasets used for validation '
-    #                                                       '(sought for in preprocessed/synthetic_handcrafted).')
-    # parser.add_argument('--handcrafted-val-part', required=False, type=float, default=.1,
-    #                    dest='handcrafted_val_part', help='portion of handcrafted_train used for validation')
-    # parser.add_argument('-M', '--memory-constraint', required=True, type=int, dest='memory_constraint',help='maximum RAM usage in bytes.')
 
-    # parser.add_argument('-r', '--render-resolution', dest='render_res', default=64, type=int,
-    #                    help='resolution used for rendering.')
+    parser.add_argument('--loss-funct', required=False, dest='loss_funct',
+                        choices=list(LOSS.keys()),
+                        help='Choose loss function. Default cross_entropy_loss',
+                        default='cross_entropy_loss')
+    parser.add_argument('--data-label', dest='data_label', help='data label')
+    parser.add_argument('--target-label', dest='target_label', help='target label')
 
     parser.add_argument('--lr', type=float, required=False, dest='lr', default=0.01)
     parser.add_argument('--scheduler', required=False, dest='scheduler', default='exp')
 
-    parser.add_argument('--loss-funct', required=False, dest='loss_funct',
-                        help='Choose loss function. Default cal_loss',
-                        default='cal_loss')
-
-    # parser.add_argument('--l2_weight_change', required=False, dest='l2_weight_change',
-    #                    help='Weight change for L2. l2_weight = l2_weight + l2_weight_change(default -1e-5)',
-    #                    type=float, default=-1e-5)
-
-    # parser.add_argument('--l2_weight_init', required=False, dest='l2_weight_init',
-    #                    help='l2_weight initialization(default 1)',
-    #                    type=float, default= 1.)
     parser.add_argument('--end-batch-train', dest='end_batch_train', help='number of the last batch in dataset slice')
     parser.add_argument('--end-batch-val', dest='end_batch_val', help='number of the last batch in dataset slice')
 
@@ -310,6 +298,27 @@ def parse_args():
                         help='Path to tensorboard [default: do not log events].')
     parser.add_argument('-w', '--overwrite', action='store_true', default=False,
                         help='If set, overwrite existing logs [default: exit if output dir exists].')
+
+    # parser.add_argument('--data-type', required=True, dest='dataloader_type',
+    #                    help='type of the train/val data to use.', choices=dataloading.prepare_loaders.keys())
+    # parser.add_argument('--handcrafted-train', required=False, action='append',
+    #                    dest='handcrafted_train_paths', help='dirnames of handcrafted datasets used for training '
+    #                                                         '(sought for in preprocessed/synthetic_handcrafted).')
+    # parser.add_argument('--handcrafted-val', required=False, action='append',
+    #                    dest='handcrafted_val_paths', help='dirnames of handcrafted datasets used for validation '
+    #                                                       '(sought for in preprocessed/synthetic_handcrafted).')
+    # parser.add_argument('--handcrafted-val-part', required=False, type=float, default=.1,
+    #                    dest='handcrafted_val_part', help='portion of handcrafted_train used for validation')
+    # parser.add_argument('-M', '--memory-constraint', required=True, type=int, dest='memory_constraint',help='maximum RAM usage in bytes.')
+    # parser.add_argument('-r', '--render-resolution', dest='render_res', default=64, type=int,
+    #                    help='resolution used for rendering.')
+    # parser.add_argument('--l2_weight_change', required=False, dest='l2_weight_change',
+    #                    help='Weight change for L2. l2_weight = l2_weight + l2_weight_change(default -1e-5)',
+    #                    type=float, default=-1e-5)
+
+    # parser.add_argument('--l2_weight_init', required=False, dest='l2_weight_init',
+    #                    help='l2_weight initialization(default 1)',
+    #                    type=float, default= 1.)
 
     return parser.parse_args()
 

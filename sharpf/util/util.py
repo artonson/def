@@ -7,17 +7,45 @@
 @Time: 4/5/19 3:47 PM
 """
 
-
-import numpy as np
 import torch
 import torch.nn.functional as F
 
 
-def cal_loss(pred, label):
+def bce_loss(pred, label):
     """ pred: BxNxC,
         label: BxN, """
-    classify_loss = torch.nn.BCEWithLogitsLoss(reduction = 'mean')
-    return classify_loss(pred, label)
+    loss = torch.nn.BCEWithLogitsLoss(reduction='mean')
+    return loss(pred, label)
+
+
+def smooth_l1_loss(pred, label):
+    loss = torch.nn.SmoothL1Loss(reduction='mean')
+    return loss(pred, label)
+
+
+def smooth_l1_reg_loss(pred, label):
+    pred_distance, label_distance = pred[:,:,0], label[:,:,0]
+    pred_direction, label_direction = pred[:,:,1:], label[:,:,1:]
+    return smooth_l1_loss(pred_distance, label_distance) + torch.exp(-label_direction) * (1 - torch.dot(label_direction, pred_direction))
+
+
+def dist_loss(pred, label):
+    """ pred: BxNxC,
+        label: BxNxC, """
+    loss = torch.nn.MSELoss(reduction='mean')
+    return loss(pred, label)
+
+
+def dir_loss(pred, label, eps=1e-8):
+    """ pred: BxNxC,
+        label: BxNxC, """
+    return 1 - torch.matmul(pred[:,:,None,:],label[:,:,:,None]).squeeze().mean(dim=1).mean(dim=0)
+
+
+def dist_dir_loss(pred, label):
+    """ pred: BxNxC,
+        label: BxNxC, """
+    return dist_loss(pred[:,:,0], label[:,:,0]) + dir_loss(pred[:,:,1:], label[:,:,1:])
 
 #def get_loss_tensor(pred, label):
 #    """ pred: BxNxC,
@@ -50,7 +78,7 @@ def cal_loss(pred, label):
 #    return loss
 
 
-class IOStream():
+class IOStream:
     def __init__(self, path):
         self.f = open(path, 'a')
 
