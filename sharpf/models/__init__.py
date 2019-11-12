@@ -1,14 +1,15 @@
 import json
 
 from .generic import GenericPointBasedNet, DGCNN
-from .dgcnn import DGCNN_SEMSEG
+from .dgcnn import DGCNN_SEMSEG, DGCNN_CLS
 from sharpf.modules.base import load_with_spec
 
 
 MODEL_BY_NAME = {
     'GenericPointBasedNet': GenericPointBasedNet,
     'DGCNN': DGCNN,
-    'dgcnn_semseg': DGCNN_SEMSEG
+    'dgcnn_semseg': DGCNN_SEMSEG,
+    'dgcnn_cls': DGCNN_CLS,
 }
 
 
