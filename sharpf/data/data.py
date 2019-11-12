@@ -86,7 +86,11 @@ class ABCData(Dataset):
                 points_labels[:,:3] = rotate_pointcloud(points_labels[:,:3])
             points_labels[:,:3] = scale_pointcloud(points_labels[:,:3])
             np.random.shuffle(points_labels)
-        return points_labels[:, :3], points_labels[:,3:]
+
+        if points_labels.shape == 4:
+            return points_labels[:, :3], points_labels[:, 3]
+        else:
+            return points_labels[:, :3], points_labels[:, 3:]
 
     def __len__(self):
         return self.data.shape[0]
