@@ -31,25 +31,28 @@ if __name__ == '__main__':
     for filename in files:
         print('Dataset from {}'.format(filename))
         out_filename = filename.split('.')[0] + '_voronoi_output.h5'
+        exec_cmd = 'touch {}/{}'.format(out_directory, out_filename)
+        os.system(exec_cmd)
         out = h5py.File(out_directory+'/'+out_filename, 'w')
         with h5py.File(directory+'/'+filename, 'r') as f:
-            classif_data = out.create_dataset("classification", (f['data'].shape[0], f['data'].shape[1], 1))
-            classification = np.zeros((f['data'].shape[0], f['data'].shape[1], 1))
-            for i, data in enumerate(f['data']):
+            classif_data = out.create_dataset("classification", (f['points'].shape[0], f['points'].shape[1], 1))
+            classification = np.zeros((f['points'].shape[0], f['points'].shape[1], 1))
+            for i, data in enumerate(f['points']):
                 print('datafile #{}'.format(i))
-                tmp_f = open(out_directory+'/'+'voronoi_tmp_{}.xyz'.format(i), 'w')
+                tmp_filename_xyz = out_directory+'/'+'voronoi_tmp_{}.xyz'.format(i)
+                exec_cmd = 'touch {}'.format(tmp_filename_xyz)
+                os.system(exec_cmd)
+                tmp_f = open(tmp_filename_xyz, 'w')
                 for point in data:
                     tmp_f.write('{} {} {}\n'.format(point[0], point[1], point[-1]))
-                tmp_filename = out_directory+'/'+'tmp_{}.xyz'.format(i)
                 tmp_f.close()   
-                print(out_directory)
-                exec_cmd = ' '.join(['./voronoi -f', tmp_filename, '-R', str(R), '-r', str(r), '-t', str(threshold), '-o', out_directory])
+                exec_cmd = ' '.join(['./voronoi -f', tmp_filename_xyz, '-R', str(R), '-r', str(r), '-t', str(threshold), '-o', out_directory])
                 os.system(exec_cmd)
-                temp_f = open(out_directory+'/'+'points_classification_tmp_{}.txt'.format(i))
+                temp_f = open(out_directory+'/'+'points_classification_voronoi_tmp_{}.txt'.format(i))
                 classification[i] = np.array(list(map(int, temp_f.readline().split(' ')[:-1])))[:, np.newaxis]
-
-                os.remove(tmp_filename)
-                break
+                os.remove(tmp_filename_xyz)
+                os.remove(out_directory+'/'+'points_classification_voronoi_tmp_{}.txt'.format(i))
+                
             classif_data = classification
             #metric_results.append(metric(classification, gt))
         #average_metric = sum(metric_results)/len(metric_results)
