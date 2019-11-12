@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import argparse
 from collections import defaultdict
 from itertools import islice
