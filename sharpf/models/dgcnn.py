@@ -178,16 +178,18 @@ class DGCNN_SEMSEG(ParameterizedModule):
 
 
 class DGCNN_CLS(ParameterizedModule):
-    def __init__(self, args, output_channels=40):
+    def __init__(self, output_channels=40, k=30, dropout=0.1,
+                 emb_dims=128, **kwargs):
         super(DGCNN_CLS, self).__init__()
-        self.args = args
-        self.k = args.k
+        self.k = k
+        self.dropout = dropout
+        self.emb_dims = emb_dims
 
         self.bn1 = nn.BatchNorm2d(64)
         self.bn2 = nn.BatchNorm2d(64)
         self.bn3 = nn.BatchNorm2d(128)
         self.bn4 = nn.BatchNorm2d(256)
-        self.bn5 = nn.BatchNorm1d(args.emb_dims)
+        self.bn5 = nn.BatchNorm1d(self.emb_dims)
 
         self.conv1 = nn.Sequential(nn.Conv2d(6, 64, kernel_size=1, bias=False),
                                    self.bn1,
@@ -201,15 +203,15 @@ class DGCNN_CLS(ParameterizedModule):
         self.conv4 = nn.Sequential(nn.Conv2d(128 * 2, 256, kernel_size=1, bias=False),
                                    self.bn4,
                                    nn.LeakyReLU(negative_slope=0.2))
-        self.conv5 = nn.Sequential(nn.Conv1d(512, args.emb_dims, kernel_size=1, bias=False),
+        self.conv5 = nn.Sequential(nn.Conv1d(512, self.emb_dims, kernel_size=1, bias=False),
                                    self.bn5,
                                    nn.LeakyReLU(negative_slope=0.2))
-        self.linear1 = nn.Linear(args.emb_dims * 2, 512, bias=False)
+        self.linear1 = nn.Linear(self.emb_dims * 2, 512, bias=False)
         self.bn6 = nn.BatchNorm1d(512)
-        self.dp1 = nn.Dropout(p=args.dropout)
+        self.dp1 = nn.Dropout(p=self.dropout)
         self.linear2 = nn.Linear(512, 256)
         self.bn7 = nn.BatchNorm1d(256)
-        self.dp2 = nn.Dropout(p=args.dropout)
+        self.dp2 = nn.Dropout(p=self.dropout)
         self.linear3 = nn.Linear(256, output_channels)
 
     def forward(self, x):
