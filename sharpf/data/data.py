@@ -76,9 +76,9 @@ class ABCData(Dataset):
         pointcloud = self.data[item][:self.num_points]
         label = self.label[item][:self.num_points]
         if len(label.shape) == 1:
-            label = label.reshape(-1, 1)
-
-        points_labels = np.hstack([pointcloud, label])
+            points_labels = np.hstack([pointcloud, label])
+        else:
+            points_labels = np.hstack([pointcloud, label])
         if self.partition == 'train':
             if self.target_label == 'directions':
                 points_labels[:,:3], points_labels[:,4:] = rotate_pointcloud(points_labels[:,:3], points_labels[:,4:])
