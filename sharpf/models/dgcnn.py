@@ -17,6 +17,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from sharpf.modules.base import ParameterizedModule
+
 
 def knn(x, k):
     inner = -2*torch.matmul(x.transpose(2, 1), x)
@@ -86,9 +88,9 @@ def get_graph_feature(x, k=20, idx=None):
 #        return x
 
 
-class DGCNN(nn.Module):
+class DGCNN_SEMSEG(ParameterizedModule):
     def __init__(self, args, output_channels=40):
-        super(DGCNN, self).__init__()
+        super(DGCNN_SEMSEG, self).__init__()
         self.args = args
         self.k = args.k
         
