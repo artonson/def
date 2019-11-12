@@ -39,7 +39,7 @@ fi
 # CONT_<anything> refers to paths INSIDE container
 SHARED_MEM="25g"        # amount of shared memory to reserve for the prefetchers
 
-CONTAINER="artonson/sharp_features:latest"
+CONTAINER="artonson/sharp_features:pointweb-ops"
 docker inspect --type=image ${CONTAINER} >/dev/null || docker pull ${CONTAINER}
 
 HOST_CODE_DIR=$(realpath $(dirname `realpath $0`)/..)     # dirname of THIS file
