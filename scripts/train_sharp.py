@@ -37,12 +37,11 @@ LOSS = {
 
 def make_loaders_fn(options):
     return DataLoader(ABCData(data_path=options.data_root, partition='train',
-                              num_points=options.num_points, data_label=options.data_label,
+                              data_label=options.data_label,
                               target_label=options.target_label),
-                      num_workers=8,
+                      num_workers=1,
                       batch_size=options.train_batch_size, shuffle=False, drop_last=False), \
            DataLoader(ABCData(data_path=options.data_root, partition='test',
-                              num_points=options.num_points,
                               data_label=options.data_label, target_label=options.target_label),
                       batch_size=options.val_batch_size, shuffle=False, drop_last=False), \
            None  # add mini val
@@ -50,8 +49,8 @@ def make_loaders_fn(options):
 
 def prepare_batch_on_device(batch_data, device):
     data, label = batch_data
-    data = data.to(device)
-    label = label.to(device).squeeze()
+    data = data.float().to(device)
+    label = label.float().to(device).squeeze()
     return data, label
 
 
@@ -203,6 +202,7 @@ def main(options):
                 preds = model.forward(data)  # model returns x, (f1, f2, f3), saving only x
 
             loss = criterion(preds, label)
+            print(preds, label, loss.item())
             optimizer.zero_grad()
 
             with logger.print_duration('    backward pass'):

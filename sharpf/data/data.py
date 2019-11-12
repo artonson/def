@@ -66,30 +66,39 @@ def scale_pointcloud(pointcloud):
 
 
 class ABCData(Dataset):
-    def __init__(self, data_path, num_points, partition, data_label, target_label):
+    def __init__(self, data_path, partition, data_label, target_label):
         self.data, self.label = load_data(data_path, partition, data_label, target_label)
-        self.num_points = num_points
         self.partition = partition
         self.target_label = target_label
+        print("{} out of {} items are sharp".format(
+            np.sum(self.label), len(self.label)
+        ))
 
     def __getitem__(self, item):
-        pointcloud = self.data[item][:self.num_points]
-        label = self.label[item][:self.num_points]
-        if len(label.shape) == 1:
-            points_labels = np.hstack([pointcloud, label])
-        else:
-            points_labels = np.hstack([pointcloud, label])
-        if self.partition == 'train':
-            if self.target_label == 'directions':
-                points_labels[:,:3], points_labels[:,4:] = rotate_pointcloud(points_labels[:,:3], points_labels[:,4:])
-            else:
-                points_labels[:,:3] = rotate_pointcloud(points_labels[:,:3])
-            points_labels[:,:3] = scale_pointcloud(points_labels[:,:3])
-            np.random.shuffle(points_labels)
+        pointcloud = self.data[item]
+        label = self.label[item]
 
-        if points_labels.shape == 4:
-            return points_labels[:, :3], points_labels[:, 3]
+        if np.isscalar(label):
+            points_labels = pointcloud
+            #if self.partition == 'train':
+            #    points_labels = rotate_pointcloud(points_labels)
+            #    points_labels = scale_pointcloud(points_labels)
+            #    np.random.shuffle(points_labels)
+            #print (points_labels, label)
+
+            return points_labels, label
+
         else:
+            points_labels = np.hstack([pointcloud, np.atleast_2d(label)])
+
+            if self.partition == 'train':
+                if self.target_label == 'directions':
+                    points_labels[:,:3], points_labels[:,4:] = rotate_pointcloud(points_labels[:,:3], points_labels[:,4:])
+                else:
+                    points_labels[:,:3] = rotate_pointcloud(points_labels[:,:3])
+                points_labels[:,:3] = scale_pointcloud(points_labels[:,:3])
+                np.random.shuffle(points_labels)
+
             return points_labels[:, :3], points_labels[:, 3:]
 
     def __len__(self):
