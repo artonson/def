@@ -1,5 +1,6 @@
 import os
 import time
+import sys
 import h5py
 import torch
 import numpy as np
@@ -39,7 +40,7 @@ logger.disabled=True
 
 import view
 
-sharp_discretization = 1
+sharp_discretization = 0.1
 distance_upper_bound = 3.5
 
 def myfunc(n, d):
@@ -78,16 +79,14 @@ def resample_sharp_edges(mesh_patch, features):
         first, second = mesh_patch.vertices[sharp_edges[:, 0]], mesh_patch.vertices[sharp_edges[:, 1]]
         n_points_per_edge = np.linalg.norm(first - second, axis=1) / sharp_discretization
         d_points_per_edge = 1. / n_points_per_edge
-        # for n, v1, v2 in zip(n_points_per_edge, first, second):
-        #         t = np.linspace(d_points_per_edge, 1 - d_points_per_edge, n)
-        #         sharp_points.append(np.outer(t, v1) + np.outer(1 - t, v2))
+        for n, v1, v2 in zip(n_points_per_edge, first, second):
+                t = np.linspace(d_points_per_edge, 1 - d_points_per_edge, n)
+                sharp_points.append(np.outer(t, v1) + np.outer(1 - t, v2))
 
-        t = np.array(list(map(myfunc, n_points_per_edge, np.full(len(n_points_per_edge), d_points_per_edge))))
-        sharp_points.append(
-            (np.outer(t.reshape(-1), first.reshape(-1)) + np.outer(1 - t.reshape(-1), second.reshape(-1))).reshape(-1, 3))
+        # t = np.array(list(map(myfunc, n_points_per_edge, np.full(len(n_points_per_edge), d_points_per_edge))))
+        # sharp_points.append(
+        #     (np.outer(t.reshape(-1), first.reshape(-1)) + np.outer(1 - t.reshape(-1), second.reshape(-1))).reshape(-1, 3))
 
-        if len(sharp_points[-1]) > 0:
-            print(sharp_points[-1])
 
     if len(sharp_points) > 0:
         sharp_points = np.concatenate(sharp_points)
@@ -118,7 +117,7 @@ def resample_sharp_edges(mesh_patch, features):
 
 
 def annotate(sharp_points, mesh_patch, features_patch, points, distance_upper_bound, distance_scaler=1, **kwargs):
-    #print('annotating...')
+    print('annotating...')
     # if patch is without sharp features
     directions = []
     if all(not curve['sharp'] for curve in features_patch['curves']):
@@ -134,6 +133,8 @@ def annotate(sharp_points, mesh_patch, features_patch, points, distance_upper_bo
         return distances, directions
 
     # compute distances from each input point to the sharp points
+    print('computing distances')
+    print(sharp_points.shape)
     tree = KDTree(sharp_points, leafsize=100)
     distances, vert_indices = tree.query(points, distance_upper_bound=distance_upper_bound * distance_scaler)
     distances = distances / distance_scaler
@@ -247,6 +248,7 @@ class dataset(Dataset):
             dists.append(torch.load('/home/gbobrovskih/abc/dists/{}'.format(dists_id[i])))
 
     def download(self, dir_in='/home/gbobrovskih/abc', dir_out='/home/gbobrovskih/abc/'):
+        sys.setrecursionlimit(100000)
         shapes_ids = os.listdir(dir_in)
           
         data_path = Path('/home/gbobrovskih/abc')
