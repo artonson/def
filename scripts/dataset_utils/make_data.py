@@ -77,7 +77,7 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
                     nbhood, orig_vert_indices, orig_face_indexes, scaler = nbhood_extractor.get_nbhood()
 
                     # sample the neighbourhood to form a point patch
-                    points, normals = sampler.sample(nbhood)
+                    points, normals = sampler.sample(nbhood, geodesic_patches=True)
 
                     # create a noisy sample
                     noisy_points = noiser.make_noise(points, normals)
@@ -171,7 +171,7 @@ def make_patches(options):
         config = json.load(config_file)
 
     processes_to_spawn = 10 * options.n_jobs
-    chunk_size = len(abc_data) // processes_to_spawn
+    chunk_size = len(abc_data)
     abc_data_slices = [(start, start + chunk_size)
                        for start in range(0, len(abc_data), chunk_size)]
     output_files = [
