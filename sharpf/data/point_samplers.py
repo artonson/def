@@ -36,20 +36,12 @@ class PoissonDiskSampler(SamplerFunc):
     based on "Parallel Poisson Disk Sampling with Spectrum
     Analysis on Surface". (Implementation by fwilliams) """
     # https://github.com/marmakoide/mesh-blue-noise-sampling/blob/master/mesh-sampling.py
-    def sample(self, mesh, geodesic_patches=False):
+    def sample(self, mesh):
         # Intuition: take 10x the number of needed n_points,
         # keep in mind that each call to `igl.upsample` generates 4x the points,
         # then compute the upsampling factor K from the relation:
         # 4^K n = 10 n_points
         upsampling_factor = np.ceil(np.log(self.n_points * 10. / len(mesh.vertices)) / np.log(4)).astype(int)
-        
-        # get the connected component with maximal area
-        if geodesic_patches:
-            if len(mesh.split(only_watertight=False)) != 1:
-                areas = []
-                for submesh in mesh.split(only_watertight=False):
-                    areas.append(submesh.area)
-                mesh = mesh.split(only_watertight=False)[np.array(areas).argmax()]
         
         # Generate very dense subdivision samples on the mesh (v, f, n)
         dense_points, dense_faces = igl.upsample(mesh.vertices, mesh.faces, upsampling_factor)

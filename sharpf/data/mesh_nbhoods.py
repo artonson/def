@@ -51,7 +51,7 @@ class EuclideanSphere(NeighbourhoodFunc):
         self.mesh = mesh
         self.tree = KDTree(mesh.vertices, leafsize=100)
 
-    def get_nbhood(self):
+    def get_nbhood(self, geodesic_patches=False):
         # select vertices falling within euclidean sphere
         radius_scaler = self.mesh.edges_unique_length.mean()
         _, vert_indices = self.tree.query(
@@ -78,6 +78,15 @@ class EuclideanSphere(NeighbourhoodFunc):
             faces=selected_faces,
             process=False,
             validate=False)
+        
+        # get the connected component with maximal area
+        if geodesic_patches:
+            if len(neighbourhood.split(only_watertight=False)) != 1:
+                areas = []
+                for submesh in neighbourhood.split(only_watertight=False):
+                    areas.append(submesh.area)
+                neighbourhood = neighbourhood.split(only_watertight=False)[np.array(areas).argmax()]
+        
 
         return neighbourhood, adj_vert_indices, self.mesh.faces[adj_face_indexes], radius_scaler
 
