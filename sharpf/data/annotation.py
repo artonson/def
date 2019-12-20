@@ -70,7 +70,7 @@ class SharpnessResamplingAnnotator(AnnotatorFunc):
         sharp_points = self._resample_sharp_edges(mesh_patch, features_patch)
         
         # if all patch sharp features are nearby the patch edge
-        if np.linalg.norm(sharp_points - mesh_patch.vertices.mean(0), axis=1).min() / np.linalg.norm(mesh_patch.vertices - mesh_patch.vertices.mean(0), axis=1).max() >= 0.9:
+        if np.linalg.norm(sharp_points - mesh_patch.vertices.mean(0), axis=1).min() / np.linalg.norm(mesh_patch.vertices - mesh_patch.vertices.mean(0), axis=1).max() >= 0.85:
             distances = np.ones_like(points[:, 0]) * self.distance_upper_bound
             directions = np.zeros_like(points)
             return distances, directions
