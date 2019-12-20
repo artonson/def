@@ -74,10 +74,10 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
 
                 for patch_idx in range(n_patches_per_mesh):
                     # extract neighbourhood
-                    nbhood, orig_vert_indices, orig_face_indexes, scaler = nbhood_extractor.get_nbhood()
+                    nbhood, orig_vert_indices, orig_face_indexes, scaler = nbhood_extractor.get_nbhood(geodesic_patches=True)
 
                     # sample the neighbourhood to form a point patch
-                    points, normals = sampler.sample(nbhood, geodesic_patches=True)
+                    points, normals = sampler.sample(nbhood)
 
                     # create a noisy sample
                     noisy_points = noiser.make_noise(points, normals)
