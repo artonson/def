@@ -100,13 +100,13 @@ class RandomEuclideanSphere(EuclideanSphere):
         super().__init__(centroid, radius, n_vertices)
         self.radius_delta = radius_delta
 
-    def get_nbhood(self):
+    def get_nbhood(self, geodesic_patches=False):
         centroid_idx = np.random.choice(len(self.mesh.vertices))
         self.centroid = self.mesh.vertices[centroid_idx]
         self.radius = np.random.uniform(
             self.radius - self.radius_delta,
             self.radius + self.radius_delta)
-        return super(RandomEuclideanSphere, self).get_nbhood()
+        return super(RandomEuclideanSphere, self).get_nbhood(geodesic_patches)
 
     @classmethod
     def from_config(cls, config):
