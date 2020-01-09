@@ -81,13 +81,19 @@ class EuclideanSphere(NeighbourhoodFunc):
         
         # get the connected component with maximal area
         if geodesic_patches:
-            if len(neighbourhood.split(only_watertight=False)) != 1:
+            if len(neighbourhood.split(only_watertight=False)) > 1:
                 areas = []
                 for submesh in neighbourhood.split(only_watertight=False):
                     areas.append(submesh.area)
                 neighbourhood = neighbourhood.split(only_watertight=False)[np.array(areas).argmax()]
+                
+                geodesic_mask = []
+                for v in selected_vertices:
+                    geodesic_mask.append(np.isin(neighbourhood.vertices, v).all(-1).any())
+                adj_vert_indices = adj_vert_indices[geodesic_mask]
+                adj_face_indexes = self.mesh.vertex_faces[adj_vert_indices]
+                adj_face_indexes = np.unique(adj_face_indexes[adj_face_indexes > -1])       
         
-
         return neighbourhood, adj_vert_indices, self.mesh.faces[adj_face_indexes], radius_scaler
 
     @classmethod
@@ -102,6 +108,7 @@ class RandomEuclideanSphere(EuclideanSphere):
 
     def get_nbhood(self, geodesic_patches=False):
         centroid_idx = np.random.choice(len(self.mesh.vertices))
+        print(centroid_idx)
         self.centroid = self.mesh.vertices[centroid_idx]
         self.radius = np.random.uniform(
             self.radius - self.radius_delta,
