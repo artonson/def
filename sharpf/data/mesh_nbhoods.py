@@ -108,7 +108,6 @@ class RandomEuclideanSphere(EuclideanSphere):
 
     def get_nbhood(self, geodesic_patches=False):
         centroid_idx = np.random.choice(len(self.mesh.vertices))
-        print(centroid_idx)
         self.centroid = self.mesh.vertices[centroid_idx]
         self.radius = np.random.uniform(
             self.radius - self.radius_delta,
