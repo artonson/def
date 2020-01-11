@@ -1,10 +1,10 @@
 #!/bin/bash
 
-#SBATCH --job-name=sharpf_make_data_4096-noiseless-tsdf3.2
+#SBATCH --job-name=sharpf_make_data_1024-noiseless-tsdf3.2
 #SBATCH --output=array_%A_%a.out
 #SBATCH --error=array_%A_%a.err
-#SBATCH --array=19-20
-#SBATCH --time=24:00:00
+#SBATCH --array=1-20
+#SBATCH --time=3-0
 #SBATCH --partition=cpu_big
 #SBATCH --cpus-per-task=24
 #SBATCH --ntasks-per-node=1
@@ -35,15 +35,15 @@ SIMAGE_FILENAME="${SIMAGES_DIR}/$(echo ${IMAGE_NAME_TAG} | tr /: _).sif"
 #DATASET="dist_field-4096-noiseless-tsdf3.2"
 #DATASET="dist_field-8192-noiseless-tsdf1.0"
 #DATASET="dist_field-512-noiseless-tsdf3.2"
-#DATASET="dist_field-1024-noiseless-tsdf3.2"
+DATASET="dist_field-1024-noiseless-tsdf3.2"
 #DATASET="dist_field-2048-noiseless-tsdf3.2"
-DATASET="dist_field-4096-noiseless-tsdf3.2"
+#DATASET="dist_field-4096-noiseless-tsdf3.2"
 #DATASET="dist_field-8192-noiseless-tsdf3.2"
 
-HOST_CODE_DIR="/trinity/home/a.artemov/repos/sharp_features"
+HOST_CODE_DIR="/trinity/home/a.matveev/sharp_features-master"
 HOST_DATA_DIR="/gpfs/gpfs0/3ddl/datasets/abc"
-HOST_OUT_DIR="/gpfs/gpfs0/3ddl/sharp_features/${DATASET}"
-HOST_LOG_DIR="/logs"
+HOST_OUT_DIR="/gpfs/gpfs0/3ddl/sharp_features/geodesic/${DATASET}"
+HOST_LOG_DIR="/trinity/home/a.matveev/logs"
 mkdir -p ${HOST_OUT_DIR} && chmod -R 777 ${HOST_OUT_DIR}
 
 CONT_CODE_DIR="/code"
