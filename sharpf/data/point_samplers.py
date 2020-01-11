@@ -44,10 +44,16 @@ class PoissonDiskSampler(SamplerFunc):
         upsampling_factor = np.ceil(np.log(self.n_points * 10. / len(mesh.vertices)) / np.log(4)).astype(int)
         
         # Generate very dense subdivision samples on the mesh (v, f, n)
-        for _ in range(upsampling_factor):
-            mesh = mesh.subdivide()
-        #dense_points, dense_faces = igl.upsample(mesh.vertices, mesh.faces, upsampling_factor)
-        dense_points, dense_faces = mesh.vertices, mesh.faces
+        # for _ in range(upsampling_factor):
+        #     mesh = mesh.subdivide()
+
+        # check that the patch will not crash the upsampling function
+        FF, FFi = igl.triangle_triangle_adjacency(mesh.faces)
+        if (FF[FFi == -1] != -1).any() or (FFi[FF == -1] != -1).any():
+            raise Exception('Mesh patch has issues and breaks the upsampling!')
+
+        dense_points, dense_faces = igl.upsample(mesh.vertices, mesh.faces, upsampling_factor)
+        # dense_points, dense_faces = mesh.vertices, mesh.faces
 
         # compute vertex normals by pushing to trimesh
         umesh = trimesh.base.Trimesh(vertices=dense_points, faces=dense_faces, process=False, validate=False)
