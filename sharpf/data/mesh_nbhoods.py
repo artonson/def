@@ -87,6 +87,7 @@ class EuclideanSphere(NeighbourhoodFunc):
                     areas.append(submesh.area)
                 neighbourhood = neighbourhood.split(only_watertight=False)[np.array(areas).argmax()]
                 
+                # recalculate, which vertices in terms of original mesh indexing are present in geodesic patch
                 geodesic_mask = []
                 for v in selected_vertices:
                     geodesic_mask.append(np.isin(neighbourhood.vertices, v).all(-1).any())

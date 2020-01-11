@@ -66,7 +66,7 @@ class PoissonDiskSampler(SamplerFunc):
         while i < n_iter:
             i += 1
             points, normals = pcu.sample_mesh_poisson_disk(
-                dense_points, dense_faces, dense_normals, num_samples=1100,
+                dense_points, dense_faces, dense_normals,
                 radius=poisson_disk_radius, use_geodesic_distance=True)
             if self.n_points < len(points) < 1.1 * self.n_points:
                 break
