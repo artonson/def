@@ -171,7 +171,7 @@ def make_patches(options):
         config = json.load(config_file)
 
     processes_to_spawn = 10 * options.n_jobs
-    chunk_size = len(abc_data)
+    chunk_size = len(abc_data) // processes_to_spawn
     abc_data_slices = [(start, start + chunk_size)
                        for start in range(0, len(abc_data), chunk_size)]
     output_files = [
