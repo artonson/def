@@ -72,7 +72,7 @@ class PoissonDiskSampler(SamplerFunc):
         while i < n_iter:
             i += 1
             points, normals = pcu.sample_mesh_poisson_disk(
-                dense_points, dense_faces, dense_normals,
+                dense_points, dense_faces, dense_normals, self.n_points,
                 radius=poisson_disk_radius, use_geodesic_distance=True)
             if self.n_points < len(points) < 1.1 * self.n_points:
                 break
@@ -90,6 +90,8 @@ class PoissonDiskSampler(SamplerFunc):
                     poisson_disk_radius *= 2.
 
         # ensure that we are returning exactly n_points
+        if len(points) < self.n_points:
+	    print("Points' length : {}".format(len(points)))
         return_idx = np.random.choice(np.arange(len(points)), size=self.n_points, replace=False)
         return points[return_idx], normals[return_idx]
 
