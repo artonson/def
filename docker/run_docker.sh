@@ -70,7 +70,7 @@ docker run \
     --env CUDA_VISIBLE_DEVICES=${GPU_ENV} \
     --env PYTHONPATH=${CONT_CODE_DIR} \
     --shm-size=${SHARED_MEM} \
-    -u $(id -u):$(id -g) \
+    -u $(id -u):$(id -g)  \
     -v ${HOST_CODE_DIR}:${CONT_CODE_DIR} \
     -v ${HOST_DATA_DIR}:${CONT_DATA_DIR} \
     -v ${HOST_LOG_DIR}:${CONT_LOG_DIR} \
