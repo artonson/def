@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 import trimesh
 from scipy.spatial import KDTree
+import igl
 
 
 class NeighbourhoodFunc(ABC):
@@ -90,13 +91,17 @@ class EuclideanSphere(NeighbourhoodFunc):
                 # just in case, fix the patch orientation
                 neighbourhood.fix_normals()
                 
-                # recalculate, which vertices in terms of original mesh indexing are present in geodesic patch
-                geodesic_mask = []
-                for v in selected_vertices:
-                    geodesic_mask.append(np.isin(neighbourhood.vertices, v).all(-1).any())
+                # recalculate, which vertices in terms of original mesh indexing are present in geodesic patch:
+                # first, determine which connected component index from IGL correspond to already selected connected component
+                correct_component = (np.unique(igl.vertex_components(selected_faces), return_counts=True)[1] == neighbourhood.vertices.shape[0]).argmax()
+                # second, mask out the vertex indices which are not present in the connected component
+                geodesic_mask = (igl.vertex_components(selected_faces) == correct_component)
+
                 adj_vert_indices = adj_vert_indices[geodesic_mask]
                 adj_face_indexes = self.mesh.vertex_faces[adj_vert_indices]
-                adj_face_indexes = np.unique(adj_face_indexes[adj_face_indexes > -1])       
+                adj_face_indexes = np.unique(adj_face_indexes[adj_face_indexes > -1]) 
+                if neighbourhood.vertices.shape[0] != adj_vert_indices.shape[0]:
+                    raise Exception('You messed the connected components up!')      
         
         return neighbourhood, adj_vert_indices, self.mesh.faces[adj_face_indexes], radius_scaler
 
