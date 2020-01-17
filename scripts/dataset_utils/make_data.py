@@ -22,6 +22,7 @@ from sharpf.data.annotation import ANNOTATOR_BY_TYPE
 from sharpf.data.mesh_nbhoods import NBHOOD_BY_TYPE
 from sharpf.data.noisers import NOISE_BY_TYPE
 from sharpf.data.point_samplers import SAMPLER_BY_TYPE
+from sharpf.data.mesh_noisers import MESH_NOISE_BY_TYPE
 from sharpf.utils.common import eprint
 from sharpf.utils.mesh_utils import trimesh_load
 
@@ -55,6 +56,7 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
     nbhood_extractor = load_func_from_config(NBHOOD_BY_TYPE, config['neighbourhood'])
     sampler = load_func_from_config(SAMPLER_BY_TYPE, config['sampling'])
     noiser = load_func_from_config(NOISE_BY_TYPE, config['noise'])
+    mesh_noiser = load_func_from_config(MESH_NOISE_BY_TYPE, config['mesh_noise'])
     annotator = load_func_from_config(ANNOTATOR_BY_TYPE, config['annotation'])
 
     slice_start, slice_end = data_slice
@@ -76,6 +78,9 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
                     # extract neighbourhood
                     nbhood, orig_vert_indices, orig_face_indexes, scaler = nbhood_extractor.get_nbhood(geodesic_patches=True)
 
+                    # create noisy mesh
+                    noisy_nbhood = mesh_noiser.make_noise(nbhood)
+
                     # sample the neighbourhood to form a point patch
                     points, normals = sampler.sample(nbhood)
 
@@ -90,6 +95,8 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
                     if not has_sharp:
                         distances = np.ones(distances.shape) * config['annotation']['distance_upper_bound']
                     patch_info = {
+                        'nbhood': nbhood,
+                        'noisy_patch': noisy_nbhood,
                         'points': noisy_points,
                         'normals': normals,
                         'distances': distances,
@@ -107,6 +114,26 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
                 ))
 
     with h5py.File(output_file, 'w') as hdf5file:
+        nbhood_verts = np.stack([np.asarray(patch['nbhood'].vertices, dtype=np.float64) for patch in point_patches])
+        hdf5file.create_dataset('nbhood_verts', data=nbhood_verts, dtype=np.float64)
+
+        nbhood_face_dataset = hdf5file.create_dataset('nbhood_face_indices',
+                                            shape=(len(point_patches),),
+                                            dtype=h5py.special_dtype(vlen=np.int32))
+        nbhood_faces = [np.asarray(patch['nbhood'].faces, dtype=np.int32) for patch in point_patches]
+        for i, face_indices in enumerate(nbhood_faces):
+            nbhood_face_dataset[i] = face_indices.flatten()
+
+        noisy_patch_verts = np.stack([np.asarray(patch['noisy_patch'].vertices, dtype=np.float64) for patch in point_patches])
+        hdf5file.create_dataset('noisy_patch_verts', data=noisy_patch_verts, dtype=np.float64)
+
+        noisy_face_dataset = hdf5file.create_dataset('noisy_face_indices',
+                                            shape=(len(point_patches),),
+                                            dtype=h5py.special_dtype(vlen=np.int32))
+        noisy_faces = [np.asarray(patch['noisy_patch'].faces, dtype=np.int32) for patch in point_patches]
+        for i, face_indices in enumerate(noisy_faces):
+            noisy_face_dataset[i] = face_indices.flatten()
+
         points = np.stack([patch['points'] for patch in point_patches])
         hdf5file.create_dataset('points', data=points, dtype=np.float64)
 

@@ -1,0 +1,31 @@
+{
+  "n_patches_per_mesh": 10,
+  "neighbourhood": {
+    "type": "random_euclidean_sphere",
+    "n_vertices": 64,
+    "centroid": 0,
+    "radius": 10.0,
+    "radius_delta": 0.5
+  },
+  "sampling": {
+    "type": "poisson_disk",
+    "n_points": 4096,
+    "upsampling_factor": 3,
+    "poisson_disk_radius": 0.1
+  },
+  "noise": {
+    "type": "normals_gaussian",
+    "scale": 0.2
+  },
+  "annotation": {
+    "type": "resampling",
+    "sharp_discretization": 0.1,
+    "distance_upper_bound": 1.0
+  },
+  "mesh_noise": {
+    "type": "add_edges_noise",
+    "face_angle": 0.17,
+    "n_sample_faces": 10,
+    "nondegen_tri_height": 0.01
+  }
+}
