@@ -91,7 +91,7 @@ class PoissonDiskSampler(SamplerFunc):
 
         # ensure that we are returning exactly n_points
         if len(points) < self.n_points: # Error if this is the case
-	    print("Points' length : {}".format(len(points)))
+            print("Points length : {}".format(len(points)))
         return_idx = np.random.choice(np.arange(len(points)), size=self.n_points, replace=False)
         return points[return_idx], normals[return_idx]
 
