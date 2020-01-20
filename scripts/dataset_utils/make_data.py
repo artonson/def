@@ -53,7 +53,7 @@ def compute_curves_nbhood(features, vert_indices, face_indexes):
 
 def generate_patches(meshes_filename, feats_filename, data_slice, config, output_file):
     n_patches_per_mesh = config['n_patches_per_mesh']
-    nbhood_extractor = load_func_from_config(NBHOOD_BY_TYPE, config['geodesic_bfs'])
+    nbhood_extractor = load_func_from_config(NBHOOD_BY_TYPE, config['neighbourhood'])
     sampler = load_func_from_config(SAMPLER_BY_TYPE, config['sampling'])
     noiser = load_func_from_config(NOISE_BY_TYPE, config['noise'])
     mesh_noiser = load_func_from_config(MESH_NOISE_BY_TYPE, config['mesh_noise'])
@@ -108,7 +108,7 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
                         'has_sharp': has_sharp
                     }
                     point_patches.append(patch_info)
-
+                    print("# of created patches: {}".format(len(point_patches)))
             except Exception as e:
                 eprint('Error processing item {item_id} from chunk {chunk}: {what}'.format(
                     item_id=item.item_id, chunk='[{},{}]'.format(meshes_filename, feats_filename), what=e
