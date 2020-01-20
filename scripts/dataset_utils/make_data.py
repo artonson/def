@@ -36,12 +36,12 @@ def compute_curves_nbhood(features, vert_indices, face_indexes):
     for curve in features['curves']:
         nbhood_vert_indices = np.array([
             vert_index for vert_index in curve['vert_indices']
-            if vert_index + 1 in vert_indices
+            if vert_index in vert_indices
         ])
         if len(nbhood_vert_indices) == 0:
             continue
         for index, reindex in zip(vert_indices, np.arange(len(vert_indices))):
-            nbhood_vert_indices[np.where(nbhood_vert_indices == index - 1)] = reindex
+            nbhood_vert_indices[np.where(nbhood_vert_indices == index)] = reindex
         nbhood_curve = deepcopy(curve)
         nbhood_curve['vert_indices'] = nbhood_vert_indices
         nbhood_sharp_curves.append(nbhood_curve)
@@ -74,7 +74,7 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
 
                 for patch_idx in range(n_patches_per_mesh):
                     # extract neighbourhood
-                    nbhood, orig_vert_indices, orig_face_indexes = nbhood_extractor.get_nbhood()
+                    nbhood, orig_vert_indices, orig_face_indexes, scaler = nbhood_extractor.get_nbhood()
 
                     # sample the neighbourhood to form a point patch
                     points, normals = sampler.sample(nbhood)
@@ -84,9 +84,11 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
 
                     # create annotations: condition the features onto the nbhood, then compute the TSharpDF
                     nbhood_features = compute_curves_nbhood(features, orig_vert_indices, orig_face_indexes)
-                    distances, directions = annotator.annotate(nbhood, nbhood_features, noisy_points)
+                    distances, directions = annotator.annotate(nbhood, nbhood_features, noisy_points, scaler)
 
                     has_sharp = any(curve['sharp'] for curve in nbhood_features['curves'])
+                    if not has_sharp:
+                        distances = np.ones(distances.shape) * config['annotation']['distance_upper_bound']
                     patch_info = {
                         'points': noisy_points,
                         'normals': normals,

@@ -70,4 +70,4 @@ RUN pip install --verbose --no-cache-dir torch-spline-conv
 RUN pip install torch-geometric
 
 # Install geometry-related packages
-RUN conda install -c conda-forge igl point_cloud_utils
+RUN conda install -c conda-forge igl=0.3 point_cloud_utils

@@ -53,8 +53,9 @@ class EuclideanSphere(NeighbourhoodFunc):
 
     def get_nbhood(self):
         # select vertices falling within euclidean sphere
+        radius_scaler = self.mesh.edges_unique_length.mean()
         _, vert_indices = self.tree.query(
-            self.centroid, k=self.n_vertices, distance_upper_bound=self.radius)
+            self.centroid, k=self.n_vertices, distance_upper_bound=self.radius * radius_scaler)
 
         # get all faces that share vertices with selected vertices
         vert_indices = vert_indices[vert_indices < len(self.mesh.vertices)]
@@ -78,7 +79,7 @@ class EuclideanSphere(NeighbourhoodFunc):
             process=False,
             validate=False)
 
-        return neighbourhood, adj_vert_indices, self.mesh.faces[adj_face_indexes]
+        return neighbourhood, adj_vert_indices, self.mesh.faces[adj_face_indexes], radius_scaler
 
     @classmethod
     def from_config(cls, config):
@@ -92,6 +93,7 @@ class RandomEuclideanSphere(EuclideanSphere):
 
     def get_nbhood(self):
         centroid_idx = np.random.choice(len(self.mesh.vertices))
+        print(centroid_idx)
         self.centroid = self.mesh.vertices[centroid_idx]
         self.radius = np.random.uniform(
             self.radius - self.radius_delta,
