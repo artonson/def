@@ -44,6 +44,7 @@ class AddEdgesNoise(NoiserFunc):
         self.mesh = mesh
         print("# of input vertices: {}".format(self.mesh.vertices.shape))
         print("# of input faces: {}".format(self.mesh.faces.shape))
+        print("face angle: {}".format(self.face_angle))
 
         # Get pairs of adjacent faces, shared edges, and unshared vertices
         adj_faces = self.mesh.face_adjacency

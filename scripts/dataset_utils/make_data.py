@@ -53,7 +53,7 @@ def compute_curves_nbhood(features, vert_indices, face_indexes):
 
 def generate_patches(meshes_filename, feats_filename, data_slice, config, output_file):
     n_patches_per_mesh = config['n_patches_per_mesh']
-    nbhood_extractor = load_func_from_config(NBHOOD_BY_TYPE, config['neighbourhood'])
+    nbhood_extractor = load_func_from_config(NBHOOD_BY_TYPE, config['geodesic_bfs'])
     sampler = load_func_from_config(SAMPLER_BY_TYPE, config['sampling'])
     noiser = load_func_from_config(NOISE_BY_TYPE, config['noise'])
     mesh_noiser = load_func_from_config(MESH_NOISE_BY_TYPE, config['mesh_noise'])
@@ -72,11 +72,12 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
 
                 # index the mesh using a neighbourhood functions class
                 # (this internally may call indexing, so for repeated invocation one passes the mesh)
-                nbhood_extractor.index(mesh)
+                # nbhood_extractor.index(mesh)
 
                 for patch_idx in range(n_patches_per_mesh):
                     # extract neighbourhood
-                    nbhood, orig_vert_indices, orig_face_indexes, scaler = nbhood_extractor.get_nbhood(geodesic_patches=True)
+                    # nbhood, orig_vert_indices, orig_face_indexes, scaler = nbhood_extractor.get_nbhood(geodesic_patches=True)
+                    nbhood, orig_vert_indices, orig_face_indexes, scaler = nbhood_extractor.get_nbhood(mesh)
 
                     # create noisy mesh
                     noisy_nbhood = mesh_noiser.make_noise(nbhood)

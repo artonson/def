@@ -123,20 +123,47 @@ class RandomEuclideanSphere(EuclideanSphere):
         return cls(config['centroid'], config['radius'],
                    config['n_vertices'], config['radius_delta'])
 
+class PatchWithFixedNPoints(NeighbourhoodFunc):
+    def __init__(self, n_vertices):
+        super(PatchWithFixedNPoints,self).__init__()
+        self.n_vertices = n_vertices
+        self.mesh = None
+
+    def get_nbhood(self, mesh):
+        self.mesh = mesh
+        radius_scaler = self.mesh.edges_unique_length.mean()
+        centroid_idx = np.random.choice(len(self.mesh.vertices))
+        self.centroid = self.mesh.vertices[centroid_idx]
+
+        adjacency_graph = self.mesh.vertex_adjacency_graph
+        
+        set_of_verts = [] + [centroid_idx]
+        find_and_add(set_of_verts, self.n_vertices, adjacency_graph)
+        set_of_verts = np.array(set_of_verts)[:self.n_vertices]
+        faces_seq = np.where(np.isin(self.mesh.faces, set_of_verts).all(1))[0]
+        patch = self.mesh.submesh([faces_seq],append = True)
+
+        return patch, set_of_verts, faces_seq, radius_scaler
+    
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(config['n_vertices'])
+
 #
 # # the function for patch generator: breadth-first search
 #
-# def find_and_add(sets, desired_number_of_points, adjacency_graph):
-#     counter = len(sets)  # counter for number of vertices added to the patch;
-#     # sets is the list of vertices included to the patch
-#     for verts in sets:
-#         for vs in adjacency_graph.neighbors(verts):
-#             if vs not in sets:
-#                 sets.append(vs)
-#                 counter += 1
-#         #                 print(counter)
-#         if counter >= desired_number_of_points:
-#             break  # stop when the patch has more than 1024 vertices
+def find_and_add(sets, desired_number_of_points, adjacency_graph):
+    counter = len(sets)  # counter for number of vertices added to the patch;
+    # sets is the list of vertices included to the patch
+    for verts in sets:
+        for vs in adjacency_graph.neighbors(verts):
+            if vs not in sets:
+                sets.append(vs)
+                counter += 1
+        #                 print(counter)
+        if counter >= desired_number_of_points:
+            break  # stop when the patch has more than 1024 vertices
 #
 #
 #
@@ -254,7 +281,7 @@ class RandomEuclideanSphere(EuclideanSphere):
 
 
 NBHOOD_BY_TYPE = {
-    # 'geodesic_bfs': geodesic_meshvertex_patches_from_item,
+    'geodesic_bfs': PatchWithFixedNPoints,
     'euclidean_sphere': EuclideanSphere,
     'random_euclidean_sphere': RandomEuclideanSphere,
 }

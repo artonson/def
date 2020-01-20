@@ -1,7 +1,7 @@
 {
   "n_patches_per_mesh": 10,
   "neighbourhood": {
-    "type": "random_euclidean_sphere",
+    "type": "geodesic_bfs",
     "n_vertices": 64,
     "centroid": 0,
     "radius": 10.0,
@@ -9,7 +9,7 @@
   },
   "sampling": {
     "type": "poisson_disk",
-    "n_points": 4096,
+    "n_points": 2048,
     "upsampling_factor": 3,
     "poisson_disk_radius": 0.1
   },
