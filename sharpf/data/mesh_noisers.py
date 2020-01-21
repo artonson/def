@@ -42,6 +42,7 @@ class AddEdgesNoise(NoiserFunc):
 
     def make_noise(self, mesh):
         self.mesh = mesh
+        print("---------Input-----------")
         print("# of input vertices: {}".format(self.mesh.vertices.shape))
         print("# of input faces: {}".format(self.mesh.faces.shape))
         print("face angle: {}".format(self.face_angle))
@@ -120,7 +121,7 @@ class AddEdgesNoise(NoiserFunc):
         trimesh.repair.fix_winding(noisy_mesh)
         assert (trimesh.triangles.nondegenerate(noisy_mesh.triangles, height=self.nondegen_tri_height).all()), \
                "Mesh contains degenerate triangle(s)"
-        
+        print("---------Output-----------") 
         print("Sample faces: {}".format(len(sample_faces)))
         print("# of vertics: {}".format(noisy_mesh.vertices.shape))
         print("# of faces: {}".format(noisy_mesh.faces.shape))

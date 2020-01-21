@@ -70,8 +70,8 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
                 mesh = trimesh_load(item.obj)
                 features = yaml.load(item.feat, Loader=yaml.Loader)
 
-                # index the mesh using a neighbourhood functions class
-                # (this internally may call indexing, so for repeated invocation one passes the mesh)
+                # # index the mesh using a neighbourhood functions class
+                # # (this internally may call indexing, so for repeated invocation one passes the mesh)
                 # nbhood_extractor.index(mesh)
 
                 for patch_idx in range(n_patches_per_mesh):
@@ -82,33 +82,45 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
                     # create noisy mesh
                     noisy_nbhood = mesh_noiser.make_noise(nbhood)
 
-                    # sample the neighbourhood to form a point patch
-                    points, normals = sampler.sample(nbhood)
+                    # # sample the neighbourhood to form a point patch
+                    # points, normals = sampler.sample(nbhood)
 
-                    # create a noisy sample
-                    noisy_points = noiser.make_noise(points, normals)
+                    # # create a noisy sample
+                    # noisy_points = noiser.make_noise(points, normals)
 
-                    # create annotations: condition the features onto the nbhood, then compute the TSharpDF
+                    # # create annotations: condition the features onto the nbhood, then compute the TSharpDF
                     nbhood_features = compute_curves_nbhood(features, orig_vert_indices, orig_face_indexes)
-                    distances, directions = annotator.annotate(nbhood, nbhood_features, noisy_points, scaler)
+                    # distances, directions = annotator.annotate(nbhood, nbhood_features, noisy_points, scaler)
 
                     has_sharp = any(curve['sharp'] for curve in nbhood_features['curves'])
-                    if not has_sharp:
-                        distances = np.ones(distances.shape) * config['annotation']['distance_upper_bound']
-                    patch_info = {
-                        'nbhood': nbhood,
-                        'noisy_patch': noisy_nbhood,
-                        'points': noisy_points,
-                        'normals': normals,
-                        'distances': distances,
-                        'directions': directions,
-                        'item_id': item.item_id,
-                        'orig_vert_indices': orig_vert_indices,
-                        'orig_face_indexes': orig_face_indexes,
-                        'has_sharp': has_sharp
-                    }
-                    point_patches.append(patch_info)
-                    print("# of created patches: {}".format(len(point_patches)))
+                    # if not has_sharp:
+                    #     distances = np.ones(distances.shape) * config['annotation']['distance_upper_bound']
+                    # patch_info = {
+                    #         'points': noisy_points,
+                    #         'normals': normals,
+                    #         'distances': distances,
+                    #         'directions': directions,
+                    #         'item_id': item.item_id,
+                    #         'orig_vert_indices': orig_vert_indices,
+                    #         'orig_face_indexes': orig_face_indexes,
+                    #         'has_sharp': has_sharp
+                    #     }
+                    # point_patches.append(patch_info)
+
+                    # Make sure the nbhood has n_vertices. There are cases where nbhood does not have n_vertices.
+                    if nbhood.vertices.shape[0] == config["neighbourhood"]["n_vertices"]:
+                        patch_info = {
+                            'nbhood': nbhood,
+                            'noisy_patch': noisy_nbhood,
+                            'item_id': item.item_id,
+                            'orig_vert_indices': orig_vert_indices,
+                            'orig_face_indexes': orig_face_indexes,
+                            'has_sharp': has_sharp
+                        }
+                        point_patches.append(patch_info)
+                        eprint("# of created patches: {}".format(len(point_patches)))
+                    else:
+                        eprint("Patch with {} vertices is discarded.".format(nbhood.vertices.shape[0]))
             except Exception as e:
                 eprint('Error processing item {item_id} from chunk {chunk}: {what}'.format(
                     item_id=item.item_id, chunk='[{},{}]'.format(meshes_filename, feats_filename), what=e
@@ -135,18 +147,6 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
         for i, face_indices in enumerate(noisy_faces):
             noisy_face_dataset[i] = face_indices.flatten()
 
-        points = np.stack([patch['points'] for patch in point_patches])
-        hdf5file.create_dataset('points', data=points, dtype=np.float64)
-
-        normals = np.stack([patch['normals'] for patch in point_patches])
-        hdf5file.create_dataset('normals', data=normals, dtype=np.float64)
-
-        distances = np.stack([patch['distances'] for patch in point_patches])
-        hdf5file.create_dataset('distances', data=distances, dtype=np.float64)
-
-        directions = np.stack([patch['directions'] for patch in point_patches])
-        hdf5file.create_dataset('directions', data=directions, dtype=np.float64)
-
         item_ids = [patch['item_id'] for patch in point_patches]
         hdf5file.create_dataset('item_id', data=np.string_(item_ids), dtype=h5py.string_dtype(encoding='ascii'))
 
@@ -166,6 +166,39 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
 
         has_sharp = np.stack([patch['has_sharp'] for patch in point_patches]).astype(bool)
         hdf5file.create_dataset('has_sharp', data=has_sharp, dtype=np.bool)
+
+    # with h5py.File(output_file, 'w') as hdf5file:
+    #     points = np.stack([patch['points'] for patch in point_patches])
+    #     hdf5file.create_dataset('points', data=points, dtype=np.float64)
+
+    #     normals = np.stack([patch['normals'] for patch in point_patches])
+    #     hdf5file.create_dataset('normals', data=normals, dtype=np.float64)
+
+    #     distances = np.stack([patch['distances'] for patch in point_patches])
+    #     hdf5file.create_dataset('distances', data=distances, dtype=np.float64)
+
+    #     directions = np.stack([patch['directions'] for patch in point_patches])
+    #     hdf5file.create_dataset('directions', data=directions, dtype=np.float64)
+
+    #     item_ids = [patch['item_id'] for patch in point_patches]
+    #     hdf5file.create_dataset('item_id', data=np.string_(item_ids), dtype=h5py.string_dtype(encoding='ascii'))
+
+    #     orig_vert_indices = [patch['orig_vert_indices'].astype('int32') for patch in point_patches]
+    #     vert_dataset = hdf5file.create_dataset('orig_vert_indices',
+    #                                            shape=(len(orig_vert_indices),),
+    #                                            dtype=h5py.special_dtype(vlen=np.int32))
+    #     for i, vert_indices in enumerate(orig_vert_indices):
+    #         vert_dataset[i] = vert_indices
+
+    #     orig_face_indexes = [patch['orig_face_indexes'].astype('int32') for patch in point_patches]
+    #     face_dataset = hdf5file.create_dataset('orig_face_indexes',
+    #                                            shape=(len(orig_face_indexes),),
+    #                                            dtype=h5py.special_dtype(vlen=np.int32))
+    #     for i, face_indices in enumerate(orig_face_indexes):
+    #         face_dataset[i] = face_indices.flatten()
+
+    #     has_sharp = np.stack([patch['has_sharp'] for patch in point_patches]).astype(bool)
+    #     hdf5file.create_dataset('has_sharp', data=has_sharp, dtype=np.bool)
 
 
 def make_patches(options):

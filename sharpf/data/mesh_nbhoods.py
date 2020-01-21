@@ -140,6 +140,8 @@ class PatchWithFixedNPoints(NeighbourhoodFunc):
         set_of_verts = [] + [centroid_idx]
         find_and_add(set_of_verts, self.n_vertices, adjacency_graph)
         set_of_verts = np.array(set_of_verts)[:self.n_vertices]
+        
+        # Find ONLY faces that all of its vertices are in set_of_verts. So that the num. of vertices is controllable.
         faces_seq = np.where(np.isin(self.mesh.faces, set_of_verts).all(1))[0]
         patch = self.mesh.submesh([faces_seq],append = True)
 
