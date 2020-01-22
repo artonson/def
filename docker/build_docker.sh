@@ -34,7 +34,7 @@ echo "******* BUILDING IMAGE ${IMAGE_NAME} *******"
 docker build \
     --file "${DOCKERFILE}" \
     --tag "${IMAGE_NAME_TAG}" \
-    .
+    "${PROJECT_ROOT}"
 
 
 if [ "${PUSH}" = true ]; then

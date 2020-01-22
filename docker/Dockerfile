@@ -74,5 +74,5 @@ RUN pip install torch-geometric
 RUN conda install -c conda-forge igl=0.3 point_cloud_utils
 
 RUN mkdir /home/user/code
-COPY --chown=user ../contrib/pythonaabb /home/user/code/pythonaabb
+COPY --chown=user contrib/pythonaabb /home/user/code/pythonaabb
 RUN cd /home/user/code/pythonaabb && pip install .
