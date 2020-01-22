@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 import trimesh
 from scipy.spatial import KDTree
+import igl
 
 
 class NeighbourhoodFunc(ABC):
@@ -51,7 +52,7 @@ class EuclideanSphere(NeighbourhoodFunc):
         self.mesh = mesh
         self.tree = KDTree(mesh.vertices, leafsize=100)
 
-    def get_nbhood(self):
+    def get_nbhood(self, geodesic_patches=False):
         # select vertices falling within euclidean sphere
         radius_scaler = self.mesh.edges_unique_length.mean()
         _, vert_indices = self.tree.query(
@@ -78,7 +79,30 @@ class EuclideanSphere(NeighbourhoodFunc):
             faces=selected_faces,
             process=False,
             validate=False)
+        
+        # get the connected component with maximal area
+        if geodesic_patches:
+            if len(neighbourhood.split(only_watertight=False)) > 1:
+                areas = []
+                for submesh in neighbourhood.split(only_watertight=False):
+                    areas.append(submesh.area)
+                neighbourhood = neighbourhood.split(only_watertight=False)[np.array(areas).argmax()]
 
+                # just in case, fix the patch orientation
+                neighbourhood.fix_normals()
+                
+                # recalculate, which vertices in terms of original mesh indexing are present in geodesic patch:
+                # first, determine which connected component index from IGL correspond to already selected connected component
+                correct_component = (np.unique(igl.vertex_components(selected_faces), return_counts=True)[1] == neighbourhood.vertices.shape[0]).argmax()
+                # second, mask out the vertex indices which are not present in the connected component
+                geodesic_mask = (igl.vertex_components(selected_faces) == correct_component)
+
+                adj_vert_indices = adj_vert_indices[geodesic_mask]
+                adj_face_indexes = self.mesh.vertex_faces[adj_vert_indices]
+                adj_face_indexes = np.unique(adj_face_indexes[adj_face_indexes > -1]) 
+                if neighbourhood.vertices.shape[0] != adj_vert_indices.shape[0]:
+                    raise Exception('You messed the connected components up!')      
+        
         return neighbourhood, adj_vert_indices, self.mesh.faces[adj_face_indexes], radius_scaler
 
     @classmethod
@@ -91,14 +115,13 @@ class RandomEuclideanSphere(EuclideanSphere):
         super().__init__(centroid, radius, n_vertices)
         self.radius_delta = radius_delta
 
-    def get_nbhood(self):
+    def get_nbhood(self, geodesic_patches=False):
         centroid_idx = np.random.choice(len(self.mesh.vertices))
-        print(centroid_idx)
         self.centroid = self.mesh.vertices[centroid_idx]
         self.radius = np.random.uniform(
             self.radius - self.radius_delta,
             self.radius + self.radius_delta)
-        return super(RandomEuclideanSphere, self).get_nbhood()
+        return super(RandomEuclideanSphere, self).get_nbhood(geodesic_patches)
 
     @classmethod
     def from_config(cls, config):
