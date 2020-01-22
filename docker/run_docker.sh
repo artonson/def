@@ -66,6 +66,7 @@ echo "      Data is at ${CONT_DATA_DIR}"
 echo "      Writable logs are at ${CONT_LOG_DIR}"
 echo "      Environment: PYTHONPATH=${CONT_CODE_DIR}"
 echo "      Environment: CUDA_VISIBLE_DEVICES=${GPU_ENV}"
+echo "      Exposed ports: ${PORTS}"
 
 NAME="3ddl.$(whoami).$(uuidgen).$(echo "${GPU_ENV}" | tr , .).sharp_features"
 docker run \
