@@ -13,6 +13,7 @@ RUN apt-get clean \
     nano \
     g++ \
     make \
+    cmake \
     build-essential \
     software-properties-common \
     apt-transport-https \
@@ -71,3 +72,7 @@ RUN pip install torch-geometric
 
 # Install geometry-related packages
 RUN conda install -c conda-forge igl=0.3 point_cloud_utils
+
+RUN mkdir /home/user/code
+COPY --chown=user ../contrib/pythonaabb /home/user/code/pythonaabb
+RUN cd /home/user/code/pythonaabb && pip install .

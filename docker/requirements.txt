@@ -15,3 +15,4 @@ torch==1.1.0
 torchvision
 tensorboardX
 pylzma
+k3d==2.7
