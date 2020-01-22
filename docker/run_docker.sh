@@ -1,27 +1,36 @@
 #!/bin/bash
 
 set -e
-#set -x
 
 # example launch string:
-# ./run_docker.sh -d server_data_dir -l server_logs_dir -g gpu [-p ports]
+# ./run_docker.sh -d server_data_dir -l server_logs_dir -g gpu [-p ports] [-v] [-u]
 #   server_data_dir:        the data directory where the training sample resides
 #   server_logs_dir:        the directory where the output logs are supposed to be written
 #   gpu:                    comma-separated list of gpus
 #   ports:                  set to enable port forwarding with the container (ports are forwarded
+#   -v:                     sets verbose output
+#   -u:                     uses local user in container (potentially unsafe)
 
-usage() { echo "Usage: $0 -d server_data_dir -l server_logs_dir -g gpu-indexes [-p port]" >&2; }
+usage() { echo "Usage: $0 -d server_data_dir -l server_logs_dir -g gpu-indexes [-p port] [-v] [-u]" >&2; }
 
-while getopts "d:l:g:p:" opt
+VERBOSE=false
+LOCAL_USER=false
+while getopts "d:l:g:p:vu" opt
 do
     case ${opt} in
         d) HOST_DATA_DIR=$OPTARG;;
         l) HOST_LOG_DIR=$OPTARG;;
         g) GPU_ENV=$OPTARG;;
         p) PORTS=$OPTARG;;
+        v) VERBOSE=true;;
+        u) LOCAL_USER=true;;
         *) usage; exit 1 ;;
     esac
 done
+
+if [ "${VERBOSE}" = true ]; then
+    set -x
+fi
 
 if [[ ! -d ${HOST_DATA_DIR} ]]; then
     echo "server_data_dir is not set or not a directory";
@@ -60,6 +69,15 @@ else
     PORTS_ARG=--publish=${PORTS}:${PORTS}
 fi
 
+if [ "${LOCAL_USER}" = true ] ; then
+    # unsafely expose local user (which has ownership of
+    # the local folder) to the container
+    USER_ARG=--user="$(id -u):$(id -g)"
+else
+    # set internal ports the same as exposed ones
+    USER_ARG=--user=user
+fi
+
 echo "******* LAUNCHING CONTAINER ${IMAGE_NAME_TAG} *******"
 echo "      Pushing you to ${CONT_CODE_DIR} directory"
 echo "      Data is at ${CONT_DATA_DIR}"
@@ -67,6 +85,7 @@ echo "      Writable logs are at ${CONT_LOG_DIR}"
 echo "      Environment: PYTHONPATH=${CONT_CODE_DIR}"
 echo "      Environment: CUDA_VISIBLE_DEVICES=${GPU_ENV}"
 echo "      Exposed ports: ${PORTS}"
+echo "      User in container: ${USER_ARG}"
 
 NAME="3ddl.$(whoami).$(uuidgen).$(echo "${GPU_ENV}" | tr , .).sharp_features"
 docker run \
@@ -83,4 +102,5 @@ docker run \
     -v "${HOST_LOG_DIR}":${CONT_LOG_DIR} \
     --workdir ${CONT_CODE_DIR} \
     "$PORTS_ARG" \
+    "$USER_ARG" \
     "${IMAGE_NAME_TAG}"
