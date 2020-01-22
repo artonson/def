@@ -1,7 +1,7 @@
 #!/bin/bash
 
 set -e
-set -x
+#set -x
 
 # example launch string:
 # ./run_docker.sh -d server_data_dir -l server_logs_dir -g gpu [-p ports]
@@ -82,4 +82,4 @@ docker run \
     -v "${HOST_LOG_DIR}":${CONT_LOG_DIR} \
     --workdir ${CONT_CODE_DIR} \
     "$PORTS_ARG" \
-    "${CONTAINER}"
+    "${IMAGE_NAME_TAG}"
