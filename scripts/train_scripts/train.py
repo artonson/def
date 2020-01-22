@@ -1,8 +1,8 @@
 import torch
 import torch.nn.functional as F
-from model import DGCNN
-from dataset import ABCDataset
-from torch_geometric.data import DataListLoader, DataLoader
+from sharpf.models.model import DGCNN
+from sharpf.data.datasets import ABCDataset
+from torch_geometric.data import DataLoader
 import datetime
 from tensorboardX import SummaryWriter
 

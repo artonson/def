@@ -1,0 +1,17 @@
+{
+  "imaging": {
+    "type": "raycasting",
+    "camera_poses": "fibonacci_sampling",
+    "n_images": 10,
+    "resolution": 512
+  },
+  "noise": {
+    "type": "normals_gaussian",
+    "scale": 0.2
+  },
+  "annotation": {
+    "type": "resampling",
+    "sharp_discretization": 0.1,
+    "distance_upper_bound": 1.0
+  }
+}

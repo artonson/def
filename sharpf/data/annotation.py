@@ -102,7 +102,16 @@ class SharpnessResamplingAnnotator(AnnotatorFunc):
         return cls(config['distance_upper_bound'], config['sharp_discretization'])
 
 
+class AABBAnnotator(AnnotatorFunc):
+    """Use axis-aligned bounding box representation sharp edges and compute
+    distances from the input point cloud to the closest sharp edges."""
+    @classmethod
+    def from_config(cls, config):
+        return cls(config['distance_upper_bound'], config['sharp_discretization'])
+
+
 ANNOTATOR_BY_TYPE = {
     'resampling': SharpnessResamplingAnnotator,
+    'aabb': AABBAnnotator,
 }
 

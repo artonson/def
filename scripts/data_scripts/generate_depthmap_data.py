@@ -15,13 +15,13 @@ __dir__ = os.path.normpath(
     os.path.join(
         os.path.dirname(os.path.realpath(__file__)), '..', '..')
 )
+
 sys.path[1:1] = [__dir__]
 
 from sharpf.data.abc.abc_data import ABCModality, ABCChunk, ABC_7Z_FILEMASK
 from sharpf.data.annotation import ANNOTATOR_BY_TYPE
-from sharpf.data.mesh_nbhoods import NBHOOD_BY_TYPE
+from sharpf.data.imaging import IMAGING_BY_TYPE
 from sharpf.data.noisers import NOISE_BY_TYPE
-from sharpf.data.point_samplers import SAMPLER_BY_TYPE
 from sharpf.utils.common import eprint
 from sharpf.utils.mesh_utils import trimesh_load
 
@@ -36,12 +36,12 @@ def compute_curves_nbhood(features, vert_indices, face_indexes):
     for curve in features['curves']:
         nbhood_vert_indices = np.array([
             vert_index for vert_index in curve['vert_indices']
-            if vert_index in vert_indices
+            if vert_index + 1 in vert_indices
         ])
         if len(nbhood_vert_indices) == 0:
             continue
         for index, reindex in zip(vert_indices, np.arange(len(vert_indices))):
-            nbhood_vert_indices[np.where(nbhood_vert_indices == index)] = reindex
+            nbhood_vert_indices[np.where(nbhood_vert_indices == index - 1)] = reindex
         nbhood_curve = deepcopy(curve)
         nbhood_curve['vert_indices'] = nbhood_vert_indices
         nbhood_sharp_curves.append(nbhood_curve)
@@ -50,10 +50,8 @@ def compute_curves_nbhood(features, vert_indices, face_indexes):
     return nbhood_features
 
 
-def generate_patches(meshes_filename, feats_filename, data_slice, config, output_file):
-    n_patches_per_mesh = config['n_patches_per_mesh']
-    nbhood_extractor = load_func_from_config(NBHOOD_BY_TYPE, config['neighbourhood'])
-    sampler = load_func_from_config(SAMPLER_BY_TYPE, config['sampling'])
+def generate_depthmaps(meshes_filename, feats_filename, data_slice, config, output_file):
+    imaging = load_func_from_config(IMAGING_BY_TYPE, config['imaging'])
     noiser = load_func_from_config(NOISE_BY_TYPE, config['noise'])
     annotator = load_func_from_config(ANNOTATOR_BY_TYPE, config['annotation'])
 
@@ -68,29 +66,22 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
                 mesh = trimesh_load(item.obj)
                 features = yaml.load(item.feat, Loader=yaml.Loader)
 
-                # index the mesh using a neighbourhood functions class
-                # (this internally may call indexing, so for repeated invocation one passes the mesh)
-                nbhood_extractor.index(mesh)
+                # create depthmaps (using raycasting or another graphics technique)
+                images, orig_vert_indices, orig_face_indexes, camera_poses = imaging.get_images(mesh)
 
-                for patch_idx in range(n_patches_per_mesh):
-                    # extract neighbourhood
-                    nbhood, orig_vert_indices, orig_face_indexes, scaler = nbhood_extractor.get_nbhood()
-
-                    # sample the neighbourhood to form a point patch
-                    points, normals = sampler.sample(nbhood)
-
+                for image, vert_indices, face_indexes, camera_pose in zip(images, orig_vert_indices, orig_face_indexes, camera_poses):
+                    points = ?
+                    normals = ?
                     # create a noisy sample
                     noisy_points = noiser.make_noise(points, normals)
 
                     # create annotations: condition the features onto the nbhood, then compute the TSharpDF
                     nbhood_features = compute_curves_nbhood(features, orig_vert_indices, orig_face_indexes)
-                    distances, directions = annotator.annotate(nbhood, nbhood_features, noisy_points, scaler)
+                    distances, directions = annotator.annotate(nbhood, nbhood_features, noisy_points)
 
                     has_sharp = any(curve['sharp'] for curve in nbhood_features['curves'])
-                    if not has_sharp:
-                        distances = np.ones(distances.shape) * config['annotation']['distance_upper_bound']
                     patch_info = {
-                        'points': noisy_points,
+                        'image': noisy_points,
                         'normals': normals,
                         'distances': distances,
                         'directions': directions,
@@ -140,15 +131,7 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
         hdf5file.create_dataset('has_sharp', data=has_sharp, dtype=np.bool)
 
 
-def make_patches(options):
-    """Filter the shapes using a number of filters, saving intermediate results."""
-
-    # create the data source iterator
-    # abc_data = ABCData(options.data_dir,
-    #                    modalities=[ABCModality.FEAT.value, ABCModality.OBJ.value],
-    #                    chunks=[options.chunk],
-    #                    shape_representation='trimesh')
-
+def main(options):
     obj_filename = os.path.join(
         options.input_dir,
         ABC_7Z_FILEMASK.format(
@@ -165,15 +148,14 @@ def make_patches(options):
             version='00'
         )
     )
-    abc_data = ABCChunk([obj_filename, feat_filename])
 
-    with open(options.dataset_config) as config_file:
-        config = json.load(config_file)
+    with ABCChunk([obj_filename, feat_filename]) as abc_data:
+        num_data_items = len(abc_data)
 
     processes_to_spawn = 10 * options.n_jobs
-    chunk_size = len(abc_data) // processes_to_spawn
+    chunk_size = num_data_items // processes_to_spawn
     abc_data_slices = [(start, start + chunk_size)
-                       for start in range(0, len(abc_data), chunk_size)]
+                       for start in range(0, num_data_items, chunk_size)]
     output_files = [
         os.path.join(
             options.output_dir,
@@ -182,9 +164,11 @@ def make_patches(options):
         )
         for slice_start, slice_end in abc_data_slices]
 
-    # run the filtering job in parallel
+    with open(options.dataset_config) as config_file:
+        config = json.load(config_file)
+
     parallel = Parallel(n_jobs=options.n_jobs, backend='multiprocessing')
-    delayed_iterable = (delayed(generate_patches)(obj_filename, feat_filename, data_slice, config, out_filename)
+    delayed_iterable = (delayed(generate_depthmaps)(obj_filename, feat_filename, data_slice, config, out_filename)
                         for data_slice, out_filename in zip(abc_data_slices, output_files))
     parallel(delayed_iterable)
 
@@ -198,7 +182,7 @@ def parse_args():
                         required=True, help='input dir with ABC dataset.')
     parser.add_argument('-c', '--chunk', required=True, help='ABC chunk id to process.')
     parser.add_argument('-o', '--output-dir', dest='output_dir',
-                        required=True, help='output dir.')
+                        required=True, help='output dir used to save HDF5 files.')
     parser.add_argument('-g', '--dataset-config', dest='dataset_config',
                         required=True, help='dataset configuration file.')
 
@@ -207,4 +191,4 @@ def parse_args():
 
 if __name__ == '__main__':
     options = parse_args()
-    make_patches(options)
+    main(options)

@@ -1,6 +1,6 @@
 import numpy as np
 import math  
-from matrix_torch import (create_rotation_matrix_x, create_rotation_matrix_y, create_rotation_matrix_z, create_translation_matrix)
+from sharpf.utils.matrix_torch import (create_rotation_matrix_x, create_rotation_matrix_y, create_rotation_matrix_z, create_translation_matrix)
 import xml.etree.ElementTree as ET
 import torch
 

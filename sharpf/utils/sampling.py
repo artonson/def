@@ -22,6 +22,11 @@ def process_vertices(vertices):
 
 def fibonacci_sphere_sampling(samples=1, randomize=True, radius=1.0, positive_z=False):
     # Returns [x,y,z] tuples of a fibonacci sphere sampling
+    # http://extremelearning.com.au/evenly-distributing-points-on-a-sphere/
+    # commonly needed to evenly cover an sphere enclosing the object
+    # for rendering from that points
+    # (hypothetically this should be giving us most important projections of a 3D shape)
+
     if positive_z:
         samples *= 2
     rnd = 1.
