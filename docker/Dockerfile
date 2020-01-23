@@ -53,7 +53,7 @@ ENV CONDA_PREFIX=/home/user/miniconda/envs/$CONDA_DEFAULT_ENV
 ENV PATH=$CONDA_PREFIX/bin:$PATH
 
 ## Install general requirements for the sharp features
-COPY requirements.txt /opt/requirements.txt
+COPY docker/requirements.txt /opt/requirements.txt
 RUN pip install --upgrade pip \
  && pip install --default-timeout=1000 -r /opt/requirements.txt
 
