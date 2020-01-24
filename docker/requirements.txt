@@ -11,8 +11,6 @@ glob2
 h5py>=2.10
 PyYAML
 joblib
-torch==1.4.0
-torchvision
 tensorboardX
 pylzma
 k3d==2.7

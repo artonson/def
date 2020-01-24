@@ -1,4 +1,4 @@
-FROM nvidia/cuda:9.0-cudnn7-devel-ubuntu16.04
+FROM nvidia/cuda:9.2-cudnn7-devel-ubuntu16.04
 
 ## Base packages for ubuntu
 
@@ -51,6 +51,8 @@ RUN /home/user/miniconda/bin/conda install conda-build \
 ENV CONDA_DEFAULT_ENV=py36
 ENV CONDA_PREFIX=/home/user/miniconda/envs/$CONDA_DEFAULT_ENV
 ENV PATH=$CONDA_PREFIX/bin:$PATH
+
+RUN conda install pytorch==1.2.0 torchvision==0.4.0 cudatoolkit=9.2 -c pytorch
 
 ## Install general requirements for the sharp features
 COPY docker/requirements.txt /opt/requirements.txt
