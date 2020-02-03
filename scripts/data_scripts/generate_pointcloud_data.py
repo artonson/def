@@ -23,7 +23,7 @@ from sharpf.data.mesh_nbhoods import NBHOOD_BY_TYPE
 from sharpf.data.noisers import NOISE_BY_TYPE
 from sharpf.data.point_samplers import SAMPLER_BY_TYPE
 from sharpf.utils.common import eprint
-from sharpf.utils.mesh_utils import trimesh_load
+from sharpf.utils.mesh_utils.io import trimesh_load
 
 
 def load_func_from_config(func_dict, config):

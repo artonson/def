@@ -14,3 +14,4 @@ joblib
 tensorboardX
 pylzma
 k3d==2.7
+randomcolor

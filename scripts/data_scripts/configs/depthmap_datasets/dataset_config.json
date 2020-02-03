@@ -1,9 +1,14 @@
 {
-  "imaging": {
+  "scanning_sequence": {
+    "type": "fibonacci_sampling",
+    "n_images": 10
+  },
+  "projector_model": {
     "type": "raycasting",
-    "camera_poses": "fibonacci_sampling",
-    "n_images": 10,
-    "resolution": 512
+    "projection": "ortho",
+    "resolution": 512,
+    "fov": [115, 85, 80],
+    "3d_resolution": 0.1
   },
   "noise": {
     "type": "normals_gaussian",

@@ -2,7 +2,28 @@ import numpy as np
 from trimesh.ray.ray_pyembree import RayMeshIntersector
 
 
+def ray_cast_mesh(mesh, camera_ext,
+                  image_resolution=(512, 512),
+                  projection='ortho', projector_fov=[115, 115, 80],
+                  projector_3d_resolution=0.05):
+    """
+
+    :param mesh:
+    :param camera_ext:
+    :param image_resolution:
+    :param projection:
+    :param projector_field_of_view:
+    :param projector_3d_resolution:
+    """
+
+
+
+
+
 def ray_cast_mesh(mesh, labels, ortho_scale=2.0, image_sz=(512, 512), num_angles=4, z_shift=-3):
+    # ortho_scale: controls how much zoom the
+
+
     image_height, image_width = image_sz
 
     angles = np.linspace(0, np.pi, num_angles)
@@ -10,14 +31,19 @@ def ray_cast_mesh(mesh, labels, ortho_scale=2.0, image_sz=(512, 512), num_angles
 
     # to [0, 1]
     aspect = image_width / image_height
-    rays_origins = (mesh_grid / np.array([[image_height, image_width]]))
+    rays_origins = (mesh_grid / np.array([[image_height, image_width]]))  # [h, w, 2]
 
     # to [-1, 1] + aspect transform
     rays_origins[:, 0] = (-2 * rays_origins[:, 0] + 1) * ortho_scale / 2
     rays_origins[:, 1] = (-2 * rays_origins[:, 1] + 1) * ortho_scale / 2 * aspect
 
-    rays_origins = np.concatenate([rays_origins, np.zeros_like(rays_origins[:, [0]])], axis=1)
+    rays_origins = np.concatenate([
+        rays_origins,
+        np.zeros_like(rays_origins[:, [0]])
+    ], axis=1)
     ray_directions = np.tile(np.array([0, 0, -1]), (rays_origins.shape[0], 1))
+
+
     curves = resample_sharp_edges(mesh, labels)
     poses = []
     renders = []
@@ -66,7 +92,10 @@ def ray_cast_mesh(mesh, labels, ortho_scale=2.0, image_sz=(512, 512), num_angles
         print('annotation time', end_4 - start_4)
 
         render = np.zeros((image_height, image_width))
-        render[mesh_grid[index_ray][:, 0], mesh_grid[index_ray][:, 1]] = point_cloud[:, 2]
+        render[
+            mesh_grid[index_ray][:, 0],
+            mesh_grid[index_ray][:, 1]
+        ] = point_cloud[:, 2]
 
         dist = np.zeros((image_height, image_width))
         dist[mesh_grid[index_ray][:, 0], mesh_grid[index_ray][:, 1]] = annotation

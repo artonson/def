@@ -23,7 +23,7 @@ from sharpf.data.annotation import ANNOTATOR_BY_TYPE
 from sharpf.data.imaging import IMAGING_BY_TYPE
 from sharpf.data.noisers import NOISE_BY_TYPE
 from sharpf.utils.common import eprint
-from sharpf.utils.mesh_utils import trimesh_load
+from sharpf.utils.mesh_utils.io import trimesh_load
 
 
 def load_func_from_config(func_dict, config):
@@ -70,10 +70,12 @@ def generate_depthmaps(meshes_filename, feats_filename, data_slice, config, outp
                 images, orig_vert_indices, orig_face_indexes, camera_poses = imaging.get_images(mesh)
 
                 for image, vert_indices, face_indexes, camera_pose in zip(images, orig_vert_indices, orig_face_indexes, camera_poses):
-                    points = ?
+                    points = depthmap_to_pc(image, camera_pose)
                     normals = ?
                     # create a noisy sample
                     noisy_points = noiser.make_noise(points, normals)
+
+                    nbhood = build_nbhood(vert_indices, face_indexes)
 
                     # create annotations: condition the features onto the nbhood, then compute the TSharpDF
                     nbhood_features = compute_curves_nbhood(features, orig_vert_indices, orig_face_indexes)
