@@ -41,10 +41,11 @@ class NeighbourhoodFunc(ABC):
 class EuclideanSphere(NeighbourhoodFunc):
     """Select all faces with at least one vertex within
     a specified radius from a specified point."""
-    def __init__(self, centroid, radius, n_vertices):
+    def __init__(self, centroid, radius, n_vertices, geodesic_patches):
         self.centroid = centroid
         self.radius = radius
         self.n_vertices = n_vertices
+        self.geodesic_patches = geodesic_patches
         self.mesh = None
         self.tree = None
 
@@ -52,7 +53,7 @@ class EuclideanSphere(NeighbourhoodFunc):
         self.mesh = mesh
         self.tree = KDTree(mesh.vertices, leafsize=100)
 
-    def get_nbhood(self, geodesic_patches=False):
+    def get_nbhood(self):
         # select vertices falling within euclidean sphere
         radius_scaler = self.mesh.edges_unique_length.mean()
         _, vert_indices = self.tree.query(
@@ -79,21 +80,21 @@ class EuclideanSphere(NeighbourhoodFunc):
             faces=selected_faces,
             process=False,
             validate=False)
-        
+
         # get the connected component with maximal area
-        if geodesic_patches:
+        if self.geodesic_patches:
             if len(neighbourhood.split(only_watertight=False)) > 1:
-                areas = []
-                for submesh in neighbourhood.split(only_watertight=False):
-                    areas.append(submesh.area)
-                neighbourhood = neighbourhood.split(only_watertight=False)[np.array(areas).argmax()]
+                areas = np.array([submesh.area for submesh in neighbourhood.split(only_watertight=False)])
+                neighbourhood = neighbourhood.split(only_watertight=False)[areas.argmax()]
 
                 # just in case, fix the patch orientation
                 neighbourhood.fix_normals()
                 
                 # recalculate, which vertices in terms of original mesh indexing are present in geodesic patch:
-                # first, determine which connected component index from IGL correspond to already selected connected component
-                correct_component = (np.unique(igl.vertex_components(selected_faces), return_counts=True)[1] == neighbourhood.vertices.shape[0]).argmax()
+                # first, determine which connected component index from IGL correspond
+                # to already selected connected component
+                correct_component = (np.unique(igl.vertex_components(selected_faces), return_counts=True)[1] ==
+                                     neighbourhood.vertices.shape[0]).argmax()
                 # second, mask out the vertex indices which are not present in the connected component
                 geodesic_mask = (igl.vertex_components(selected_faces) == correct_component)
 
@@ -101,32 +102,38 @@ class EuclideanSphere(NeighbourhoodFunc):
                 adj_face_indexes = self.mesh.vertex_faces[adj_vert_indices]
                 adj_face_indexes = np.unique(adj_face_indexes[adj_face_indexes > -1]) 
                 if neighbourhood.vertices.shape[0] != adj_vert_indices.shape[0]:
-                    raise Exception('You messed the connected components up!')      
+                    raise MessedConnCompException()
         
         return neighbourhood, adj_vert_indices, self.mesh.faces[adj_face_indexes], radius_scaler
 
     @classmethod
     def from_config(cls, config):
-        return cls(config['centroid'], config['radius'], config['n_vertices'])
+        return cls(config['centroid'], config['radius'], config['n_vertices'], config['geodesic_patches'])
+
+
+class MessedConnCompException(Exception):
+    def __str__(self):
+        return 'You messed the connected components up!'
 
 
 class RandomEuclideanSphere(EuclideanSphere):
-    def __init__(self, centroid, radius, n_vertices, radius_delta):
-        super().__init__(centroid, radius, n_vertices)
+    def __init__(self, centroid, radius, n_vertices, geodesic_patches, radius_delta):
+        super().__init__(centroid, radius, n_vertices, geodesic_patches)
         self.radius_delta = radius_delta
 
-    def get_nbhood(self, geodesic_patches=False):
+    def get_nbhood(self):
         centroid_idx = np.random.choice(len(self.mesh.vertices))
         self.centroid = self.mesh.vertices[centroid_idx]
         self.radius = np.random.uniform(
             self.radius - self.radius_delta,
             self.radius + self.radius_delta)
-        return super(RandomEuclideanSphere, self).get_nbhood(geodesic_patches)
+        return super(RandomEuclideanSphere, self).get_nbhood()
 
     @classmethod
     def from_config(cls, config):
         return cls(config['centroid'], config['radius'],
-                   config['n_vertices'], config['radius_delta'])
+                   config['n_vertices'], config['geodesic_patches'],
+                   config['radius_delta'])
 
 #
 # # the function for patch generator: breadth-first search
