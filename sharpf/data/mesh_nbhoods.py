@@ -41,11 +41,12 @@ class NeighbourhoodFunc(ABC):
 class EuclideanSphere(NeighbourhoodFunc):
     """Select all faces with at least one vertex within
     a specified radius from a specified point."""
-    def __init__(self, centroid, radius, n_vertices, geodesic_patches):
+    def __init__(self, centroid, radius, n_vertices, geodesic_patches, scale_radius):
         self.centroid = centroid
         self.radius = radius
         self.n_vertices = n_vertices
         self.geodesic_patches = geodesic_patches
+        self.scale_radius = scale_radius
         self.mesh = None
         self.tree = None
 
@@ -55,7 +56,7 @@ class EuclideanSphere(NeighbourhoodFunc):
 
     def get_nbhood(self):
         # select vertices falling within euclidean sphere
-        radius_scaler = self.mesh.edges_unique_length.mean()
+        radius_scaler = self.mesh.edges_unique_length.mean() if self.scale_radius else 1
         _, vert_indices = self.tree.query(
             self.centroid, k=self.n_vertices, distance_upper_bound=self.radius * radius_scaler)
 
@@ -108,7 +109,8 @@ class EuclideanSphere(NeighbourhoodFunc):
 
     @classmethod
     def from_config(cls, config):
-        return cls(config['centroid'], config['radius'], config['n_vertices'], config['geodesic_patches'])
+        return cls(config['centroid'], config['radius'], config['n_vertices'],
+                   config['geodesic_patches'], config['scale_radius'])
 
 
 class MessedConnCompException(Exception):
@@ -117,8 +119,8 @@ class MessedConnCompException(Exception):
 
 
 class RandomEuclideanSphere(EuclideanSphere):
-    def __init__(self, centroid, radius, n_vertices, geodesic_patches, radius_delta):
-        super().__init__(centroid, radius, n_vertices, geodesic_patches)
+    def __init__(self, centroid, radius, n_vertices, geodesic_patches, scale_radius, radius_delta):
+        super().__init__(centroid, radius, n_vertices, geodesic_patches, scale_radius)
         self.radius_delta = radius_delta
 
     def get_nbhood(self):
@@ -133,7 +135,7 @@ class RandomEuclideanSphere(EuclideanSphere):
     def from_config(cls, config):
         return cls(config['centroid'], config['radius'],
                    config['n_vertices'], config['geodesic_patches'],
-                   config['radius_delta'])
+                   config['scale_radius'], config['radius_delta'])
 
 #
 # # the function for patch generator: breadth-first search
