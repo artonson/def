@@ -6,13 +6,16 @@ import trimesh
 import igl
 import point_cloud_utils as pcu
 
+from sharpf.data import DataGenerationException
+
 
 class SamplerFunc(ABC):
     """Implements obtaining point samples from meshes.
     Given a mesh, extracts a point cloud located on the
     mesh surface, i.e. a set of 3d point locations."""
-    def __init__(self, n_points):
+    def __init__(self, n_points, resolution_3d):
         self.n_points = n_points
+        self.resolution_3d = resolution_3d
 
     @abstractmethod
     def sample(self, mesh):
@@ -21,14 +24,15 @@ class SamplerFunc(ABC):
         :param mesh: an input mesh
         :type mesh: MeshType (must be present attributes `vertices`, `faces`, and `edges`)
 
-        :returns: points: a point cloud
+        :returns: points: a point cloud with n_points
+            and approximately requested 3d resolution
         :rtype: np.ndarray
         """
         pass
 
     @classmethod
     def from_config(cls, config):
-        return cls(config['n_points'])
+        return cls(config['n_points'], config['resolution_3d'])
 
 
 class PoissonDiskSampler(SamplerFunc):
@@ -50,7 +54,7 @@ class PoissonDiskSampler(SamplerFunc):
         # check that the patch will not crash the upsampling function
         FF, FFi = igl.triangle_triangle_adjacency(mesh.faces)
         if (FF[FFi == -1] != -1).any() or (FFi[FF == -1] != -1).any():
-            raise Exception('Mesh patch has issues and breaks the upsampling!')
+            raise DataGenerationException('Mesh patch has issues and breaks the upsampling!')
 
         dense_points, dense_faces = igl.upsample(mesh.vertices, mesh.faces, upsampling_factor)
         # dense_points, dense_faces = mesh.vertices, mesh.faces
@@ -119,5 +123,4 @@ SAMPLER_BY_TYPE = {
     'tpp': TrianglePointPickingSampler,
     'lloyd': LloydSampler,
 }
-
 

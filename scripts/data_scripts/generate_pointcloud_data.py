@@ -15,11 +15,13 @@ __dir__ = os.path.normpath(
     os.path.join(
         os.path.dirname(os.path.realpath(__file__)), '..', '..')
 )
+
 sys.path[1:1] = [__dir__]
 
+from sharpf.data import DataGenerationException
 from sharpf.data.abc.abc_data import ABCModality, ABCChunk, ABC_7Z_FILEMASK
 from sharpf.data.annotation import ANNOTATOR_BY_TYPE
-from sharpf.data.mesh_nbhoods import NBHOOD_BY_TYPE, MessedConnCompException
+from sharpf.data.mesh_nbhoods import NBHOOD_BY_TYPE
 from sharpf.data.noisers import NOISE_BY_TYPE
 from sharpf.data.point_samplers import SAMPLER_BY_TYPE
 from sharpf.utils.common import eprint
@@ -58,6 +60,12 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
     noiser = load_func_from_config(NOISE_BY_TYPE, config['noise'])
     annotator = load_func_from_config(ANNOTATOR_BY_TYPE, config['annotation'])
 
+    # Specific to this script only: override radius of neighbourhood extractor
+    # to reflect actual point cloud resolution:
+    # we extract spheres of radius r, such that area of a (plane) disk with radius r
+    # is equal to the total area of 3d points (as if we scanned a plane wall)
+    nbhood_extractor.radius_base = np.sqrt((sampler.n_points * np.pi * sampler.resolution_3d ** 2)) / np.pi
+
     slice_start, slice_end = data_slice
     with ABCChunk([meshes_filename, feats_filename]) as data_holder:
         point_patches = []
@@ -81,8 +89,8 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
                     # extract neighbourhood
                     try:
                         nbhood, orig_vert_indices, orig_face_indexes, scaler = nbhood_extractor.get_nbhood()
-                    except MessedConnCompException:
-                        eprint('Could not crop mesh patch, continuing')
+                    except DataGenerationException as e:
+                        eprint(str(e))
                         continue
 
                     # sample the neighbourhood to form a point patch
