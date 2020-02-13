@@ -62,6 +62,7 @@ class EuclideanSphere(NeighbourhoodFunc):
         # select vertices falling within euclidean sphere
         _, vert_indices = self.tree.query(
             self.centroid, k=self.n_vertices, distance_upper_bound=self.radius_base * self.radius_scale)
+        vert_indices = np.array(vert_indices)
 
         # get all faces that share vertices with selected vertices
         vert_indices = vert_indices[vert_indices < len(self.mesh.vertices)]
