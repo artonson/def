@@ -1,0 +1,2 @@
+class DataGenerationException(Exception):
+    pass

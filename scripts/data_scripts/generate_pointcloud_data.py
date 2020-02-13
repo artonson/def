@@ -15,8 +15,10 @@ __dir__ = os.path.normpath(
     os.path.join(
         os.path.dirname(os.path.realpath(__file__)), '..', '..')
 )
+
 sys.path[1:1] = [__dir__]
 
+from sharpf.data import DataGenerationException
 from sharpf.data.abc.abc_data import ABCModality, ABCChunk, ABC_7Z_FILEMASK
 from sharpf.data.annotation import ANNOTATOR_BY_TYPE
 from sharpf.data.mesh_nbhoods import NBHOOD_BY_TYPE
@@ -52,10 +54,17 @@ def compute_curves_nbhood(features, vert_indices, face_indexes):
 
 def generate_patches(meshes_filename, feats_filename, data_slice, config, output_file):
     n_patches_per_mesh = config['n_patches_per_mesh']
+    shape_fabrication_extent = config['shape_fabrication_extent']  # desired size of mesh in physical mm
     nbhood_extractor = load_func_from_config(NBHOOD_BY_TYPE, config['neighbourhood'])
     sampler = load_func_from_config(SAMPLER_BY_TYPE, config['sampling'])
     noiser = load_func_from_config(NOISE_BY_TYPE, config['noise'])
     annotator = load_func_from_config(ANNOTATOR_BY_TYPE, config['annotation'])
+
+    # Specific to this script only: override radius of neighbourhood extractor
+    # to reflect actual point cloud resolution:
+    # we extract spheres of radius r, such that area of a (plane) disk with radius r
+    # is equal to the total area of 3d points (as if we scanned a plane wall)
+    nbhood_extractor.radius_base = np.sqrt((sampler.n_points * np.pi * sampler.resolution_3d ** 2)) / np.pi
 
     slice_start, slice_end = data_slice
     with ABCChunk([meshes_filename, feats_filename]) as data_holder:
@@ -63,10 +72,14 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
         for item in data_holder[slice_start:slice_end]:
             eprint("Processing chunk file {chunk}, item {item}".format(
                 chunk=meshes_filename, item=item.item_id))
-            # load the mesh and the feature curves annotations
             try:
+                # load the mesh and the feature curves annotations
                 mesh = trimesh_load(item.obj)
                 features = yaml.load(item.feat, Loader=yaml.Loader)
+
+                # fix mesh fabrication size in physical mm
+                mesh_extent = np.max(mesh.bounding_box.extents)
+                mesh = mesh.apply_scale(shape_fabrication_extent / mesh_extent)
 
                 # index the mesh using a neighbourhood functions class
                 # (this internally may call indexing, so for repeated invocation one passes the mesh)
@@ -74,7 +87,11 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
 
                 for patch_idx in range(n_patches_per_mesh):
                     # extract neighbourhood
-                    nbhood, orig_vert_indices, orig_face_indexes, scaler = nbhood_extractor.get_nbhood(geodesic_patches=True)
+                    try:
+                        nbhood, orig_vert_indices, orig_face_indexes, scaler = nbhood_extractor.get_nbhood()
+                    except DataGenerationException as e:
+                        eprint(str(e))
+                        continue
 
                     # sample the neighbourhood to form a point patch
                     points, normals = sampler.sample(nbhood)
