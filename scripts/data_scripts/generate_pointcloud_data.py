@@ -94,7 +94,11 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
                         continue
 
                     # sample the neighbourhood to form a point patch
-                    points, normals = sampler.sample(nbhood)
+                    try:
+                        points, normals = sampler.sample(nbhood, centroid=nbhood_extractor.centroid)
+                    except DataGenerationException as e:
+                        eprint(str(e))
+                        continue
 
                     # create a noisy sample
                     noisy_points = noiser.make_noise(points, normals)

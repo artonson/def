@@ -18,7 +18,7 @@ class SamplerFunc(ABC):
         self.resolution_3d = resolution_3d
 
     @abstractmethod
-    def sample(self, mesh):
+    def sample(self, mesh, centroid=None):
         """Extracts a point cloud.
 
         :param mesh: an input mesh
@@ -40,33 +40,43 @@ class PoissonDiskSampler(SamplerFunc):
     based on "Parallel Poisson Disk Sampling with Spectrum
     Analysis on Surface". (Implementation by fwilliams) """
     # https://github.com/marmakoide/mesh-blue-noise-sampling/blob/master/mesh-sampling.py
+    def __init__(self, n_points, resolution_3d, crop_center):
+        self.crop_center = crop_center
+        super().__init__(n_points, resolution_3d)
 
-    def _make_dense_mesh(self, mesh):
+    @classmethod
+    def from_config(cls, config):
+        return cls(config['n_points'], config['resolution_3d'], config['crop_center'])
+
+    def _make_dense_mesh(self, mesh, extra_points_factor=10, point_split_factor=4):
         # Intuition: take 10x the number of needed n_points,
         # keep in mind that each call to `igl.upsample` generates 4x the points,
         # then compute the upsampling factor K from the relation:
         # 4^K n = 10 n_points
-        upsampling_factor = np.ceil(np.log(self.n_points * 10. / len(mesh.vertices)) / np.log(4)).astype(int)
+        upsampling_factor = np.ceil(
+            np.log(self.n_points * extra_points_factor / len(mesh.vertices)) /
+            np.log(point_split_factor)
+        ).astype(int)
 
         # Generate very dense subdivision samples on the mesh (v, f, n)
         # for _ in range(upsampling_factor):
         #     mesh = mesh.subdivide()
-
         dense_points, dense_faces = igl.upsample(mesh.vertices, mesh.faces, upsampling_factor)
 
         # compute vertex normals by pushing to trimesh
         dense_mesh = trimesh.base.Trimesh(vertices=dense_points, faces=dense_faces, process=False, validate=False)
         return dense_mesh
 
-    def sample(self, mesh):
+    def sample(self, mesh, centroid=None):
         # check that the patch will not crash the upsampling function
         FF, FFi = igl.triangle_triangle_adjacency(mesh.faces)
         if (FF[FFi == -1] != -1).any() or (FFi[FF == -1] != -1).any():
             raise DataGenerationException('Mesh patch has issues and breaks the upsampling!')
 
-        dense_mesh = self._make_dense_mesh(mesh)
+        dense_mesh = self._make_dense_mesh(mesh, extra_points_factor=40, point_split_factor=4)
         dense_points = np.array(dense_mesh.vertices, order='C')
         dense_normals = np.array(dense_mesh.vertex_normals, order='C')
+        dense_faces = np.array(dense_mesh.faces)
 
         # Downsample v_dense to be from a blue noise distribution:
         #
@@ -74,32 +84,20 @@ class PoissonDiskSampler(SamplerFunc):
         # `radius` distance, use_geodesic_distance indicates that the distance should be measured on the mesh.
         #
         # `normals` are the corresponding normals of `points`
-        poisson_disk_radius = float(np.mean(umesh.edges_unique_length))
-        i, n_iter = 0, 10
-        interval_left, interval_right = None, None
-        while i < n_iter:
-            i += 1
-            points, normals = pcu.sample_mesh_poisson_disk(
-                dense_points, dense_faces, dense_normals,
-                self.n_points,
-                radius=poisson_disk_radius, use_geodesic_distance=True)
-            if self.n_points < len(points) < 1.1 * self.n_points:
-                break
-            elif len(points) < self.n_points:
-                interval_right = poisson_disk_radius
-                if None is not interval_left:
-                    poisson_disk_radius = (interval_left + interval_right) / 2.
-                else:
-                    poisson_disk_radius /= 2.
-            else:  # if len(points) > 1.1 * self.n_points
-                interval_left = poisson_disk_radius
-                if None is not interval_right:
-                    poisson_disk_radius = (interval_left + interval_right) / 2.
-                else:
-                    poisson_disk_radius *= 2.
+
+        # require a little bit extra points as PDS get you sometimes fewer than requested
+        required_points = int(1.1 * self.n_points)
+        points, normals = pcu.sample_mesh_poisson_disk(
+            dense_points, dense_faces, dense_normals,
+            required_points, radius=self.resolution_3d, use_geodesic_distance=True)
 
         # ensure that we are returning exactly n_points
-        return_idx = np.random.choice(np.arange(len(points)), size=self.n_points, replace=False)
+        if self.crop_center:
+            centroid = np.mean(points, axis=1) if centroid is None else centroid
+            return_idx = np.argsort(np.linalg.norm(points - centroid, axis=1))[:self.n_points]
+        else:
+            return_idx = np.random.choice(np.arange(len(points)), size=self.n_points, replace=False)
+
         return points[return_idx], normals[return_idx]
 
 
@@ -107,7 +105,7 @@ class TrianglePointPickingSampler(SamplerFunc):
     """Sample using the Triangle-Point-Picking method
     http://mathworld.wolfram.com/TrianglePointPicking.html
     (Implementation by trimesh package) """
-    def sample(self, mesh):
+    def sample(self, mesh, centroid=None):
         points, face_indices = trimesh.sample.sample_surface(mesh, self.n_points)
         normals = mesh.face_normals[face_indices]
         return points, normals
@@ -115,7 +113,7 @@ class TrianglePointPickingSampler(SamplerFunc):
 
 class LloydSampler(SamplerFunc):
     """Sample using the Lloyd algorithm"""
-    def sample(self, mesh):
+    def sample(self, mesh, centroid=None):
         points = pcu.sample_mesh_lloyd(mesh.vertices, mesh.faces, self.n_points)
         tree = KDTree(mesh.vertices, leafsize=100)
         _, vert_indices = tree.query(points)

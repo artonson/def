@@ -1,3 +1,5 @@
+import numpy as np
+
 from sharpf.data.abc.abc_data import ABC7ZFile
 from sharpf.data.mesh_nbhoods import RandomEuclideanSphere
 from sharpf.utils.mesh_utils.io import trimesh_load
@@ -24,7 +26,7 @@ class NeighbourhoodTestCase(ABCDownloadableTestCase):
                     nbhood_extractor.index(mesh)
                     for patch_idx in range(n_patches_per_mesh):
                         nbhood, orig_vert_indices, orig_face_indexes, _ = nbhood_extractor.get_nbhood()
-                        self.assertEquals(mesh.vertices[orig_vert_indices], nbhood.vertices)
+                        self.assertTrue(np.all(mesh.vertices[orig_vert_indices] == nbhood.vertices))
                         self.assertEquals(set(mesh.faces[orig_vert_indices]), set(nbhood.faces))
 
         _run_test()
@@ -50,3 +52,6 @@ class NeighbourhoodTestCase(ABCDownloadableTestCase):
                     nbhood, orig_vert_indices, orig_face_indexes, _ = nbhood_extractor.get_nbhood()
                     self.assertEquals(len(nbhood.split(only_watertight=False)), 1)
 
+
+# TODO test that the largest CC is being actually selected
+# TODO test that vertices and triangles actually selected belong to the largest CC

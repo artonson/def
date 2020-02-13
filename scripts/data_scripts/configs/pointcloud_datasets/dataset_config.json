@@ -13,7 +13,8 @@
   "sampling": {
     "type": "poisson_disk",
     "n_points": 4096,
-    "resolution_3d": 0.13
+    "resolution_3d": 0.13,
+    "crop_center": true
   },
   "noise": {
     "type": "normals_gaussian",
