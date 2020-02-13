@@ -12,14 +12,11 @@ import urllib.request
 
 from sharpf.data.abc.abc_data import ABC7ZFile, ABCChunk, ABCModality, ABCItem, _extract_inar_id, MergedABCItem, ALL_ABC_MODALITIES
 
-OBJ_URL = 'https://box.skoltech.ru/index.php/s/r17FSLbWI9NRmme/download'
-FEAT_URL = 'https://box.skoltech.ru/index.php/s/JapYt3PAn50gq8u/download'
-CHUNK_URLS = [OBJ_URL, FEAT_URL]
-
-OBJ_FILENAME = os.path.expanduser('~/abc_0000_obj_v00.7z')
-FEAT_FILENAME = os.path.expanduser('~/abc_0000_feat_v00.7z')
-CHUNK_FILENAMES = [OBJ_FILENAME, FEAT_FILENAME]
-CHUNK_MODALITIES = [ABCModality.OBJ.value, ABCModality.FEAT.value]
+from sharpf.utils.unittest import (
+    OBJ_URL, FEAT_URL, CHUNK_URLS,
+    OBJ_FILENAME, FEAT_FILENAME, CHUNK_FILENAMES,
+    CHUNK_MODALITIES,
+    ABCDownloadableTestCase)
 
 
 def get_info_from_7z(filename):
@@ -103,17 +100,7 @@ class ABCTestCase(TestCase, ABC):
         self.assertEqual(len(s), item_size)
 
 
-class ABC7ZFileTestCase(ABCTestCase):
-    @classmethod
-    def setUpClass(cls):
-        print('Downloading test data {}'.format(OBJ_FILENAME), file=sys.stderr)
-        urllib.request.urlretrieve(OBJ_URL, OBJ_FILENAME)
-
-    @classmethod
-    def tearDownClass(cls):
-        print('Cleaning test data {}'.format(OBJ_FILENAME), file=sys.stderr)
-        os.remove(OBJ_FILENAME)
-
+class ABC7ZFileTestCase(ABCTestCase, ABCDownloadableTestCase):
     def _check_file_open(self, f):
         self.assertTrue(f._isopen())
         self.assertEquals(f.filename, OBJ_FILENAME)

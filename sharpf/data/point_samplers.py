@@ -36,29 +36,33 @@ class PoissonDiskSampler(SamplerFunc):
     based on "Parallel Poisson Disk Sampling with Spectrum
     Analysis on Surface". (Implementation by fwilliams) """
     # https://github.com/marmakoide/mesh-blue-noise-sampling/blob/master/mesh-sampling.py
-    def sample(self, mesh):
+
+    def _make_dense_mesh(self, mesh):
         # Intuition: take 10x the number of needed n_points,
         # keep in mind that each call to `igl.upsample` generates 4x the points,
         # then compute the upsampling factor K from the relation:
         # 4^K n = 10 n_points
         upsampling_factor = np.ceil(np.log(self.n_points * 10. / len(mesh.vertices)) / np.log(4)).astype(int)
-        
+
         # Generate very dense subdivision samples on the mesh (v, f, n)
         # for _ in range(upsampling_factor):
         #     mesh = mesh.subdivide()
 
+        dense_points, dense_faces = igl.upsample(mesh.vertices, mesh.faces, upsampling_factor)
+
+        # compute vertex normals by pushing to trimesh
+        dense_mesh = trimesh.base.Trimesh(vertices=dense_points, faces=dense_faces, process=False, validate=False)
+        return dense_mesh
+
+    def sample(self, mesh):
         # check that the patch will not crash the upsampling function
         FF, FFi = igl.triangle_triangle_adjacency(mesh.faces)
         if (FF[FFi == -1] != -1).any() or (FFi[FF == -1] != -1).any():
             raise Exception('Mesh patch has issues and breaks the upsampling!')
 
-        dense_points, dense_faces = igl.upsample(mesh.vertices, mesh.faces, upsampling_factor)
-        # dense_points, dense_faces = mesh.vertices, mesh.faces
-
-        # compute vertex normals by pushing to trimesh
-        umesh = trimesh.base.Trimesh(vertices=dense_points, faces=dense_faces, process=False, validate=False)
-        dense_points = np.array(umesh.vertices, order='C')
-        dense_normals = np.array(umesh.vertex_normals, order='C')
+        dense_mesh = self._make_dense_mesh(mesh)
+        dense_points = np.array(dense_mesh.vertices, order='C')
+        dense_normals = np.array(dense_mesh.vertex_normals, order='C')
 
         # Downsample v_dense to be from a blue noise distribution:
         #
@@ -73,6 +77,7 @@ class PoissonDiskSampler(SamplerFunc):
             i += 1
             points, normals = pcu.sample_mesh_poisson_disk(
                 dense_points, dense_faces, dense_normals,
+                self.n_points,
                 radius=poisson_disk_radius, use_geodesic_distance=True)
             if self.n_points < len(points) < 1.1 * self.n_points:
                 break
