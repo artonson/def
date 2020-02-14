@@ -1,11 +1,9 @@
 from abc import ABC, abstractmethod
 
 import numpy as np
-import trimesh
 from scipy.spatial import KDTree
-import igl
 
-from sharpf.data import DataGenerationException
+from sharpf.utils.mesh_utils.indexing import reindex_zerobased, compute_relative_indexes
 
 
 class NeighbourhoodFunc(ABC):
@@ -60,57 +58,43 @@ class EuclideanSphere(NeighbourhoodFunc):
 
     def get_nbhood(self):
         # select vertices falling within euclidean sphere
-        _, vert_indices = self.tree.query(
+        _, mesh_vertex_indexes = self.tree.query(
             self.centroid, k=self.n_vertices, distance_upper_bound=self.radius_base * self.radius_scale)
-        vert_indices = np.array(vert_indices)
+        mesh_vertex_indexes = np.array(mesh_vertex_indexes)
 
         # get all faces that share vertices with selected vertices
-        vert_indices = vert_indices[vert_indices < len(self.mesh.vertices)]
-        adj_face_indexes = self.mesh.vertex_faces[vert_indices]
-        adj_face_indexes = np.unique(adj_face_indexes[adj_face_indexes > -1])
-
-        # get all vertices that sit on adjacent faces
-        adj_vert_indices = self.mesh.faces[adj_face_indexes]
-        adj_vert_indices = np.unique(adj_vert_indices)
+        mesh_vertex_indexes = mesh_vertex_indexes[mesh_vertex_indexes < len(self.mesh.vertices)]
+        mesh_face_indexes = self.mesh.vertex_faces[mesh_vertex_indexes]
+        mesh_face_indexes = np.unique(mesh_face_indexes[mesh_face_indexes > -1])
+        # add all vertices that sit on adjacent faces
+        mesh_vertex_indexes = np.unique(self.mesh.faces[mesh_face_indexes])
+        # close selected faces wrt to selected vertices
+        # (add faces where all selected vertices have been added)
+        mesh_face_indexes, = np.where(np.all(
+            np.any([self.mesh.faces == index for index in mesh_vertex_indexes], axis=0),
+            axis=1))
 
         # copy vertices, reindex faces
-        selected_vertices = self.mesh.vertices[adj_vert_indices]
-        selected_faces = np.array(self.mesh.faces[adj_face_indexes])
-        for reindex, index in zip(np.arange(len(selected_vertices)), adj_vert_indices):
-            selected_faces[np.where(selected_faces == index)] = reindex
-
-        # push the selected stuff into a trimesh
-        neighbourhood = trimesh.base.Trimesh(
-            vertices=selected_vertices,
-            faces=selected_faces,
-            process=False,
-            validate=False)
+        nb = reindex_zerobased(self.mesh, mesh_vertex_indexes, mesh_face_indexes)
 
         # get the connected component with maximal area
         if self.geodesic_patches:
-            sub_meshes = neighbourhood.split(only_watertight=False)
+            sub_meshes = nb.split(only_watertight=False)
             if len(sub_meshes) > 1:
                 areas = np.array([sub_mesh.area for sub_mesh in sub_meshes])
-                neighbourhood = sub_meshes[areas.argmax()]
+                sub_mesh = sub_meshes[areas.argmax()]
 
-                # just in case, fix the patch orientation
-                neighbourhood.fix_normals()
-                
-                # recalculate, which vertices in terms of original mesh indexing are present in geodesic patch:
-                # first, determine which connected component index from IGL correspond
-                # to already selected connected component
-                correct_component = (np.unique(igl.vertex_components(selected_faces), return_counts=True)[1] ==
-                                     neighbourhood.vertices.shape[0]).argmax()
-                # second, mask out the vertex indices which are not present in the connected component
-                geodesic_mask = (igl.vertex_components(selected_faces) == correct_component)
+                # get indices of verts and faces
+                nb_vertex_indexes, nb_face_indexes = compute_relative_indexes(nb, sub_mesh)
 
-                adj_vert_indices = adj_vert_indices[geodesic_mask]
-                adj_face_indexes = self.mesh.vertex_faces[adj_vert_indices]
-                adj_face_indexes = np.unique(adj_face_indexes[adj_face_indexes > -1]) 
-                if neighbourhood.vertices.shape[0] != adj_vert_indices.shape[0]:
-                    raise DataGenerationException('You messed up the connected components!')
-        
-        return neighbourhood, adj_vert_indices, self.mesh.faces[adj_face_indexes], self.radius_scale
+                # get down to sub_mesh, copy vertices, reindex faces
+                nb = reindex_zerobased(nb, nb_vertex_indexes, nb_face_indexes)
+
+                # do nested indexing
+                mesh_vertex_indexes, mesh_face_indexes = mesh_vertex_indexes[nb_vertex_indexes], \
+                                                         mesh_face_indexes[nb_face_indexes]
+
+        return nb, mesh_vertex_indexes, self.mesh.faces[mesh_face_indexes], self.radius_scale
 
     @classmethod
     def from_config(cls, config):

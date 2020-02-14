@@ -25,9 +25,10 @@ class NeighbourhoodTestCase(ABCDownloadableTestCase):
                     mesh = trimesh_load(item.obj)
                     nbhood_extractor.index(mesh)
                     for patch_idx in range(n_patches_per_mesh):
-                        nbhood, orig_vert_indices, orig_face_indexes, _ = nbhood_extractor.get_nbhood()
-                        self.assertTrue(np.all(mesh.vertices[orig_vert_indices] == nbhood.vertices))
-                        self.assertEquals(set(mesh.faces[orig_vert_indices]), set(nbhood.faces))
+                        nbhood, mesh_vertex_indexes, mesh_face_indexes, _ = nbhood_extractor.get_nbhood()
+                        self.assertTrue(np.all(mesh.vertices[mesh_vertex_indexes] == nbhood.vertices))
+                        self.assertTrue(
+                            np.all(mesh.vertices[mesh.faces[mesh_face_indexes]] == nbhood.vertices[nbhood.faces]))
 
         _run_test()
         _run_test(geodesic=True)
