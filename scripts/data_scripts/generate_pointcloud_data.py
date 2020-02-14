@@ -52,6 +52,10 @@ def compute_curves_nbhood(features, vert_indices, face_indexes):
     return nbhood_features
 
 
+def remove_boundary_features(nbhood_features, mesh, mesh_vertex_indexes, mesh_face_indexes):
+    return nbhood_features
+
+
 def generate_patches(meshes_filename, feats_filename, data_slice, config, output_file):
     n_patches_per_mesh = config['n_patches_per_mesh']
     shape_fabrication_extent = config['shape_fabrication_extent']  # desired size of mesh in physical mm
@@ -88,7 +92,7 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
                 for patch_idx in range(n_patches_per_mesh):
                     # extract neighbourhood
                     try:
-                        nbhood, orig_vert_indices, orig_face_indexes, scaler = nbhood_extractor.get_nbhood()
+                        nbhood, mesh_vertex_indexes, mesh_face_indexes, scaler = nbhood_extractor.get_nbhood()
                     except DataGenerationException as e:
                         eprint(str(e))
                         continue
@@ -103,8 +107,14 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
                     # create a noisy sample
                     noisy_points = noiser.make_noise(points, normals)
 
-                    # create annotations: condition the features onto the nbhood, then compute the TSharpDF
-                    nbhood_features = compute_curves_nbhood(features, orig_vert_indices, orig_face_indexes)
+                    # create annotations: condition the features onto the nbhood
+                    nbhood_features = compute_curves_nbhood(features, mesh_vertex_indexes, mesh_face_indexes)
+
+                    # remove features lying on the boundary (sharp edges found in 1 face only)
+                    nbhood_features = remove_boundary_features(
+                        nbhood_features, mesh, mesh_vertex_indexes, mesh_face_indexes)
+
+                    # compute the TSharpDF
                     distances, directions = annotator.annotate(nbhood, nbhood_features, noisy_points, scaler)
 
                     has_sharp = any(curve['sharp'] for curve in nbhood_features['curves'])
@@ -116,8 +126,8 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
                         'distances': distances,
                         'directions': directions,
                         'item_id': item.item_id,
-                        'orig_vert_indices': orig_vert_indices,
-                        'orig_face_indexes': orig_face_indexes,
+                        'orig_vert_indices': mesh_vertex_indexes,
+                        'orig_face_indexes': mesh_face_indexes,
                         'has_sharp': has_sharp
                     }
                     point_patches.append(patch_info)
@@ -143,18 +153,18 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
         item_ids = [patch['item_id'] for patch in point_patches]
         hdf5file.create_dataset('item_id', data=np.string_(item_ids), dtype=h5py.string_dtype(encoding='ascii'))
 
-        orig_vert_indices = [patch['orig_vert_indices'].astype('int32') for patch in point_patches]
+        mesh_vertex_indexes = [patch['orig_vert_indices'].astype('int32') for patch in point_patches]
         vert_dataset = hdf5file.create_dataset('orig_vert_indices',
-                                               shape=(len(orig_vert_indices),),
+                                               shape=(len(mesh_vertex_indexes),),
                                                dtype=h5py.special_dtype(vlen=np.int32))
-        for i, vert_indices in enumerate(orig_vert_indices):
+        for i, vert_indices in enumerate(mesh_vertex_indexes):
             vert_dataset[i] = vert_indices
 
-        orig_face_indexes = [patch['orig_face_indexes'].astype('int32') for patch in point_patches]
+        mesh_face_indexes = [patch['orig_face_indexes'].astype('int32') for patch in point_patches]
         face_dataset = hdf5file.create_dataset('orig_face_indexes',
-                                               shape=(len(orig_face_indexes),),
+                                               shape=(len(mesh_face_indexes),),
                                                dtype=h5py.special_dtype(vlen=np.int32))
-        for i, face_indices in enumerate(orig_face_indexes):
+        for i, face_indices in enumerate(mesh_face_indexes):
             face_dataset[i] = face_indices.flatten()
 
         has_sharp = np.stack([patch['has_sharp'] for patch in point_patches]).astype(bool)

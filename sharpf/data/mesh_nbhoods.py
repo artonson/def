@@ -76,6 +76,7 @@ class EuclideanSphere(NeighbourhoodFunc):
 
         # copy vertices, reindex faces
         nb = reindex_zerobased(self.mesh, mesh_vertex_indexes, mesh_face_indexes)
+        nb.edges_face
 
         # get the connected component with maximal area
         if self.geodesic_patches:

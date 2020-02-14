@@ -53,7 +53,7 @@ class SharpnessResamplingAnnotator(AnnotatorFunc):
                     n_points_per_edge = np.linalg.norm(first - second, axis=1) / self.sharp_discretization
                     d_points_per_edge = 1. / n_points_per_edge
                     for n, v1, v2 in zip(n_points_per_edge, first, second):
-                        t = np.linspace(d_points_per_edge, 1 - d_points_per_edge, n)
+                        t = np.linspace(d_points_per_edge, 1 - d_points_per_edge, int(n))
                         sharp_points.append(np.outer(t, v1) + np.outer(1 - t, v2))
 
         sharp_points = np.concatenate(sharp_points)
@@ -68,55 +68,12 @@ class SharpnessResamplingAnnotator(AnnotatorFunc):
 
         # model a dense sample of points lying on sharp edges
         sharp_points = self._resample_sharp_edges(mesh_patch, features_patch)
-        
-        # if all patch sharp features are nearby the patch edge
-        if np.linalg.norm(sharp_points - mesh_patch.vertices.mean(0), axis=1).min() / np.linalg.norm(mesh_patch.vertices - mesh_patch.vertices.mean(0), axis=1).max() >= 0.85:
-            distances = np.ones_like(points[:, 0]) * self.distance_upper_bound
-            directions = np.zeros_like(points)
-            return distances, directions
-
-        # compute distances from each input point to the sharp points
-        tree = KDTree(sharp_points, leafsize=100)
-        distances, vert_indices = tree.query(points, distance_upper_bound=self.distance_upper_bound * distance_scaler)
-        
-        distances = distances / distance_scaler
-        # if patch is without sharp features
-        if all(not curve['sharp'] for curve in features_patch['curves']):
-            distances = np.ones_like(points[:, 0]) * self.distance_upper_bound
-            directions = np.zeros_like(points)
-            return distances, directions
-
-        # model a dense sample of points lying on sharp edges
-        sharp_points = self._resample_sharp_edges(mesh_patch, features_patch)
-
-        # if all patch sharp features are nearby the patch edge
-        if np.linalg.norm(sharp_points - mesh_patch.vertices.mean(0), axis=1).min() / np.linalg.norm(
-                mesh_patch.vertices - mesh_patch.vertices.mean(0), axis=1).max() >= 0.85:
-            distances = np.ones_like(points[:, 0]) * self.distance_upper_bound
-            directions = np.zeros_like(points)
-            return distances, directions
 
         # compute distances from each input point to the sharp points
         tree = KDTree(sharp_points, leafsize=100)
         distances, vert_indices = tree.query(points, distance_upper_bound=self.distance_upper_bound * distance_scaler)
 
         distances = distances / distance_scaler
-
-        far_from_sharp = distances == np.inf  # boolean mask marking objects far away from sharp curves
-        distances[far_from_sharp] = self.distance_upper_bound
-
-        # compute directions for points close to sharp curves
-        directions = np.zeros_like(points)
-        directions[~far_from_sharp] = sharp_points[vert_indices[~far_from_sharp]] - points[~far_from_sharp]
-        directions[~far_from_sharp] /= np.linalg.norm(directions[~far_from_sharp], axis=1, keepdims=True)
-        # fix NaNs
-        nan_inds = np.unique(np.where(np.isnan(directions))[0])
-        non_nan_inds = np.setdiff1d(np.arange(len(directions)), nan_inds)
-        tree = KDTree(points, leafsize=100)
-        _, non_nan_indices = tree.query(points[nan_inds])
-        directions[nan_inds] = directions[non_nan_inds][non_nan_indices]
-
-        return distances, directions
 
         far_from_sharp = distances == np.inf  # boolean mask marking objects far away from sharp curves
         distances[far_from_sharp] = self.distance_upper_bound
