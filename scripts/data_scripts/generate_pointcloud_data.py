@@ -52,8 +52,30 @@ def compute_curves_nbhood(features, vert_indices, face_indexes):
     return nbhood_features
 
 
-def remove_boundary_features(nbhood_features, mesh, mesh_vertex_indexes, mesh_face_indexes):
-    return nbhood_features
+def remove_boundary_features(mesh, features):
+    """Removes features indexed into vertex edges adjacent to 1 face only."""
+    mesh_edge_indexes, mesh_edge_counts = np.unique(
+        mesh.faces_unique_edges.flatten(), return_counts=True)
+
+    boundary_vertex_indexes = np.unique(mesh.edges_unique[
+                                            mesh_edge_indexes[np.where(mesh_edge_counts == 1)[0]]
+                                        ].flatten())
+
+    non_boundary_curves = []
+    for curve in features['curves']:
+        non_boundary_vert_indices = np.array([
+            vert_index for vert_index in curve['vert_indices']
+            if vert_index not in boundary_vertex_indexes
+        ])
+        if len(non_boundary_vert_indices) == 0:
+            continue
+
+        non_boundary_curve = deepcopy(curve)
+        non_boundary_curve['vert_indices'] = non_boundary_vert_indices
+        non_boundary_curves.append(non_boundary_curve)
+
+    non_boundary_features = {'curves': non_boundary_curves}
+    return non_boundary_features
 
 
 def generate_patches(meshes_filename, feats_filename, data_slice, config, output_file):
@@ -112,7 +134,7 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
 
                     # remove features lying on the boundary (sharp edges found in 1 face only)
                     nbhood_features = remove_boundary_features(
-                        nbhood_features, mesh, mesh_vertex_indexes, mesh_face_indexes)
+                        nbhood, nbhood_features, mesh_vertex_indexes, mesh_face_indexes)
 
                     # compute the TSharpDF
                     distances, directions = annotator.annotate(nbhood, nbhood_features, noisy_points, scaler)

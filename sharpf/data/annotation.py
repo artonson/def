@@ -44,19 +44,21 @@ class SharpnessResamplingAnnotator(AnnotatorFunc):
                 sharp_vert_indices = curve['vert_indices']
                 # there may be no sharp edges, but single vertices may be present -- add them
                 sharp_points.append(mesh_patch.vertices[sharp_vert_indices])
-                sharp_edges = np.array([
-                    pair_i_j for pair_i_j in itertools.combinations(np.unique(sharp_vert_indices), 2)
-                    if (mesh_patch.edges == pair_i_j).all(axis=1).any(axis=0)
-                ])
+                sharp_edges = mesh_patch.edges_unique[
+                    np.where(
+                        np.all(np.isin(mesh_patch.edges_unique, curve['vert_indices']), axis=1)
+                    )[0]
+                ]
                 if len(sharp_edges) > 0:
                     first, second = mesh_patch.vertices[sharp_edges[:, 0]], mesh_patch.vertices[sharp_edges[:, 1]]
                     n_points_per_edge = np.linalg.norm(first - second, axis=1) / self.sharp_discretization
                     d_points_per_edge = 1. / n_points_per_edge
-                    for n, v1, v2 in zip(n_points_per_edge, first, second):
+                    for i1, i2, n, v1, v2 in zip(sharp_edges[:, 0], sharp_edges[:, 1], n_points_per_edge, first,
+                                                 second):
                         t = np.linspace(d_points_per_edge, 1 - d_points_per_edge, int(n))
                         sharp_points.append(np.outer(t, v1) + np.outer(1 - t, v2))
 
-        sharp_points = np.concatenate(sharp_points)
+        sharp_points = np.concatenate(sharp_points) if sharp_points else np.array(sharp_points)
         return sharp_points
 
     def annotate(self, mesh_patch, features_patch, points, distance_scaler=1, **kwargs):
