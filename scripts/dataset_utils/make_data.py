@@ -80,7 +80,8 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
                     nbhood, orig_vert_indices, orig_face_indexes, scaler = nbhood_extractor.get_nbhood(mesh)
 
                     # create noisy mesh
-                    noisy_nbhood = mesh_noiser.make_noise(nbhood)
+                    # noisy_nbhood = mesh_noiser.make_noise(nbhood)
+                    noisy_nbhood_list = mesh_noiser.make_noise(nbhood)
 
                     # # sample the neighbourhood to form a point patch
                     # points, normals = sampler.sample(nbhood)
@@ -108,17 +109,29 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
                     # point_patches.append(patch_info)
 
                     # Make sure the nbhood has n_vertices. There are cases where nbhood does not have n_vertices.
+                    # if nbhood.vertices.shape[0] == config["neighbourhood"]["n_vertices"]:
+                    #     patch_info = {
+                    #         'nbhood': nbhood,
+                    #         'noisy_patch': noisy_nbhood,
+                    #         'item_id': item.item_id,
+                    #         'orig_vert_indices': orig_vert_indices,
+                    #         'orig_face_indexes': orig_face_indexes,
+                    #         'has_sharp': has_sharp
+                    #     }
+                    #     point_patches.append(patch_info)
+                    #     eprint("# of created patches: {}".format(len(point_patches)))
                     if nbhood.vertices.shape[0] == config["neighbourhood"]["n_vertices"]:
-                        patch_info = {
-                            'nbhood': nbhood,
-                            'noisy_patch': noisy_nbhood,
-                            'item_id': item.item_id,
-                            'orig_vert_indices': orig_vert_indices,
-                            'orig_face_indexes': orig_face_indexes,
-                            'has_sharp': has_sharp
-                        }
-                        point_patches.append(patch_info)
-                        eprint("# of created patches: {}".format(len(point_patches)))
+                        for noisy_nbhood in noisy_nbhood_list:
+                            patch_info = {
+                                'nbhood': nbhood,
+                                'noisy_patch': noisy_nbhood,
+                                'item_id': item.item_id,
+                                'orig_vert_indices': orig_vert_indices,
+                                'orig_face_indexes': orig_face_indexes,
+                                'has_sharp': has_sharp
+                            }
+                            point_patches.append(patch_info)
+                            eprint("# of created patches: {}".format(len(point_patches)))
                     else:
                         eprint("Patch with {} vertices is discarded.".format(nbhood.vertices.shape[0]))
             except Exception as e:

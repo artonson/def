@@ -24,8 +24,9 @@
   },
   "mesh_noise": {
     "type": "add_edges_noise",
-    "face_angle": 0.17,
+    "face_angle": 0.0873,
     "n_sample_faces": 10,
-    "nondegen_tri_height": 0.01
+    "nondegen_tri_height": 0.01,
+    "n_noisy_patches":5
   }
 }
