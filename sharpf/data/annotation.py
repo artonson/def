@@ -1,8 +1,12 @@
-import itertools
 from abc import ABC, abstractmethod
+from functools import partial
 
 import numpy as np
 from scipy.spatial import KDTree
+
+from pyaabb import pyaabb
+
+from sharpf.utils.geometry import dist_vector_proj
 
 
 class AnnotatorFunc(ABC):
@@ -83,13 +87,8 @@ class SharpnessResamplingAnnotator(AnnotatorFunc):
         # compute directions for points close to sharp curves
         directions = np.zeros_like(points)
         directions[~far_from_sharp] = sharp_points[vert_indices[~far_from_sharp]] - points[~far_from_sharp]
-        directions[~far_from_sharp] /= np.linalg.norm(directions[~far_from_sharp], axis=1, keepdims=True)
-        # fix NaNs
-        nan_inds = np.unique(np.where(np.isnan(directions))[0])
-        non_nan_inds = np.setdiff1d(np.arange(len(directions)), nan_inds)
-        tree = KDTree(points, leafsize=100)
-        _, non_nan_indices = tree.query(points[nan_inds])
-        directions[nan_inds] = directions[non_nan_inds][non_nan_indices]
+        eps = 1e-6
+        directions[~far_from_sharp] /= (np.linalg.norm(directions[~far_from_sharp], axis=1, keepdims=True) + eps)
 
         return distances, directions
 
@@ -101,9 +100,74 @@ class SharpnessResamplingAnnotator(AnnotatorFunc):
 class AABBAnnotator(AnnotatorFunc):
     """Use axis-aligned bounding box representation sharp edges and compute
     distances from the input point cloud to the closest sharp edges."""
+    def __init__(self, distance_upper_bound):
+        super(AABBAnnotator, self).__init__()
+        self.distance_upper_bound = distance_upper_bound
+
     @classmethod
     def from_config(cls, config):
-        return cls(config['distance_upper_bound'], config['sharp_discretization'])
+        return cls(config['distance_upper_bound'])
+
+    def _prepare_aabb(self, mesh_patch, features):
+        """Creates a set of axis-aligned bboxes """
+        def create_aabboxes(lines):
+            # create bounding boxes for sharp edges
+            corners = []
+            eps = 1e-8
+            for l in lines:
+                minc = np.array([
+                    min(l[0][0], l[1][0]) - eps,
+                    min(l[0][1], l[1][1]) - eps,
+                    min(l[0][2], l[1][2]) - eps
+                ])
+                maxc = np.array([
+                    max(l[0][0], l[1][0]) + eps,
+                    max(l[0][1], l[1][1]) + eps,
+                    max(l[0][2], l[1][2]) + eps
+                ])
+                corners.append([minc, maxc])
+            return corners
+
+        sharp_edge_indexes = np.concatenate([
+            mesh_patch.edges_unique[
+                np.where(
+                    np.all(np.isin(mesh_patch.edges_unique, curve['vert_indices']), axis=1)
+                )[0]
+            ]
+            for curve in features['curves'] if curve['sharp']])
+
+        sharp_edges = mesh_patch.vertices[sharp_edge_indexes]
+        aabb = create_aabboxes(sharp_edges)
+        return aabb, sharp_edges
+
+    def annotate(self, mesh_patch, features_patch, points, distance_scaler=1, **kwargs):
+        # if patch is without sharp features
+        if all(not curve['sharp'] for curve in features_patch['curves']):
+            distances = np.ones_like(points[:, 0]) * self.distance_upper_bound
+            directions = np.zeros_like(points)
+            return distances, directions
+
+        # model a dense sample of points lying on sharp edges
+        aabb, sharp_edges = self._prepare_aabb(mesh_patch, features_patch)
+        aabb_solver = pyaabb.AABB()
+        aabb_solver.build(aabb)
+
+        distance_func = partial(dist_vector_proj, lines=sharp_edges)
+
+        query_results = [aabb_solver.nearest_point(p, distance_func) for p in points.astype('float32')]
+        distances = np.array([distance for _, _, distance in query_results])
+        distances = distances / distance_scaler
+        far_from_sharp = distances > self.distance_upper_bound
+        distances[far_from_sharp] = self.distance_upper_bound
+
+        # compute directions for points close to sharp curves
+        directions = np.zeros_like(points)
+        projections = np.array([projection for _, projection, _ in query_results])
+        directions[~far_from_sharp] = projections[~far_from_sharp] - points[~far_from_sharp]
+        eps = 1e-6
+        directions[~far_from_sharp] /= (np.linalg.norm(directions[~far_from_sharp], axis=1, keepdims=True) + eps)
+
+        return distances, directions
 
 
 ANNOTATOR_BY_TYPE = {
