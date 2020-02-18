@@ -107,7 +107,7 @@ class AddEdgesNoise(NoiserFunc):
                         print("REJECTED!! Degenerate Triangles")
 
                     processed_faces.append(adj)
-                    # print("processed_faces {}".format(processed_faces))
+                    print("processed_faces {}".format(processed_faces))
                 else:
                     print("One of faces is already processed and {} is skipped.".format(f_count))
                 f_count = f_count + 1
@@ -121,6 +121,7 @@ class AddEdgesNoise(NoiserFunc):
             noisy_mesh = trimesh.base.Trimesh(vertices = self.mesh.vertices, \
                                             faces = new_faces, \
                                             process = False)
+            print("Construct patch {}/{}".format(i, self.n_noisy_patches))
             # Fix faces flip
             trimesh.repair.fix_winding(noisy_mesh)
             assert (trimesh.triangles.nondegenerate(noisy_mesh.triangles, height=self.nondegen_tri_height).all()), \

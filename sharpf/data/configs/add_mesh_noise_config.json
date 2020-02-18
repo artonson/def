@@ -25,7 +25,7 @@
   "mesh_noise": {
     "type": "add_edges_noise",
     "face_angle": 0.0873,
-    "n_sample_faces": 10,
+    "n_sample_faces": 5,
     "nondegen_tri_height": 0.01,
     "n_noisy_patches":5
   }
