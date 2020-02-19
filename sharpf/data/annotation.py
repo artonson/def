@@ -151,7 +151,6 @@ class AABBAnnotator(AnnotatorFunc):
             directions = np.zeros_like(points)
             return distances, directions
 
-        # model a dense sample of points lying on sharp edges
         aabboxes, sharp_edges = self._prepare_aabb(mesh_patch, features_patch)
         aabb_solver = pyaabb.AABB()
         aabb_solver.build(aabboxes)
@@ -159,7 +158,7 @@ class AABBAnnotator(AnnotatorFunc):
         distance_func = partial(dist_vector_proj, lines=sharp_edges)
 
         query_results = [aabb_solver.nearest_point(p, distance_func) for p in points.astype('float32')]
-        matching_edges, projections, distances = [np.array(map(itemgetter(i), query_results)) for i in [0, 1, 2]]
+        matching_edges, projections, distances = [np.array(list(map(itemgetter(i), query_results))) for i in [0, 1, 2]]
 
         # check whether most matching points live not too far: if they do, reset corresponding distances
         for edge_idx in range(len(sharp_edges)):
