@@ -263,10 +263,14 @@ def make_patches(options):
     with ABCChunk([obj_filename, feat_filename]) as abc_data:
         num_data_items = len(abc_data)
 
-    processes_to_spawn = 10 * options.n_jobs
-    chunk_size = num_data_items // processes_to_spawn
-    abc_data_slices = [(start, start + chunk_size)
-                       for start in range(0, num_data_items, chunk_size)]
+    if options.slice is not None:
+        start, end = options.slice.split('-')
+        abc_data_slices = [(int(start), int(end))]
+    else:
+        processes_to_spawn = 10 * options.n_jobs
+        chunk_size = num_data_items // processes_to_spawn
+        abc_data_slices = [(start, start + chunk_size)
+                           for start in range(0, num_data_items, chunk_size)]
     output_files = [
         os.path.join(
             options.output_dir,
@@ -296,6 +300,8 @@ def parse_args():
                         required=True, help='output dir.')
     parser.add_argument('-g', '--dataset-config', dest='dataset_config',
                         required=True, help='dataset configuration file.')
+    parser.add_argument('-s', '--slice', dest='slice',
+                        required=False, help='optional data slice to process (index range e.g. 1-10)')
 
     return parser.parse_args()
 
