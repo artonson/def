@@ -102,9 +102,35 @@ def remove_boundary_features(mesh, features, how='none'):
     return non_boundary_features
 
 
+def scale_mesh(mesh, features, shape_fabrication_extent, resolution_3d,
+               short_curve_quantile=0.05, n_points_per_short_curve=4):
+    # compute standard size spatial extent
+    mesh_extent = np.max(mesh.bounding_box.extents)
+    mesh = mesh.apply_scale(shape_fabrication_extent / mesh_extent)
+
+    # compute lengths of curves
+    sharp_curves_lengths = []
+    for curve in features['curves']:
+        if curve['sharp']:
+            curve_vertices = mesh.vertices[curve['vert_indices']]
+            sharp_curves_lengths.append(
+                np.sum(np.linalg.norm(curve_vertices[:-1] - curve_vertices[1:]))
+            )
+
+    least_len = np.quantile(sharp_curves_lengths, short_curve_quantile)
+    least_len_mm = resolution_3d * n_points_per_short_curve
+
+    mesh = mesh.apply_scale(least_len_mm / least_len)
+
+    return mesh
+
+
 def generate_patches(meshes_filename, feats_filename, data_slice, config, output_file):
     n_patches_per_mesh = config['n_patches_per_mesh']
-    shape_fabrication_extent = config['shape_fabrication_extent']  # desired size of mesh in physical mm
+    shape_fabrication_extent = config.get('shape_fabrication_extent', 10.0)
+    n_points_per_short_curve = config.get('n_points_per_short_curve', 4)
+    short_curve_quantile = config.get('short_curve_quantile', 0.05)
+
     nbhood_extractor = load_func_from_config(NBHOOD_BY_TYPE, config['neighbourhood'])
     sampler = load_func_from_config(SAMPLER_BY_TYPE, config['sampling'])
     noiser = load_func_from_config(NOISE_BY_TYPE, config['noise'])
@@ -128,9 +154,9 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
                 features = yaml.load(item.feat, Loader=yaml.Loader)
 
                 # fix mesh fabrication size in physical mm
-                mesh_extent = np.max(mesh.bounding_box.extents)
-                mesh = mesh.apply_scale(shape_fabrication_extent / mesh_extent)
-
+                mesh = scale_mesh(mesh, features, shape_fabrication_extent, sampler.resolution_3d,
+                                  short_curve_quantile=short_curve_quantile,
+                                  n_points_per_short_curve=n_points_per_short_curve)
                 # index the mesh using a neighbourhood functions class
                 # (this internally may call indexing, so for repeated invocation one passes the mesh)
                 nbhood_extractor.index(mesh)
@@ -155,9 +181,6 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
                     except DataGenerationException as e:
                         eprint(str(e))
                         continue
-
-                    # TODO @artonson: remove faces (and sharp curves) that are not sampled
-                    # trimesh.proximity.nearby_faces(mesh, points)
 
                     # create a noisy sample
                     noisy_points = noiser.make_noise(points, normals)

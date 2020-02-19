@@ -1,5 +1,7 @@
 {
-  "shape_fabrication_extent_mm": 40.0,
+  "shape_fabrication_extent": 10.0,
+  "short_curve_quantile": 0.05,
+  "n_points_per_short_curve": 4,
   "n_patches_per_mesh": 10,
   "neighbourhood": {
     "type": "random_euclidean_sphere",
@@ -7,22 +9,23 @@
     "centroid": null,
     "radius_base": 10.0,
     "radius_delta": 0.0,
-    "geodesic_patches": true,
+    "geodesic_patches": null,
     "radius_scale_mode": "no_scale"
   },
   "sampling": {
     "type": "poisson_disk",
     "n_points": 4096,
-    "resolution_3d": 0.13,
+    "resolution_3d": 0.125,
     "crop_center": true
   },
   "noise": {
-    "type": "normals_gaussian",
-    "scale": 0.2
+    "type": "no_noise",
+    "scale": 0.0
   },
   "annotation": {
-    "type": "resampling",
-    "sharp_discretization": 0.1,
-    "distance_upper_bound": 1.0
+    "type": "aabb",
+    "distance_upper_bound": 1.0,
+    "closest_matching_distance_q": 0.0,
+    "max_empty_envelope_radius": 0.5
   }
 }
