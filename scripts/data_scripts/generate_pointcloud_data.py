@@ -52,26 +52,50 @@ def compute_curves_nbhood(features, vert_indices, face_indexes):
     return nbhood_features
 
 
-def remove_boundary_features(mesh, features):
-    """Removes features indexed into vertex edges adjacent to 1 face only."""
+def remove_boundary_features(mesh, features, how='none'):
+    """Removes features indexed into vertex edges adjacent to 1 face only.
+    :param how: 'all_verts': remove entire feature curve if all vertices are boundary
+                'edges': remove vertices that belong to boundary edges only (not to other edges)
+                'verts': remove vertices that are boundary
+                'none': do nothing
+    """
+    if how == 'none':
+        return features
+
     mesh_edge_indexes, mesh_edge_counts = np.unique(
         mesh.faces_unique_edges.flatten(), return_counts=True)
 
-    boundary_vertex_indexes = np.unique(mesh.edges_unique[
-                                            mesh_edge_indexes[np.where(mesh_edge_counts == 1)[0]]
-                                        ].flatten())
+    boundary_edges = mesh.edges_unique[mesh_edge_indexes[np.where(mesh_edge_counts == 1)[0]]]
+    boundary_vertex_indexes = np.unique(boundary_edges.flatten())
 
     non_boundary_curves = []
     for curve in features['curves']:
-        non_boundary_vert_indices = np.array([
-            vert_index for vert_index in curve['vert_indices']
-            if vert_index not in boundary_vertex_indexes
-        ])
-        if len(non_boundary_vert_indices) == 0:
-            continue
-
         non_boundary_curve = deepcopy(curve)
-        non_boundary_curve['vert_indices'] = non_boundary_vert_indices
+
+        if how == 'all_verts':
+            if np.all([vert_index in boundary_vertex_indexes
+                       for vert_index in curve['vert_indices']]):
+                continue
+
+        elif how == 'verts':
+            non_boundary_vert_indices = np.array([
+                vert_index for vert_index in curve['vert_indices']
+                if vert_index not in boundary_vertex_indexes
+            ])
+            if len(non_boundary_vert_indices) == 0:
+                continue
+            non_boundary_curve['vert_indices'] = non_boundary_vert_indices
+
+        elif how == 'edges':
+            curve_edges = mesh.edges_unique[
+                np.where(
+                    np.all(np.isin(mesh.edges_unique, curve['vert_indices']), axis=1)
+                )[0]
+            ]
+            non_boundary = (curve_edges[:, None] != boundary_edges).any(2).all(1)
+            non_boundary_vert_indices = np.unique(curve_edges[non_boundary])
+            non_boundary_curve['vert_indices'] = non_boundary_vert_indices
+
         non_boundary_curves.append(non_boundary_curve)
 
     non_boundary_features = {'curves': non_boundary_curves}
@@ -119,6 +143,12 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
                         eprint(str(e))
                         continue
 
+                    # create annotations: condition the features onto the nbhood
+                    nbhood_features = compute_curves_nbhood(features, mesh_vertex_indexes, mesh_face_indexes)
+
+                    # remove vertices lying on the boundary (sharp edges found in 1 face only)
+                    nbhood_features = remove_boundary_features(nbhood, nbhood_features, how='edges')
+
                     # sample the neighbourhood to form a point patch
                     try:
                         points, normals = sampler.sample(nbhood, centroid=nbhood_extractor.centroid)
@@ -126,15 +156,11 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
                         eprint(str(e))
                         continue
 
+                    # TODO @artonson: remove faces (and sharp curves) that are not sampled
+                    # trimesh.proximity.nearby_faces(mesh, points)
+
                     # create a noisy sample
                     noisy_points = noiser.make_noise(points, normals)
-
-                    # create annotations: condition the features onto the nbhood
-                    nbhood_features = compute_curves_nbhood(features, mesh_vertex_indexes, mesh_face_indexes)
-
-                    # remove features lying on the boundary (sharp edges found in 1 face only)
-                    nbhood_features = remove_boundary_features(
-                        nbhood, nbhood_features, mesh_vertex_indexes, mesh_face_indexes)
 
                     # compute the TSharpDF
                     distances, directions = annotator.annotate(nbhood, nbhood_features, noisy_points, scaler)

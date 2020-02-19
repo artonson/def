@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from functools import partial
+from operator import itemgetter
 
 import numpy as np
 from scipy.spatial import KDTree
@@ -100,13 +101,16 @@ class SharpnessResamplingAnnotator(AnnotatorFunc):
 class AABBAnnotator(AnnotatorFunc):
     """Use axis-aligned bounding box representation sharp edges and compute
     distances from the input point cloud to the closest sharp edges."""
-    def __init__(self, distance_upper_bound):
+    def __init__(self, distance_upper_bound, closest_matching_distance_q, max_empty_envelope_radius):
         super(AABBAnnotator, self).__init__()
         self.distance_upper_bound = distance_upper_bound
+        self.closest_matching_distance_q = closest_matching_distance_q
+        self.max_empty_envelope_radius = max_empty_envelope_radius
 
     @classmethod
     def from_config(cls, config):
-        return cls(config['distance_upper_bound'])
+        return cls(config['distance_upper_bound'], config['closest_matching_distance_q'],
+                   config['max_empty_envelope_radius'])
 
     def _prepare_aabb(self, mesh_patch, features):
         """Creates a set of axis-aligned bboxes """
@@ -137,8 +141,8 @@ class AABBAnnotator(AnnotatorFunc):
             for curve in features['curves'] if curve['sharp']])
 
         sharp_edges = mesh_patch.vertices[sharp_edge_indexes]
-        aabb = create_aabboxes(sharp_edges)
-        return aabb, sharp_edges
+        aabboxes = create_aabboxes(sharp_edges)
+        return aabboxes, sharp_edges
 
     def annotate(self, mesh_patch, features_patch, points, distance_scaler=1, **kwargs):
         # if patch is without sharp features
@@ -148,21 +152,28 @@ class AABBAnnotator(AnnotatorFunc):
             return distances, directions
 
         # model a dense sample of points lying on sharp edges
-        aabb, sharp_edges = self._prepare_aabb(mesh_patch, features_patch)
+        aabboxes, sharp_edges = self._prepare_aabb(mesh_patch, features_patch)
         aabb_solver = pyaabb.AABB()
-        aabb_solver.build(aabb)
+        aabb_solver.build(aabboxes)
 
         distance_func = partial(dist_vector_proj, lines=sharp_edges)
 
         query_results = [aabb_solver.nearest_point(p, distance_func) for p in points.astype('float32')]
-        distances = np.array([distance for _, _, distance in query_results])
+        matching_edges, projections, distances = [np.array(map(itemgetter(i), query_results)) for i in [0, 1, 2]]
+
+        # check whether most matching points live not too far: if they do, reset corresponding distances
+        for edge_idx in range(len(sharp_edges)):
+            matching_mask = matching_edges == edge_idx
+            closest_matching_distance = np.quantile(distances[matching_mask], self.closest_matching_distance_q)
+            if closest_matching_distance > self.max_empty_envelope_radius:
+                distances[matching_mask] = self.distance_upper_bound
+
         distances = distances / distance_scaler
         far_from_sharp = distances > self.distance_upper_bound
         distances[far_from_sharp] = self.distance_upper_bound
 
         # compute directions for points close to sharp curves
         directions = np.zeros_like(points)
-        projections = np.array([projection for _, projection, _ in query_results])
         directions[~far_from_sharp] = projections[~far_from_sharp] - points[~far_from_sharp]
         eps = 1e-6
         directions[~far_from_sharp] /= (np.linalg.norm(directions[~far_from_sharp], axis=1, keepdims=True) + eps)
