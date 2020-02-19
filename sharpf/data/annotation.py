@@ -80,8 +80,8 @@ class SharpnessResamplingAnnotator(AnnotatorFunc):
         tree = KDTree(sharp_points, leafsize=100)
         distances, vert_indices = tree.query(points, distance_upper_bound=self.distance_upper_bound * distance_scaler)
 
+        # TODO @artonson: fix sharp verts too far away from the actual samples
         distances = distances / distance_scaler
-
         far_from_sharp = distances == np.inf  # boolean mask marking objects far away from sharp curves
         distances[far_from_sharp] = self.distance_upper_bound
 
@@ -160,17 +160,18 @@ class AABBAnnotator(AnnotatorFunc):
         query_results = [aabb_solver.nearest_point(p, distance_func) for p in points.astype('float32')]
         matching_edges, projections, distances = [np.array(list(map(itemgetter(i), query_results))) for i in [0, 1, 2]]
 
+        distances = distances / distance_scaler
+        far_from_sharp = distances > self.distance_upper_bound
+        distances[far_from_sharp] = self.distance_upper_bound
+
         # check whether most matching points live not too far: if they do, reset corresponding distances
         for edge_idx in range(len(sharp_edges)):
             matching_mask = matching_edges == edge_idx
             if np.any(matching_mask):
-                closest_matching_distance = np.quantile(distances[matching_mask], self.closest_matching_distance_q)
+                close_matching_mask = matching_mask & ~far_from_sharp
+                closest_matching_distance = np.quantile(distances[close_matching_mask], self.closest_matching_distance_q)
                 if closest_matching_distance > self.max_empty_envelope_radius:
-                    distances[matching_mask] = self.distance_upper_bound
-
-        distances = distances / distance_scaler
-        far_from_sharp = distances > self.distance_upper_bound
-        distances[far_from_sharp] = self.distance_upper_bound
+                    distances[close_matching_mask] = self.distance_upper_bound
 
         # compute directions for points close to sharp curves
         directions = np.zeros_like(points)
