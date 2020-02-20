@@ -16,7 +16,8 @@
     "type": "poisson_disk",
     "n_points": 4096,
     "resolution_3d": 0.125,
-    "crop_center": true
+    "crop_center": true,
+    "resolution_deviation_tolerance": -1
   },
   "noise": {
     "type": "no_noise",

@@ -32,3 +32,8 @@ def dist_vector_proj(p, i, lines):
             return proj_v1, v1
         else:
             return proj_v2, v2
+
+
+def mean_mmd(points):
+    p2p_dist = np.linalg.norm(points[:, np.newaxis] - points, axis=2)
+    return np.mean(np.partition(p2p_dist, 1, axis=0)[1])

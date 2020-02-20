@@ -7,6 +7,7 @@ import igl
 import point_cloud_utils as pcu
 
 from sharpf.data import DataGenerationException
+from sharpf.utils.geometry import mean_mmd
 
 
 class SamplerFunc(ABC):
@@ -40,8 +41,9 @@ class PoissonDiskSampler(SamplerFunc):
     based on "Parallel Poisson Disk Sampling with Spectrum
     Analysis on Surface". (Implementation by fwilliams) """
     # https://github.com/marmakoide/mesh-blue-noise-sampling/blob/master/mesh-sampling.py
-    def __init__(self, n_points, resolution_3d, crop_center):
+    def __init__(self, n_points, resolution_3d, crop_center, resolution_deviation_tolerance):
         self.crop_center = crop_center
+        self.resolution_deviation_tolerance = resolution_deviation_tolerance
         super().__init__(n_points, resolution_3d)
 
     @classmethod
@@ -98,7 +100,12 @@ class PoissonDiskSampler(SamplerFunc):
         else:
             return_idx = np.random.choice(np.arange(len(points)), size=self.n_points, replace=False)
 
-        return points[return_idx], normals[return_idx]
+        points, normals = points[return_idx], normals[return_idx]
+        if self.resolution_deviation_tolerance > 0 and \
+                np.abs(self.resolution_3d - mean_mmd(points)) > self.resolution_deviation_tolerance:
+            raise DataGenerationException('Significant deviation in sampling density, discarding patch')
+
+        return points, normals
 
 
 class TrianglePointPickingSampler(SamplerFunc):
