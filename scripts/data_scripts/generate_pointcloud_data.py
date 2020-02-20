@@ -32,23 +32,43 @@ def load_func_from_config(func_dict, config):
     return func_dict[config['type']].from_config(config)
 
 
-def compute_curves_nbhood(features, vert_indices, face_indexes):
+def compute_features_nbhood(features, mesh_vertex_indexes, face_indexes):
     """Extracts curves for the neighbourhood."""
-    nbhood_sharp_curves = []
+    nbhood_curves = []
     for curve in features['curves']:
-        nbhood_vert_indices = np.array([
-            vert_index for vert_index in curve['vert_indices']
-            if vert_index in vert_indices
-        ])
-        if len(nbhood_vert_indices) == 0:
+        curve_vertex_indexes = np.array(curve['vert_indices'])
+        nbhood_vertex_indexes = curve_vertex_indexes[
+            np.where(np.isin(curve_vertex_indexes, mesh_vertex_indexes))[0]]
+        if len(nbhood_vertex_indexes) == 0:
             continue
-        for index, reindex in zip(vert_indices, np.arange(len(vert_indices))):
-            nbhood_vert_indices[np.where(nbhood_vert_indices == index)] = reindex
-        nbhood_curve = deepcopy(curve)
-        nbhood_curve['vert_indices'] = nbhood_vert_indices
-        nbhood_sharp_curves.append(nbhood_curve)
 
-    nbhood_features = {'curves': nbhood_sharp_curves}
+        for index, reindex in zip(np.sort(mesh_vertex_indexes), np.arange(len(mesh_vertex_indexes))):
+            nbhood_vertex_indexes[np.where(nbhood_vertex_indexes == index)] = reindex
+
+        nbhood_curve = deepcopy(curve)
+        nbhood_curve['vert_indices'] = nbhood_vertex_indexes
+        nbhood_curves.append(nbhood_curve)
+
+    nbhood_surfaces = []
+    for surface in features['surfaces']:
+        surface_vertex_indexes = np.array(surface['vert_indices'])
+        nbhood_vertex_indexes = surface_vertex_indexes[
+            np.where(np.isin(surface_vertex_indexes, mesh_vertex_indexes))[0]]
+        if len(nbhood_vertex_indexes) == 0:
+            continue
+
+        for index, reindex in zip(np.sort(mesh_vertex_indexes), np.arange(len(mesh_vertex_indexes))):
+            nbhood_vertex_indexes[np.where(nbhood_vertex_indexes == index)] = reindex
+
+        nbhood_surface = deepcopy(surface)
+        nbhood_surface['vert_indices'] = nbhood_vertex_indexes
+        nbhood_surfaces.append(nbhood_surface)
+
+    nbhood_features = {
+        'curves': nbhood_curves,
+        'surfaces': nbhood_surfaces,
+    }
+
     return nbhood_features
 
 
@@ -98,7 +118,10 @@ def remove_boundary_features(mesh, features, how='none'):
 
         non_boundary_curves.append(non_boundary_curve)
 
-    non_boundary_features = {'curves': non_boundary_curves}
+    non_boundary_features = {
+        'curves': non_boundary_curves,
+        'surfaces': features['surfaces']
+    }
     return non_boundary_features
 
 
@@ -170,7 +193,7 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
                         continue
 
                     # create annotations: condition the features onto the nbhood
-                    nbhood_features = compute_curves_nbhood(features, mesh_vertex_indexes, mesh_face_indexes)
+                    nbhood_features = compute_features_nbhood(features, mesh_vertex_indexes, mesh_face_indexes)
 
                     # remove vertices lying on the boundary (sharp edges found in 1 face only)
                     nbhood_features = remove_boundary_features(nbhood, nbhood_features, how='edges')

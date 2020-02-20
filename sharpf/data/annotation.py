@@ -191,6 +191,69 @@ class AABBAnnotator(AnnotatorFunc):
         return distances, directions
 
 
+class SurfacePatchBased(AnnotatorFunc):
+    """
+     * For each surface patch `SurfPatch` in the neighbourhood, find a set of vertices `V` belonging to it - `surface['vert_indices']` (reindexed)
+     * For each point in point cloud, `p_i in PointCloud`, we know the closest vertex `v(p_i)`, and we know to which surface patch it belongs
+     * For each surface patch, we know the set of adjacent sharp features `SharpFeat` (in the form of edges)
+     * Thus, for each
+
+    ```
+    for each surface patch SurfPatch:
+      SharpFeat = build_sharp_features(SurfPatch)
+      for each point p_i in PointCloud such that the closest v(p_i) is in SurfPatch:
+        d = find_distance(p_i, SharpFeat)
+    ```
+    """
+
+    from scipy.spatial import KDTree
+
+    tree = KDTree(nbhood.vertices, leafsize=100)
+    _, closest_nbhood_vertex_idx = tree.query(noisy_points)
+
+    from collections import defaultdict
+    adjacent_sharp_features = defaultdict(list)
+
+    for surface_idx, surface in enumerate(nbhood_features['surfaces']):
+        surface_vertex_indexes = np.array(surface['vert_indices'])
+
+        for curve_idx, curve in enumerate(nbhood_features['curves']):
+            curve_vertex_indexes = np.array(curve['vert_indices'])
+
+            if curve['sharp'] and np.any(np.isin(surface_vertex_indexes, curve_vertex_indexes)):
+                adjacent_sharp_features[surface_idx].append(curve_idx)
+
+    from sharpf.utils.geometry import dist_vector_proj
+    from functools import partial
+    from operator import itemgetter
+
+    distances = np.zeros(len(noisy_points))
+
+    for surface_idx, surface in enumerate(nbhood_features['surfaces']):
+        surface_adjacent_features = {
+            'curves': [nbhood_features['curves'][idx] for idx in adjacent_sharp_features[surface_idx]]
+        }
+        if not surface_adjacent_features['curves']:
+            continue
+
+        aabboxes, sharp_edges = annotator._prepare_aabb(nbhood, surface_adjacent_features)
+        aabb_solver = pyaabb.AABB()
+        aabb_solver.build(aabboxes)
+        distance_func = partial(dist_vector_proj, lines=sharp_edges)
+
+        point_cloud_indexes = np.where(np.isin(closest_nbhood_vertex_idx, surface['vert_indices']))[0]
+
+        query_results = [aabb_solver.nearest_point(noisy_points[idx], distance_func)
+                         for idx in point_cloud_indexes]
+        surface_matching_edges, surface_projections, surface_distances = \
+            [np.array(list(map(itemgetter(i), query_results))) for i in [0, 1, 2]]
+
+        distances[point_cloud_indexes] = surface_distances
+
+    far_from_sharp = distances > annotator.distance_upper_bound
+    distances[far_from_sharp] = annotator.distance_upper_bound
+
+
 ANNOTATOR_BY_TYPE = {
     'resampling': SharpnessResamplingAnnotator,
     'aabb': AABBAnnotator,
