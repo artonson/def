@@ -48,7 +48,8 @@ class PoissonDiskSampler(SamplerFunc):
 
     @classmethod
     def from_config(cls, config):
-        return cls(config['n_points'], config['resolution_3d'], config['crop_center'])
+        return cls(config['n_points'], config['resolution_3d'], config['crop_center'],
+                   config['resolution_deviation_tolerance'])
 
     def _make_dense_mesh(self, mesh, extra_points_factor=10, point_split_factor=4):
         # Intuition: take 10x the number of needed n_points,
