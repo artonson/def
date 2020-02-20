@@ -140,7 +140,7 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
     # to reflect actual point cloud resolution:
     # we extract spheres of radius r, such that area of a (plane) disk with radius r
     # is equal to the total area of 3d points (as if we scanned a plane wall)
-    nbhood_extractor.radius_base = np.sqrt((sampler.n_points * np.pi * sampler.resolution_3d ** 2)) / np.pi
+    nbhood_extractor.radius_base = np.sqrt(sampler.n_points) * 0.5 * sampler.resolution_3d
 
     slice_start, slice_end = data_slice
     with ABCChunk([meshes_filename, feats_filename]) as data_holder:
@@ -260,17 +260,17 @@ def make_patches(options):
         )
     )
 
-    with ABCChunk([obj_filename, feat_filename]) as abc_data:
-        num_data_items = len(abc_data)
-
     if options.slice is not None:
-        start, end = options.slice.split('-')
-        abc_data_slices = [(int(start), int(end))]
+        slice_start, slice_end = options.slice_start, options.slice_end
     else:
-        processes_to_spawn = 10 * options.n_jobs
-        chunk_size = num_data_items // processes_to_spawn
-        abc_data_slices = [(start, start + chunk_size)
-                           for start in range(0, num_data_items, chunk_size)]
+        with ABCChunk([obj_filename, feat_filename]) as abc_data:
+            slice_start, slice_end = 0, len(abc_data)
+
+    processes_to_spawn = 10 * options.n_jobs
+    chunk_size = max(1, (slice_end - slice_start) // processes_to_spawn)
+    abc_data_slices = [(start, start + chunk_size)
+                       for start in range(slice_start, slice_end, chunk_size)]
+
     output_files = [
         os.path.join(
             options.output_dir,
@@ -300,8 +300,10 @@ def parse_args():
                         required=True, help='output dir.')
     parser.add_argument('-g', '--dataset-config', dest='dataset_config',
                         required=True, help='dataset configuration file.')
-    parser.add_argument('-s', '--slice', dest='slice',
-                        required=False, help='optional data slice to process (index range e.g. 1-10)')
+    parser.add_argument('-n1', dest='slice_start', type=int,
+                        required=False, help='min index of data to process')
+    parser.add_argument('-n2', dest='slice_end', type=int,
+                        required=False, help='max index of data to process')
 
     return parser.parse_args()
 

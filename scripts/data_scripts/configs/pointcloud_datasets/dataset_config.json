@@ -1,7 +1,7 @@
 {
   "shape_fabrication_extent": 10.0,
-  "short_curve_quantile": 0.05,
-  "n_points_per_short_curve": 4,
+  "short_curve_quantile": 0.25,
+  "n_points_per_short_curve": 64,
   "n_patches_per_mesh": 10,
   "neighbourhood": {
     "type": "random_euclidean_sphere",
@@ -9,7 +9,7 @@
     "centroid": null,
     "radius_base": 10.0,
     "radius_delta": 0.0,
-    "geodesic_patches": null,
+    "geodesic_patches": true,
     "radius_scale_mode": "no_scale"
   },
   "sampling": {

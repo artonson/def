@@ -1,7 +1,9 @@
 from abc import ABC, abstractmethod
 from functools import partial
 from operator import itemgetter
+import os
 
+from joblib import Parallel, delayed
 import numpy as np
 from scipy.spatial import KDTree
 
@@ -156,8 +158,14 @@ class AABBAnnotator(AnnotatorFunc):
         aabb_solver.build(aabboxes)
 
         distance_func = partial(dist_vector_proj, lines=sharp_edges)
+        def threaded_nearest_point(aabb_solver, p, distance_func):
+            return aabb_solver.nearest_point(p, distance_func)
+        parallel = Parallel(n_jobs=os.environ.get('OMP_NUM_THREADS', 1), backend='threading')
+        delayed_iterable = (delayed(threaded_nearest_point)(aabb_solver, p, distance_func)
+                            for p in points.astype('float32'))
+        query_results = parallel(delayed_iterable)
 
-        query_results = [aabb_solver.nearest_point(p, distance_func) for p in points.astype('float32')]
+        # query_results = [aabb_solver.nearest_point(p, distance_func) for p in points.astype('float32')]
         matching_edges, projections, distances = [np.array(list(map(itemgetter(i), query_results))) for i in [0, 1, 2]]
 
         distances = distances / distance_scaler

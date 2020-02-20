@@ -3,6 +3,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 from scipy.spatial import KDTree
 
+from sharpf.data import DataGenerationException
 from sharpf.utils.mesh_utils.indexing import reindex_zerobased, compute_relative_indexes
 
 
@@ -50,7 +51,7 @@ class EuclideanSphere(NeighbourhoodFunc):
 
     def index(self, mesh, n_points=None):
         self.mesh = mesh
-        self.tree = KDTree(mesh.vertices, leafsize=100)
+        self.tree = KDTree(mesh.vertices, leafsize=1000)
         if self.radius_scale_mode == 'from_edge_len':
             self.radius_scale = self.mesh.edges_unique_length.mean() if self.radius_scale_mode else 1
         elif self.radius_scale_mode == 'no_scale':
@@ -58,9 +59,15 @@ class EuclideanSphere(NeighbourhoodFunc):
 
     def get_nbhood(self):
         # select vertices falling within euclidean sphere
-        _, mesh_vertex_indexes = self.tree.query(
-            self.centroid, k=self.n_vertices, distance_upper_bound=self.radius_base * self.radius_scale)
+        try:
+            _, mesh_vertex_indexes = self.tree.query(
+                self.centroid, k=self.n_vertices, distance_upper_bound=self.radius_base * self.radius_scale)
+        except RuntimeError:
+            raise DataGenerationException('Querying in very large meshes failed')
+
         mesh_vertex_indexes = np.array(mesh_vertex_indexes)
+        if not mesh_vertex_indexes:
+            raise DataGenerationException('No mesh vertices captured within tolerable distance')
 
         # get all faces that share vertices with selected vertices
         mesh_vertex_indexes = mesh_vertex_indexes[mesh_vertex_indexes < len(self.mesh.vertices)]
