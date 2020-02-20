@@ -175,8 +175,8 @@ class AABBAnnotator(AnnotatorFunc):
         # check whether most matching points live not too far: if they do, reset corresponding distances
         for edge_idx in range(len(sharp_edges)):
             matching_mask = matching_edges == edge_idx
-            if np.any(matching_mask):
-                close_matching_mask = matching_mask & ~far_from_sharp
+            close_matching_mask = matching_mask & ~far_from_sharp
+            if np.any(close_matching_mask):
                 closest_matching_distance = np.quantile(distances[close_matching_mask], self.closest_matching_distance_q)
                 if closest_matching_distance > self.max_empty_envelope_radius:
                     distances[close_matching_mask] = self.distance_upper_bound
