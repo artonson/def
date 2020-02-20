@@ -265,6 +265,10 @@ def make_patches(options):
     else:
         with ABCChunk([obj_filename, feat_filename]) as abc_data:
             slice_start, slice_end = 0, len(abc_data)
+        if options.slice_start is not None:
+            slice_start = options.slice_start
+        if options.slice_end is not None:
+            slice_end = options.slice_end
 
     processes_to_spawn = 10 * options.n_jobs
     chunk_size = max(1, (slice_end - slice_start) // processes_to_spawn)
