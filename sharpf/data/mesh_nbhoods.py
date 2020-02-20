@@ -66,11 +66,10 @@ class EuclideanSphere(NeighbourhoodFunc):
             raise DataGenerationException('Querying in very large meshes failed')
 
         mesh_vertex_indexes = np.array(mesh_vertex_indexes)
-        if not mesh_vertex_indexes:
-            raise DataGenerationException('No mesh vertices captured within tolerable distance')
-
         # get all faces that share vertices with selected vertices
         mesh_vertex_indexes = mesh_vertex_indexes[mesh_vertex_indexes < len(self.mesh.vertices)]
+        if len(mesh_vertex_indexes) == 0:
+            raise DataGenerationException('No mesh vertices captured within tolerable distance')
         mesh_face_indexes = self.mesh.vertex_faces[mesh_vertex_indexes]
         mesh_face_indexes = np.unique(mesh_face_indexes[mesh_face_indexes > -1])
         # add all vertices that sit on adjacent faces

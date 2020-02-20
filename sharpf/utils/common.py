@@ -9,8 +9,7 @@ def eprint(*args, **kwargs):
 
 def eprint_t(*args, **kwargs):
     ts_fmt = datetime.now().strftime("%d.%m.%Y %H:%M:%S.%f ")
-    eargs = (ts_fmt, ) + args
-    eprint(eargs, **kwargs)
+    print(ts_fmt, *args, file=sys.stderr, **kwargs)
 
 
 def change_ext(filename, new_ext):
