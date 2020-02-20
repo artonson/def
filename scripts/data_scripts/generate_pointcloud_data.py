@@ -260,7 +260,7 @@ def make_patches(options):
         )
     )
 
-    if options.slice is not None:
+    if all([opt is not None for opt in (options.slice_start, options.slice_end)]):
         slice_start, slice_end = options.slice_start, options.slice_end
     else:
         with ABCChunk([obj_filename, feat_filename]) as abc_data:
