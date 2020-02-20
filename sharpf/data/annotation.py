@@ -160,7 +160,8 @@ class AABBAnnotator(AnnotatorFunc):
         distance_func = partial(dist_vector_proj, lines=sharp_edges)
         def threaded_nearest_point(aabb_solver, p, distance_func):
             return aabb_solver.nearest_point(p, distance_func)
-        parallel = Parallel(n_jobs=os.environ.get('OMP_NUM_THREADS', 1), backend='threading')
+        n_omp_threads = int(os.environ.get('OMP_NUM_THREADS', 1))
+        parallel = Parallel(n_jobs=n_omp_threads, backend='threading')
         delayed_iterable = (delayed(threaded_nearest_point)(aabb_solver, p, distance_func)
                             for p in points.astype('float32'))
         query_results = parallel(delayed_iterable)
