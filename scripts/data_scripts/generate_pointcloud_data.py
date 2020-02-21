@@ -2,7 +2,6 @@
 
 import argparse
 import json
-from copy import deepcopy
 import os
 import sys
 
@@ -24,105 +23,13 @@ from sharpf.data.annotation import ANNOTATOR_BY_TYPE
 from sharpf.data.mesh_nbhoods import NBHOOD_BY_TYPE
 from sharpf.data.noisers import NOISE_BY_TYPE
 from sharpf.data.point_samplers import SAMPLER_BY_TYPE
+from sharpf.utils.abc_utils import compute_features_nbhood, remove_boundary_features
 from sharpf.utils.common import eprint
 from sharpf.utils.mesh_utils.io import trimesh_load
 
 
 def load_func_from_config(func_dict, config):
     return func_dict[config['type']].from_config(config)
-
-
-def compute_features_nbhood(features, mesh_vertex_indexes, face_indexes):
-    """Extracts curves for the neighbourhood."""
-    nbhood_curves = []
-    for curve in features['curves']:
-        curve_vertex_indexes = np.array(curve['vert_indices'])
-        nbhood_vertex_indexes = curve_vertex_indexes[
-            np.where(np.isin(curve_vertex_indexes, mesh_vertex_indexes))[0]]
-        if len(nbhood_vertex_indexes) == 0:
-            continue
-
-        for index, reindex in zip(np.sort(mesh_vertex_indexes), np.arange(len(mesh_vertex_indexes))):
-            nbhood_vertex_indexes[np.where(nbhood_vertex_indexes == index)] = reindex
-
-        nbhood_curve = deepcopy(curve)
-        nbhood_curve['vert_indices'] = nbhood_vertex_indexes
-        nbhood_curves.append(nbhood_curve)
-
-    nbhood_surfaces = []
-    for surface in features['surfaces']:
-        surface_vertex_indexes = np.array(surface['vert_indices'])
-        nbhood_vertex_indexes = surface_vertex_indexes[
-            np.where(np.isin(surface_vertex_indexes, mesh_vertex_indexes))[0]]
-        if len(nbhood_vertex_indexes) == 0:
-            continue
-
-        for index, reindex in zip(np.sort(mesh_vertex_indexes), np.arange(len(mesh_vertex_indexes))):
-            nbhood_vertex_indexes[np.where(nbhood_vertex_indexes == index)] = reindex
-
-        nbhood_surface = deepcopy(surface)
-        nbhood_surface['vert_indices'] = nbhood_vertex_indexes
-        nbhood_surfaces.append(nbhood_surface)
-
-    nbhood_features = {
-        'curves': nbhood_curves,
-        'surfaces': nbhood_surfaces,
-    }
-
-    return nbhood_features
-
-
-def remove_boundary_features(mesh, features, how='none'):
-    """Removes features indexed into vertex edges adjacent to 1 face only.
-    :param how: 'all_verts': remove entire feature curve if all vertices are boundary
-                'edges': remove vertices that belong to boundary edges only (not to other edges)
-                'verts': remove vertices that are boundary
-                'none': do nothing
-    """
-    if how == 'none':
-        return features
-
-    mesh_edge_indexes, mesh_edge_counts = np.unique(
-        mesh.faces_unique_edges.flatten(), return_counts=True)
-
-    boundary_edges = mesh.edges_unique[mesh_edge_indexes[np.where(mesh_edge_counts == 1)[0]]]
-    boundary_vertex_indexes = np.unique(boundary_edges.flatten())
-
-    non_boundary_curves = []
-    for curve in features['curves']:
-        non_boundary_curve = deepcopy(curve)
-
-        if how == 'all_verts':
-            if np.all([vert_index in boundary_vertex_indexes
-                       for vert_index in curve['vert_indices']]):
-                continue
-
-        elif how == 'verts':
-            non_boundary_vert_indices = np.array([
-                vert_index for vert_index in curve['vert_indices']
-                if vert_index not in boundary_vertex_indexes
-            ])
-            if len(non_boundary_vert_indices) == 0:
-                continue
-            non_boundary_curve['vert_indices'] = non_boundary_vert_indices
-
-        elif how == 'edges':
-            curve_edges = mesh.edges_unique[
-                np.where(
-                    np.all(np.isin(mesh.edges_unique, curve['vert_indices']), axis=1)
-                )[0]
-            ]
-            non_boundary = (curve_edges[:, None] != boundary_edges).any(2).all(1)
-            non_boundary_vert_indices = np.unique(curve_edges[non_boundary])
-            non_boundary_curve['vert_indices'] = non_boundary_vert_indices
-
-        non_boundary_curves.append(non_boundary_curve)
-
-    non_boundary_features = {
-        'curves': non_boundary_curves,
-        'surfaces': features['surfaces']
-    }
-    return non_boundary_features
 
 
 def scale_mesh(mesh, features, shape_fabrication_extent, resolution_3d,
@@ -147,8 +54,7 @@ def scale_mesh(mesh, features, shape_fabrication_extent, resolution_3d,
 
     return mesh
 
-
-def generate_patches(meshes_filename, feats_filename, data_slice, config, output_file):
+def get_annotated_patches(item, config):
     n_patches_per_mesh = config['n_patches_per_mesh']
     shape_fabrication_extent = config.get('shape_fabrication_extent', 10.0)
     n_points_per_short_curve = config.get('n_points_per_short_curve', 4)
@@ -165,6 +71,62 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
     # is equal to the total area of 3d points (as if we scanned a plane wall)
     nbhood_extractor.radius_base = np.sqrt(sampler.n_points) * 0.5 * sampler.resolution_3d
 
+    # load the mesh and the feature curves annotations
+    mesh = trimesh_load(item.obj)
+    features = yaml.load(item.feat, Loader=yaml.Loader)
+
+    # fix mesh fabrication size in physical mm
+    mesh = scale_mesh(mesh, features, shape_fabrication_extent, sampler.resolution_3d,
+                      short_curve_quantile=short_curve_quantile,
+                      n_points_per_short_curve=n_points_per_short_curve)
+    # index the mesh using a neighbourhood functions class
+    # (this internally may call indexing, so for repeated invocation one passes the mesh)
+    nbhood_extractor.index(mesh)
+
+    for patch_idx in range(n_patches_per_mesh):
+        # extract neighbourhood
+        try:
+            nbhood, mesh_vertex_indexes, mesh_face_indexes, scaler = nbhood_extractor.get_nbhood()
+        except DataGenerationException as e:
+            eprint(str(e))
+            continue
+
+        # create annotations: condition the features onto the nbhood
+        nbhood_features = compute_features_nbhood(mesh, features, mesh_vertex_indexes, mesh_face_indexes)
+
+        # remove vertices lying on the boundary (sharp edges found in 1 face only)
+        nbhood_features = remove_boundary_features(nbhood, nbhood_features, how='edges')
+
+        # sample the neighbourhood to form a point patch
+        try:
+            points, normals = sampler.sample(nbhood, centroid=nbhood_extractor.centroid)
+        except DataGenerationException as e:
+            eprint(str(e))
+            continue
+
+        # create a noisy sample
+        noisy_points = noiser.make_noise(points, normals)
+
+        # compute the TSharpDF
+        distances, directions = annotator.annotate(nbhood, nbhood_features, noisy_points, scaler)
+
+        has_sharp = any(curve['sharp'] for curve in nbhood_features['curves'])
+        if not has_sharp:
+            distances = np.ones(distances.shape) * config['annotation']['distance_upper_bound']
+        patch_info = {
+            'points': noisy_points,
+            'normals': normals,
+            'distances': distances,
+            'directions': directions,
+            'item_id': item.item_id,
+            'orig_vert_indices': mesh_vertex_indexes,
+            'orig_face_indexes': mesh_face_indexes,
+            'has_sharp': has_sharp
+        }
+        yield patch_info
+
+
+def generate_patches(meshes_filename, feats_filename, data_slice, config, output_file):
     slice_start, slice_end = data_slice
     with ABCChunk([meshes_filename, feats_filename]) as data_holder:
         point_patches = []
@@ -172,58 +134,7 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
             eprint("Processing chunk file {chunk}, item {item}".format(
                 chunk=meshes_filename, item=item.item_id))
             try:
-                # load the mesh and the feature curves annotations
-                mesh = trimesh_load(item.obj)
-                features = yaml.load(item.feat, Loader=yaml.Loader)
-
-                # fix mesh fabrication size in physical mm
-                mesh = scale_mesh(mesh, features, shape_fabrication_extent, sampler.resolution_3d,
-                                  short_curve_quantile=short_curve_quantile,
-                                  n_points_per_short_curve=n_points_per_short_curve)
-                # index the mesh using a neighbourhood functions class
-                # (this internally may call indexing, so for repeated invocation one passes the mesh)
-                nbhood_extractor.index(mesh)
-
-                for patch_idx in range(n_patches_per_mesh):
-                    # extract neighbourhood
-                    try:
-                        nbhood, mesh_vertex_indexes, mesh_face_indexes, scaler = nbhood_extractor.get_nbhood()
-                    except DataGenerationException as e:
-                        eprint(str(e))
-                        continue
-
-                    # create annotations: condition the features onto the nbhood
-                    nbhood_features = compute_features_nbhood(features, mesh_vertex_indexes, mesh_face_indexes)
-
-                    # remove vertices lying on the boundary (sharp edges found in 1 face only)
-                    nbhood_features = remove_boundary_features(nbhood, nbhood_features, how='edges')
-
-                    # sample the neighbourhood to form a point patch
-                    try:
-                        points, normals = sampler.sample(nbhood, centroid=nbhood_extractor.centroid)
-                    except DataGenerationException as e:
-                        eprint(str(e))
-                        continue
-
-                    # create a noisy sample
-                    noisy_points = noiser.make_noise(points, normals)
-
-                    # compute the TSharpDF
-                    distances, directions = annotator.annotate(nbhood, nbhood_features, noisy_points, scaler)
-
-                    has_sharp = any(curve['sharp'] for curve in nbhood_features['curves'])
-                    if not has_sharp:
-                        distances = np.ones(distances.shape) * config['annotation']['distance_upper_bound']
-                    patch_info = {
-                        'points': noisy_points,
-                        'normals': normals,
-                        'distances': distances,
-                        'directions': directions,
-                        'item_id': item.item_id,
-                        'orig_vert_indices': mesh_vertex_indexes,
-                        'orig_face_indexes': mesh_face_indexes,
-                        'has_sharp': has_sharp
-                    }
+                for patch_info in get_annotated_patches(item, config):
                     point_patches.append(patch_info)
 
             except Exception as e:

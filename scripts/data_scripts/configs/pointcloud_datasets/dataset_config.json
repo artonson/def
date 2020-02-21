@@ -24,9 +24,7 @@
     "scale": 0.0
   },
   "annotation": {
-    "type": "aabb",
-    "distance_upper_bound": 1.0,
-    "closest_matching_distance_q": 0.0,
-    "max_empty_envelope_radius": 0.5
+    "type": "surface_based_aabb",
+    "distance_upper_bound": 1.0
   }
 }

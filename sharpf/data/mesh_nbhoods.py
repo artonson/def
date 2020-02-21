@@ -100,7 +100,7 @@ class EuclideanSphere(NeighbourhoodFunc):
                 mesh_vertex_indexes, mesh_face_indexes = mesh_vertex_indexes[nb_vertex_indexes], \
                                                          mesh_face_indexes[nb_face_indexes]
 
-        return nb, mesh_vertex_indexes, self.mesh.faces[mesh_face_indexes], self.radius_scale
+        return nb, mesh_vertex_indexes, mesh_face_indexes, self.radius_scale
 
     @classmethod
     def from_config(cls, config):
