@@ -103,7 +103,7 @@ def get_annotated_patches(item, config):
         noisy_points = noiser.make_noise(points, normals)
 
         # compute the TSharpDF
-        distances, directions = annotator.annotate(nbhood, nbhood_features, noisy_points, scaler)
+        distances, directions = annotator.annotate(nbhood, nbhood_features, noisy_points)
 
         has_sharp = any(curve['sharp'] for curve in nbhood_features['curves'])
         if not has_sharp:
