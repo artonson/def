@@ -152,3 +152,26 @@ def remove_boundary_features(mesh, features, how='none'):
         'surfaces': features['surfaces']
     }
     return non_boundary_features
+
+
+def get_curves_extents(mesh, features):
+    sharp_verts = [mesh.vertices[np.array(c['vert_indices'])]
+                   for c in features['curves'] if c['sharp']]
+
+    eps = 1e-8
+    extents = np.array([
+        np.max(verts, axis=0) - np.min(verts, axis=0) + eps
+        for verts in sharp_verts])
+
+    extents = extents.max(axis=1)
+
+    return extents
+
+
+def get_curves_lengths_edges(mesh, features):
+    sharp_verts = [mesh.vertices[np.array(c['vert_indices'])]
+                   for c in features['curves'] if c['sharp']]
+    return np.array([
+        np.sum(np.linalg.norm(curve_vertices[:-1] - curve_vertices[1:]))
+        for curve_vertices in sharp_verts
+    ])

@@ -23,7 +23,7 @@ from sharpf.data.annotation import ANNOTATOR_BY_TYPE
 from sharpf.data.mesh_nbhoods import NBHOOD_BY_TYPE
 from sharpf.data.noisers import NOISE_BY_TYPE
 from sharpf.data.point_samplers import SAMPLER_BY_TYPE
-from sharpf.utils.abc_utils import compute_features_nbhood, remove_boundary_features
+from sharpf.utils.abc_utils import compute_features_nbhood, remove_boundary_features, get_curves_extents
 from sharpf.utils.common import eprint
 from sharpf.utils.mesh_utils.io import trimesh_load
 
@@ -39,13 +39,7 @@ def scale_mesh(mesh, features, shape_fabrication_extent, resolution_3d,
     mesh = mesh.apply_scale(shape_fabrication_extent / mesh_extent)
 
     # compute lengths of curves
-    sharp_curves_lengths = []
-    for curve in features['curves']:
-        if curve['sharp']:
-            curve_vertices = mesh.vertices[curve['vert_indices']]
-            sharp_curves_lengths.append(
-                np.sum(np.linalg.norm(curve_vertices[:-1] - curve_vertices[1:]))
-            )
+    sharp_curves_lengths = get_curves_extents(mesh, features)
 
     least_len = np.quantile(sharp_curves_lengths, short_curve_quantile)
     least_len_mm = resolution_3d * n_points_per_short_curve
@@ -53,6 +47,7 @@ def scale_mesh(mesh, features, shape_fabrication_extent, resolution_3d,
     mesh = mesh.apply_scale(least_len_mm / least_len)
 
     return mesh
+
 
 def get_annotated_patches(item, config):
     n_patches_per_mesh = config['n_patches_per_mesh']
