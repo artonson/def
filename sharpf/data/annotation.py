@@ -13,30 +13,6 @@ from sharpf.utils.abc_utils import get_adjacent_features_by_bfs_with_depth1, bui
 from sharpf.utils.geometry import dist_vector_proj
 
 
-class AnnotatorFunc(ABC):
-    """Implements obtaining point samples from meshes.
-    Given a mesh, extracts a point cloud located on the
-    mesh surface, i.e. a set of 3d point locations."""
-
-    @abstractmethod
-    def annotate(self, mesh_patch, features, points, **kwargs):
-        """Noises a point cloud.
-
-        :param mesh_patch: an input mesh patch
-        :type mesh_patch: MeshType (must be present attributes `vertices`, `faces`, and `edges`)
-        :param features: an input feature annotation
-        :type features: dict
-        :param points: an input point cloud
-        :type points: np.ndarray
-
-        :returns: distances: euclidean distances to the closest sharp curve
-        :rtype: np.ndarray
-        :returns: directions: unit norm vectors in the direction to closest sharp curve
-        :rtype: np.ndarray
-        """
-        pass
-
-
 def compute_bounded_labels(points, projections, distances=None, max_distance=np.inf, distance_scaler=1.0):
     if distances is None:
         distances = np.linalg.norm(projections - points, axis=1)
@@ -54,14 +30,58 @@ def compute_bounded_labels(points, projections, distances=None, max_distance=np.
     return distances, directions
 
 
+class AnnotatorFunc(ABC):
+    """Implements obtaining point samples from meshes.
+    Given a mesh, extracts a point cloud located on the
+    mesh surface, i.e. a set of 3d point locations."""
+    def __init__(self, distance_upper_bound):
+        self.distance_upper_bound = distance_upper_bound
+
+    def annotate(self, mesh_patch, features_patch, points, **kwargs):
+        """Noises a point cloud.
+
+        :param mesh_patch: an input mesh patch
+        :type mesh_patch: MeshType (must be present attributes `vertices`, `faces`, and `edges`)
+
+        :param features: an input feature annotation
+        :type features: dict
+
+        :param points: an input point cloud
+        :type points: np.ndarray
+
+        :returns: distances: euclidean distances to the closest sharp curve
+        :rtype: np.ndarray
+
+        :returns: directions: unit norm vectors in the direction to closest sharp curve
+        :rtype: np.ndarray
+        """
+
+        # if patch is without sharp features
+        if all(not curve['sharp'] for curve in features_patch['curves']):
+            distances = np.ones_like(points[:, 0]) * self.distance_upper_bound
+            directions = np.zeros_like(points)
+            return distances, directions
+
+        projections, distances = self.do_annotate(mesh_patch, features_patch, points)
+
+        distances, directions = compute_bounded_labels(
+            points, projections, distances=distances,
+            max_distance=self.distance_upper_bound)
+
+        return distances, directions
+
+    @abstractmethod
+    def do_annotate(self, mesh_patch, features, points, **kwargs):
+        raise NotImplementedError()
+
+
 class SharpnessResamplingAnnotator(AnnotatorFunc):
     """Sample lots of points on sharp edges,
     compute distances from the input point clouds
     to the closest sharp points."""
 
     def __init__(self, distance_upper_bound, sharp_discretization):
-        super(SharpnessResamplingAnnotator, self).__init__()
-        self.distance_upper_bound = distance_upper_bound
+        super(SharpnessResamplingAnnotator, self).__init__(distance_upper_bound)
         self.sharp_discretization = sharp_discretization
 
     @classmethod
@@ -92,24 +112,13 @@ class SharpnessResamplingAnnotator(AnnotatorFunc):
         sharp_points = np.concatenate(sharp_points) if sharp_points else np.array(sharp_points)
         return sharp_points
 
-    def annotate(self, mesh_patch, features_patch, points, distance_scaler=1, **kwargs):
-        # if patch is without sharp features
-        if all(not curve['sharp'] for curve in features_patch['curves']):
-            distances = np.ones_like(points[:, 0]) * self.distance_upper_bound
-            directions = np.zeros_like(points)
-            return distances, directions
-
+    def do_annotate(self, mesh_patch, features_patch, points, **kwargs):
         # model a dense sample of points lying on sharp edges
         sharp_points = self._resample_sharp_edges(mesh_patch, features_patch)
         # compute distances from each input point to the sharp points
         tree = KDTree(sharp_points, leafsize=100)
-        distances, vert_indices = tree.query(points, distance_upper_bound=self.distance_upper_bound * distance_scaler)
-
-        # TODO @artonson: fix sharp verts too far away from the actual samples
-        distances, directions = compute_bounded_labels(
-            points, sharp_points[vert_indices], distances=distances,
-            max_distance=self.distance_upper_bound, distance_scaler=distance_scaler)
-        return distances, directions
+        distances, vert_indices = tree.query(points, distance_upper_bound=self.distance_upper_bound)
+        return sharp_points[vert_indices], distances
 
 
 class AABBAnnotator(AnnotatorFunc, ABC):
@@ -204,20 +213,9 @@ class AABBGlobalAnnotator(AABBAnnotator):
                     distances[close_matching_mask] = self.distance_upper_bound
         return distances
 
-
-    def annotate(self, mesh_patch, features_patch, points, distance_scaler=1, **kwargs):
-        # if patch is without sharp features
-        if all(not curve['sharp'] for curve in features_patch['curves']):
-            distances = np.ones_like(points[:, 0]) * self.distance_upper_bound
-            directions = np.zeros_like(points)
-            return distances, directions
-
+    def annotate(self, mesh_patch, features_patch, points, **kwargs):
         matching_edges, projections, distances = self.compute_aabb_nearest_points(mesh_patch, features_patch, points)
-
-        distances, directions = compute_bounded_labels(
-            points, projections, distances=distances, max_distance=self.distance_upper_bound)
-
-        return distances, directions
+        return projections, distances
 
 
 class AABBSurfacePatchAnnotator(AABBAnnotator):
@@ -236,7 +234,7 @@ class AABBSurfacePatchAnnotator(AABBAnnotator):
     ```
     """
 
-    def annotate(self, mesh_patch, features_patch, points, distance_scaler=1, **kwargs):
+    def do_annotate(self, mesh_patch, features_patch, points, **kwargs):
         # index mesh vertices to search for closest sharp features
         tree = KDTree(mesh_patch.vertices, leafsize=100)
         _, closest_nbhood_vertex_idx = tree.query(points)
@@ -246,7 +244,7 @@ class AABBSurfacePatchAnnotator(AABBAnnotator):
         adjacent_sharp_features, adjacent_surfaces = build_surface_patch_graph(features_patch)
 
         # compute distance, iterating over points sampled from corresponding surface patches
-        distances, directions = np.zeros(len(points)), np.zeros_like(points)
+        distances, projections = np.zeros(len(points)), np.zeros_like(points)
         for surface_idx, surface in enumerate(features_patch['surfaces']):
             # constrain distance computation to certain sharp features only
             adjacent_sharp_indexes = get_adjacent_features_by_bfs_with_depth1(
@@ -259,13 +257,9 @@ class AABBSurfacePatchAnnotator(AABBAnnotator):
             point_cloud_indexes = np.where(np.isin(closest_nbhood_vertex_idx, surface['vert_indices']))[0]
             surface_matching_edges, surface_projections, surface_distances = \
                 self.compute_aabb_nearest_points(mesh_patch, surface_adjacent_features, points[point_cloud_indexes])
+            distances[point_cloud_indexes], projections[point_cloud_indexes] = surface_distances, surface_projections
 
-            distances[point_cloud_indexes], directions[point_cloud_indexes] = \
-                compute_bounded_labels(points[point_cloud_indexes], surface_projections,
-                                       distances=surface_distances, max_distance=self.distance_upper_bound,
-                                       distance_scaler=distance_scaler)
-
-        return distances, directions
+        return projections, distances
 
 
 ANNOTATOR_BY_TYPE = {
