@@ -215,7 +215,9 @@ def make_patches(options):
     with open(options.dataset_config) as config_file:
         config = json.load(config_file)
 
-    parallel = Parallel(n_jobs=options.n_jobs, backend='multiprocessing')
+    MAX_SEC_PER_PATCH = 100
+    parallel = Parallel(n_jobs=options.n_jobs, backend='multiprocessing',
+                        timeout=chunk_size * config['n_patches_per_mesh'] * MAX_SEC_PER_PATCH)
     delayed_iterable = (delayed(generate_patches)(obj_filename, feat_filename, data_slice, config, out_filename)
                         for data_slice, out_filename in zip(abc_data_slices, output_files))
     parallel(delayed_iterable)
