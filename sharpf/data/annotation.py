@@ -43,8 +43,8 @@ class AnnotatorFunc(ABC):
         :param mesh_patch: an input mesh patch
         :type mesh_patch: MeshType (must be present attributes `vertices`, `faces`, and `edges`)
 
-        :param features: an input feature annotation
-        :type features: dict
+        :param features_patch: an input feature annotation
+        :type features_patch: dict
 
         :param points: an input point cloud
         :type points: np.ndarray
@@ -124,10 +124,6 @@ class SharpnessResamplingAnnotator(AnnotatorFunc):
 class AABBAnnotator(AnnotatorFunc, ABC):
     """Use axis-aligned bounding box representation sharp edges and compute
     distances from the input point cloud to the closest sharp edges."""
-
-    def __init__(self, distance_upper_bound):
-        super(AABBAnnotator, self).__init__()
-        self.distance_upper_bound = distance_upper_bound
 
     @classmethod
     def from_config(cls, config):
@@ -213,7 +209,7 @@ class AABBGlobalAnnotator(AABBAnnotator):
                     distances[close_matching_mask] = self.distance_upper_bound
         return distances
 
-    def annotate(self, mesh_patch, features_patch, points, **kwargs):
+    def do_annotate(self, mesh_patch, features_patch, points, **kwargs):
         matching_edges, projections, distances = self.compute_aabb_nearest_points(mesh_patch, features_patch, points)
         return projections, distances
 
