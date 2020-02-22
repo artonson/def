@@ -24,7 +24,7 @@ def compute_relative_indexes(mesh, sub_mesh):
 
     # get vertex indexes in mesh by searching for identical vertices
     vertex_indexes = np.where(
-        np.all(np.isin(mesh.vertices, sub_mesh.vertices), axis=1)
+        (mesh.vertices[:, np.newaxis] == sub_mesh.vertices[np.newaxis, ...]).all(axis=2).any(axis=1)
     )[0]
     face_indexes = mesh.vertex_faces[vertex_indexes]
     face_indexes = np.unique(face_indexes[face_indexes > -1])
@@ -38,3 +38,22 @@ def compute_relative_indexes(mesh, sub_mesh):
     )
 
     return vertex_indexes, face_indexes[fix_mask]
+
+
+def test_compute_relative_indexes():
+    test_faces = np.array([[0, 1, 2], [2, 3, 4]])
+    test_verts = np.array([[0, 0, 0], [0, 1, 0], [1, 0, 0], [2, 1, 0], [2, 0, 0], ])
+
+    test_mesh = trimesh.base.Trimesh(
+        vertices=test_verts,
+        faces=test_faces,
+        process=False,
+        validate=False)
+
+    sub_meshes = test_mesh.split(only_watertight=False)
+    assert len(sub_meshes) == 2
+
+    for sub_mesh in sub_meshes:
+        vertex_indexes, face_indexes = compute_relative_indexes(test_mesh, sub_mesh)
+        assert np.all(test_mesh.vertices[vertex_indexes] == sub_mesh.vertices, axis=1)
+

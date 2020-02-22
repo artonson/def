@@ -241,7 +241,7 @@ class AABBSurfacePatchAnnotator(AABBAnnotator):
         adjacent_sharp_features, adjacent_surfaces = build_surface_patch_graph(features_patch)
 
         # compute distance, iterating over points sampled from corresponding surface patches
-        distances, projections = np.zeros(len(points)), np.zeros_like(points)
+        distances, projections = np.ones(len(points)) * self.distance_upper_bound, np.zeros_like(points)
         for surface_idx, surface in enumerate(features_patch['surfaces']):
             # constrain distance computation to certain sharp features only
             adjacent_sharp_indexes = get_adjacent_features_by_bfs_with_depth1(
@@ -250,6 +250,8 @@ class AABBSurfacePatchAnnotator(AABBAnnotator):
                 'curves': [features_patch['curves'][idx]
                            for idx in np.unique(adjacent_sharp_indexes)]
             }
+            if len(surface_adjacent_features['curves']) == 0:
+                continue
             # compute distances using parent class AABB method
             point_cloud_indexes = np.where(np.isin(closest_nbhood_vertex_idx, surface['vert_indices']))[0]
             surface_matching_edges, surface_projections, surface_distances = \
