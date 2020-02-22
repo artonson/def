@@ -121,22 +121,7 @@ def get_annotated_patches(item, config):
         yield patch_info
 
 
-def generate_patches(meshes_filename, feats_filename, data_slice, config, output_file):
-    slice_start, slice_end = data_slice
-    with ABCChunk([meshes_filename, feats_filename]) as data_holder:
-        point_patches = []
-        for item in data_holder[slice_start:slice_end]:
-            eprint("Processing chunk file {chunk}, item {item}".format(
-                chunk=meshes_filename, item=item.item_id))
-            try:
-                for patch_info in get_annotated_patches(item, config):
-                    point_patches.append(patch_info)
-
-            except Exception as e:
-                eprint('Error processing item {item_id} from chunk {chunk}: {what}'.format(
-                    item_id=item.item_id, chunk='[{},{}]'.format(meshes_filename, feats_filename), what=e
-                ))
-
+def save_point_patches(point_patches, output_file):
     with h5py.File(output_file, 'w') as hdf5file:
         points = np.stack([patch['points'] for patch in point_patches])
         hdf5file.create_dataset('points', data=points, dtype=np.float64)
@@ -169,6 +154,41 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
 
         has_sharp = np.stack([patch['has_sharp'] for patch in point_patches]).astype(bool)
         hdf5file.create_dataset('has_sharp', data=has_sharp, dtype=np.bool)
+
+
+def generate_patches(meshes_filename, feats_filename, data_slice, config, output_file):
+    slice_start, slice_end = data_slice
+    with ABCChunk([meshes_filename, feats_filename]) as data_holder:
+        point_patches = []
+        for item in data_holder[slice_start:slice_end]:
+            eprint("Processing chunk file {chunk}, item {item}".format(
+                chunk=meshes_filename, item=item.item_id))
+            try:
+                for patch_info in get_annotated_patches(item, config):
+                    point_patches.append(patch_info)
+
+            except Exception as e:
+                eprint('Error processing item {item_id} from chunk {chunk}: {what}'.format(
+                    item_id=item.item_id, chunk='[{},{}]'.format(meshes_filename, feats_filename), what=e
+                ))
+
+            eprint('Done processing item {item_id} from chunk {chunk}'.format(
+                item_id=item.item_id, chunk='[{},{}]'.format(meshes_filename, feats_filename)
+            ))
+
+    if len(point_patches) > 0:
+        try:
+            save_point_patches(point_patches, output_file)
+
+        except Exception as e:
+            eprint('Error writing patches to disk at {output_file}: {what}'.format(
+                output_file=output_file, what=e
+            ))
+            return
+
+    eprint('Done writing {num_patches} patches to disk at {output_file}'.format(
+        num_patches=len(point_patches), output_file=output_file
+    ))
 
 
 def make_patches(options):

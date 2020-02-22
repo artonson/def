@@ -20,7 +20,7 @@ def get_adjacent_features_by_bfs_with_depth1(surface_idx, adjacent_sharp_feature
             adjacent_surface_adjacent_sharp_indexes = \
                 get_adjacent_features_by_bfs_with_depth1(
                     adjacent_surface_idx, adjacent_surface_adjacent_sharp_features,
-                    {})
+                    defaultdict(list))
 
             adjacent_sharp_indexes.extend(adjacent_surface_adjacent_sharp_indexes)
 

@@ -252,8 +252,10 @@ class AABBSurfacePatchAnnotator(AABBAnnotator):
             }
             if len(surface_adjacent_features['curves']) == 0:
                 continue
-            # compute distances using parent class AABB method
             point_cloud_indexes = np.where(np.isin(closest_nbhood_vertex_idx, surface['vert_indices']))[0]
+            if len(point_cloud_indexes) == 0:
+                continue
+            # compute distances using parent class AABB method
             surface_matching_edges, surface_projections, surface_distances = \
                 self.compute_aabb_nearest_points(mesh_patch, surface_adjacent_features, points[point_cloud_indexes])
             distances[point_cloud_indexes], projections[point_cloud_indexes] = surface_distances, surface_projections
