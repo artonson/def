@@ -18,7 +18,8 @@ def compute_bounded_labels(points, projections, distances=None, max_distance=np.
         distances = np.linalg.norm(projections - points, axis=1)
 
     distances = distances / distance_scaler
-    far_from_sharp = distances == np.inf  # boolean mask marking objects far away from sharp curves
+    # boolean mask marking objects far away from sharp curves
+    far_from_sharp = distances > max_distance
     distances[far_from_sharp] = max_distance
 
     # compute directions for points close to sharp curves
