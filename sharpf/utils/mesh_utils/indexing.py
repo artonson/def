@@ -23,9 +23,7 @@ def compute_relative_indexes(mesh, sub_mesh):
     mesh.faces[face_indexes] ~ sub_mesh.faces."""
 
     # get vertex indexes in mesh by searching for identical vertices
-    vertex_indexes = np.where(
-        (mesh.vertices[:, np.newaxis] == sub_mesh.vertices[np.newaxis, ...]).all(axis=2).any(axis=1)
-    )[0]
+    vertex_indexes = np.where(in2d(mesh.vertices, sub_mesh.vertices))[0]
     face_indexes = mesh.vertex_faces[vertex_indexes]
     face_indexes = np.unique(face_indexes[face_indexes > -1])
 
@@ -57,3 +55,21 @@ def test_compute_relative_indexes():
         vertex_indexes, face_indexes = compute_relative_indexes(test_mesh, sub_mesh)
         assert np.all(test_mesh.vertices[vertex_indexes] == sub_mesh.vertices, axis=1)
 
+
+def in2d(ar1, ar2):
+    """
+    Tests whether values from ar1 are also in ar2.
+
+    :param ar1: (M,) first 2d array
+    :param ar2: second 2d array
+
+    Returns
+    -------
+    idx : (M,) ndarray, bool
+        The values `ar1[idx]` are in `ar2`.
+    """
+    ar1 = np.asarray(ar1)
+    ar2 = np.asarray(ar2)
+    idx = (ar1[:, np.newaxis] == ar2[np.newaxis, ...]).all(axis=2).any(axis=1)
+
+    return idx

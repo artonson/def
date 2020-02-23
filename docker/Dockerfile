@@ -66,15 +66,17 @@ ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 ENV DYLD_LIBRARY_PATH=/usr/local/cuda/lib:$DYLD_LIBRARY_PATH
 
 # Install pytorch_geometric and friends
-RUN pip install --verbose --no-cache-dir torch-scatter
-RUN pip install --verbose --no-cache-dir torch-sparse
-RUN pip install --verbose --no-cache-dir torch-cluster
-RUN pip install --verbose --no-cache-dir torch-spline-conv
-RUN pip install torch-geometric
+#RUN pip install --verbose --no-cache-dir torch-scatter
+#RUN pip install --verbose --no-cache-dir torch-sparse
+#RUN pip install --verbose --no-cache-dir torch-cluster
+#RUN pip install --verbose --no-cache-dir torch-spline-conv
+#RUN pip install torch-geometric
 
 # Install geometry-related packages
-RUN conda install -c conda-forge igl=0.3 point_cloud_utils
+RUN conda install -c conda-forge igl=0.4.1 point_cloud_utils libspatialindex=1.9.3
 
 RUN mkdir /home/user/code
 COPY --chown=user contrib/pythonaabb /home/user/code/pythonaabb
 RUN cd /home/user/code/pythonaabb && pip install .
+RUN git clone https://github.com/Toblerity/rtree.git /home/user/code/rtree \
+ && cd /home/user/code/rtree && python setup.py install

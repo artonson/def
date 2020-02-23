@@ -6,11 +6,12 @@ import os
 from joblib import Parallel, delayed
 import numpy as np
 from scipy.spatial import KDTree
-
+import igl
 from pyaabb import pyaabb
 
 from sharpf.utils.abc_utils import get_adjacent_features_by_bfs_with_depth1, build_surface_patch_graph
 from sharpf.utils.geometry import dist_vector_proj
+from sharpf.utils.mesh_utils.indexing import in2d
 
 
 def compute_bounded_labels(points, projections, distances=None, max_distance=np.inf, distance_scaler=1.0):
@@ -233,8 +234,10 @@ class AABBSurfacePatchAnnotator(AABBAnnotator):
 
     def do_annotate(self, mesh_patch, features_patch, points, **kwargs):
         # index mesh vertices to search for closest sharp features
-        tree = KDTree(mesh_patch.vertices, leafsize=100)
-        _, closest_nbhood_vertex_idx = tree.query(points)
+        # tree = KDTree(mesh_patch.vertices, leafsize=100)
+        # _, closest_nbhood_vertex_idx = tree.query(points)
+        _, point_face_indexes, _ = \
+            igl.point_mesh_squared_distance(points, mesh_patch.vertices, mesh_patch.faces)
 
         # understand which surface patches are adjacent to which sharp features
         # and other surface patches
@@ -252,7 +255,11 @@ class AABBSurfacePatchAnnotator(AABBAnnotator):
             }
             if len(surface_adjacent_features['curves']) == 0:
                 continue
-            point_cloud_indexes = np.where(np.isin(closest_nbhood_vertex_idx, surface['vert_indices']))[0]
+
+            point_cloud_indexes = np.where(
+                in2d(mesh_patch.faces[point_face_indexes], surface['face_indices'])
+            )[0]
+            # point_cloud_indexes = np.where(np.isin(closest_nbhood_vertex_idx, surface['vert_indices']))[0]
             if len(point_cloud_indexes) == 0:
                 continue
             # compute distances using parent class AABB method
