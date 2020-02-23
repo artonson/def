@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import sys
+import traceback
 
 import h5py
 from joblib import Parallel, delayed
@@ -24,7 +25,7 @@ from sharpf.data.mesh_nbhoods import NBHOOD_BY_TYPE
 from sharpf.data.noisers import NOISE_BY_TYPE
 from sharpf.data.point_samplers import SAMPLER_BY_TYPE
 from sharpf.utils.abc_utils import compute_features_nbhood, remove_boundary_features, get_curves_extents
-from sharpf.utils.common import eprint
+from sharpf.utils.common import eprint_t
 from sharpf.utils.mesh_utils.io import trimesh_load
 
 
@@ -91,7 +92,7 @@ def get_annotated_patches(item, config):
         try:
             nbhood, mesh_vertex_indexes, mesh_face_indexes, scaler = nbhood_extractor.get_nbhood()
         except DataGenerationException as e:
-            eprint(str(e))
+            eprint_t(str(e))
             continue
 
         # create annotations: condition the features onto the nbhood
@@ -104,7 +105,7 @@ def get_annotated_patches(item, config):
         try:
             points, normals = sampler.sample(nbhood, centroid=nbhood_extractor.centroid)
         except DataGenerationException as e:
-            eprint(str(e))
+            eprint_t(str(e))
             continue
 
         # create a noisy sample
@@ -169,34 +170,33 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
     with ABCChunk([meshes_filename, feats_filename]) as data_holder:
         point_patches = []
         for item in data_holder[slice_start:slice_end]:
-            eprint("Processing chunk file {chunk}, item {item}".format(
+            eprint_t("Processing chunk file {chunk}, item {item}".format(
                 chunk=meshes_filename, item=item.item_id))
             try:
                 for patch_info in get_annotated_patches(item, config):
                     point_patches.append(patch_info)
 
             except Exception as e:
-                eprint('Error processing item {item_id} from chunk {chunk}: {what}'.format(
-                    item_id=item.item_id, chunk='[{},{}]'.format(meshes_filename, feats_filename), what=e
-                ))
+                eprint_t('Error processing item {item_id} from chunk {chunk}: {what}'.format(
+                    item_id=item.item_id, chunk='[{},{}]'.format(meshes_filename, feats_filename), what=e))
+                eprint_t(traceback.format_exc())
 
-            eprint('Done processing item {item_id} from chunk {chunk}'.format(
-                item_id=item.item_id, chunk='[{},{}]'.format(meshes_filename, feats_filename)
-            ))
+            else:
+                eprint_t('Done processing item {item_id} from chunk {chunk}'.format(
+                    item_id=item.item_id, chunk='[{},{}]'.format(meshes_filename, feats_filename)))
 
     if len(point_patches) > 0:
         try:
             save_point_patches(point_patches, output_file)
 
         except Exception as e:
-            eprint('Error writing patches to disk at {output_file}: {what}'.format(
-                output_file=output_file, what=e
-            ))
-            return
+            eprint_t('Error writing patches to disk at {output_file}: {what}'.format(
+                output_file=output_file, what=e))
 
-    eprint('Done writing {num_patches} patches to disk at {output_file}'.format(
-        num_patches=len(point_patches), output_file=output_file
-    ))
+        else:
+            eprint_t('Done writing {num_patches} patches to disk at {output_file}'.format(
+                num_patches=len(point_patches), output_file=output_file))
+            eprint_t(traceback.format_exc())
 
 
 def make_patches(options):
