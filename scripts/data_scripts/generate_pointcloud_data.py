@@ -192,11 +192,11 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
         except Exception as e:
             eprint_t('Error writing patches to disk at {output_file}: {what}'.format(
                 output_file=output_file, what=e))
+            eprint_t(traceback.format_exc())
 
         else:
             eprint_t('Done writing {num_patches} patches to disk at {output_file}'.format(
                 num_patches=len(point_patches), output_file=output_file))
-            eprint_t(traceback.format_exc())
 
 
 def make_patches(options):
