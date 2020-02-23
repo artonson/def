@@ -111,18 +111,19 @@ class EuclideanSphere(NeighbourhoodFunc):
 
 class RandomEuclideanSphere(EuclideanSphere):
     def __init__(self, centroid, radius_base, n_vertices, geodesic_patches, radius_scale_mode, radius_delta,
-                 max_patches_per_mesh):
+                 max_patches_per_mesh, centroid_mode):
         super().__init__(centroid, radius_base, n_vertices, geodesic_patches, radius_scale_mode)
         self.radius_delta = radius_delta
         self.max_patches_per_mesh = max_patches_per_mesh
         self.n_patches_per_mesh = 0
         self.current_patch_idx = 0
         self.centroids_cache = []
+        self.centroid_mode = centroid_mode
 
     def index(self, mesh):
         super(RandomEuclideanSphere, self).index(mesh)
 
-        if self.centroid == 'poisson_disk':
+        if self.centroid_mode == 'poisson_disk':
             mesh_vertices = np.array(mesh.vertices, order='C')
             mesh_normals = np.array(mesh.vertex_normals, order='C')
             mesh_faces = np.array(mesh.faces)
@@ -130,15 +131,16 @@ class RandomEuclideanSphere(EuclideanSphere):
             self.centroids_cache, _ = pcu.sample_mesh_poisson_disk(
                 mesh_vertices, mesh_faces, mesh_normals,
                 -1, radius=self.radius_base, use_geodesic_distance=True)
+            self.centroids_cache = np.atleast_2d(self.centroids_cache)
 
             if len(self.centroids_cache) > self.max_patches_per_mesh:
                 centroid_indexes = np.random.choice(
                     len(self.centroids_cache), size=self.max_patches_per_mesh, replace=False)
-                self.centroids_cache = self.centroids_cache[centroid_indexes]
+                self.centroids_cache = self.centroids_cache[centroid_indexes, :]
 
             self.n_patches_per_mesh = len(self.centroids_cache)
 
-        elif self.centroid == 'random_vertex':
+        elif self.centroid_mode == 'random_vertex':
             centroid_indexes = np.random.choice(
                 len(self.mesh.vertices), size=self.max_patches_per_mesh, replace=False)
             self.centroids_cache = self.mesh.vertices[centroid_indexes]
