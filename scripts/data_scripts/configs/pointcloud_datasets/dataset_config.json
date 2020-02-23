@@ -1,7 +1,8 @@
 {
   "shape_fabrication_extent": 10.0,
   "short_curve_quantile": 0.25,
-  "n_points_per_short_curve": 64,
+  "base_n_points_per_short_curve": 8,
+  "base_resolution_3d": 0.125,
   "n_patches_per_mesh": 10,
   "neighbourhood": {
     "type": "random_euclidean_sphere",

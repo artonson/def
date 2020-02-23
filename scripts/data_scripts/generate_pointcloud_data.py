@@ -49,10 +49,19 @@ def scale_mesh(mesh, features, shape_fabrication_extent, resolution_3d,
     return mesh
 
 
+# mm/pixel
+HIGH_RES = 0.02
+MED_RES = 0.05
+LOW_RES = 0.125
+XLOW_RES = 0.25
+
+
 def get_annotated_patches(item, config):
     n_patches_per_mesh = config['n_patches_per_mesh']
     shape_fabrication_extent = config.get('shape_fabrication_extent', 10.0)
-    n_points_per_short_curve = config.get('n_points_per_short_curve', 4)
+    base_n_points_per_short_curve = config.get('base_n_points_per_short_curve', 8)
+    base_resolution_3d = config.get('base_resolution_3d', LOW_RES)
+
     short_curve_quantile = config.get('short_curve_quantile', 0.05)
 
     nbhood_extractor = load_func_from_config(NBHOOD_BY_TYPE, config['neighbourhood'])
@@ -71,9 +80,9 @@ def get_annotated_patches(item, config):
     features = yaml.load(item.feat, Loader=yaml.Loader)
 
     # fix mesh fabrication size in physical mm
-    mesh = scale_mesh(mesh, features, shape_fabrication_extent, sampler.resolution_3d,
+    mesh = scale_mesh(mesh, features, shape_fabrication_extent, base_resolution_3d,
                       short_curve_quantile=short_curve_quantile,
-                      n_points_per_short_curve=n_points_per_short_curve)
+                      n_points_per_short_curve=base_n_points_per_short_curve)
     # index the mesh using a neighbourhood functions class
     # (this internally may call indexing, so for repeated invocation one passes the mesh)
     nbhood_extractor.index(mesh)
