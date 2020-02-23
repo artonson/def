@@ -164,7 +164,7 @@ class RandomEuclideanSphere(EuclideanSphere):
         return cls(config['centroid'], config['radius_base'],
                    config['n_vertices'], config['geodesic_patches'],
                    config['radius_scale_mode'], config['radius_delta'],
-                   config['max_patches_per_mesh'])
+                   config['max_patches_per_mesh'], config['centroid_mode'])
 
 #
 # # the function for patch generator: breadth-first search
