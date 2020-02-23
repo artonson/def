@@ -132,8 +132,9 @@ class RandomEuclideanSphere(EuclideanSphere):
                 -1, radius=self.radius_base, use_geodesic_distance=True)
 
             if len(self.centroids_cache) > self.max_patches_per_mesh:
-                self.centroids_cache = np.random.choice(
-                    self.centroids_cache, size=self.max_patches_per_mesh, replace=False)
+                centroid_indexes = np.random.choice(
+                    len(self.centroids_cache), size=self.max_patches_per_mesh, replace=False)
+                self.centroids_cache = self.centroids_cache[centroid_indexes]
 
             self.n_patches_per_mesh = len(self.centroids_cache)
 
