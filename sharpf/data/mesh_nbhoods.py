@@ -130,7 +130,7 @@ class RandomEuclideanSphere(EuclideanSphere):
 
             self.centroids_cache, _ = pcu.sample_mesh_poisson_disk(
                 mesh_vertices, mesh_faces, mesh_normals,
-                -1, radius=self.radius_base, use_geodesic_distance=True)
+                -1, radius=2. * self.radius_base, use_geodesic_distance=True)
             self.centroids_cache = np.atleast_2d(self.centroids_cache)
 
             if len(self.centroids_cache) > self.max_patches_per_mesh:
