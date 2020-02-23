@@ -57,7 +57,6 @@ XLOW_RES = 0.25
 
 
 def get_annotated_patches(item, config):
-    n_patches_per_mesh = config['n_patches_per_mesh']
     shape_fabrication_extent = config.get('shape_fabrication_extent', 10.0)
     base_n_points_per_short_curve = config.get('base_n_points_per_short_curve', 8)
     base_resolution_3d = config.get('base_resolution_3d', LOW_RES)
@@ -87,7 +86,7 @@ def get_annotated_patches(item, config):
     # (this internally may call indexing, so for repeated invocation one passes the mesh)
     nbhood_extractor.index(mesh)
 
-    for patch_idx in range(n_patches_per_mesh):
+    for patch_idx in range(nbhood_extractor.n_patches_per_mesh):
         # extract neighbourhood
         try:
             nbhood, mesh_vertex_indexes, mesh_face_indexes, scaler = nbhood_extractor.get_nbhood()

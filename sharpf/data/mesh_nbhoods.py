@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 from scipy.spatial import KDTree
+import point_cloud_utils as pcu
 
 from sharpf.data import DataGenerationException
 from sharpf.utils.mesh_utils.indexing import reindex_zerobased, compute_relative_indexes
@@ -49,7 +50,7 @@ class EuclideanSphere(NeighbourhoodFunc):
         self.mesh = None
         self.tree = None
 
-    def index(self, mesh, n_points=None):
+    def index(self, mesh):
         self.mesh = mesh
         self.tree = KDTree(mesh.vertices, leafsize=1000)
         if self.radius_scale_mode == 'from_edge_len':
@@ -109,23 +110,58 @@ class EuclideanSphere(NeighbourhoodFunc):
 
 
 class RandomEuclideanSphere(EuclideanSphere):
-    def __init__(self, centroid, radius_base, n_vertices, geodesic_patches, radius_scale_mode, radius_delta):
+    def __init__(self, centroid, radius_base, n_vertices, geodesic_patches, radius_scale_mode, radius_delta,
+                 max_patches_per_mesh):
         super().__init__(centroid, radius_base, n_vertices, geodesic_patches, radius_scale_mode)
         self.radius_delta = radius_delta
+        self.max_patches_per_mesh = max_patches_per_mesh
+        self.n_patches_per_mesh = 0
+        self.current_patch_idx = 0
+        self.centroids_cache = []
+
+    def index(self, mesh):
+        super(RandomEuclideanSphere, self).index(mesh)
+
+        if self.centroid == 'poisson_disk':
+            mesh_vertices = np.array(mesh.vertices, order='C')
+            mesh_normals = np.array(mesh.vertex_normals, order='C')
+            mesh_faces = np.array(mesh.faces)
+
+            self.centroids_cache, _ = pcu.sample_mesh_poisson_disk(
+                mesh_vertices, mesh_faces, mesh_normals,
+                -1, radius=self.radius_base, use_geodesic_distance=True)
+
+            if len(self.centroids_cache) > self.max_patches_per_mesh:
+                self.centroids_cache = np.random.choice(
+                    self.centroids_cache, size=self.max_patches_per_mesh, replace=False)
+
+            self.n_patches_per_mesh = len(self.centroids_cache)
+
+        elif self.centroid == 'random_vertex':
+            centroid_indexes = np.random.choice(
+                len(self.mesh.vertices), size=self.max_patches_per_mesh, replace=False)
+            self.centroids_cache = self.mesh.vertices[centroid_indexes]
+            self.n_patches_per_mesh = len(self.centroids_cache)
+
+        else:
+            raise ValueError('Unknown patches specification: "{}"'.format(self.centroid))
 
     def get_nbhood(self):
-        centroid_idx = np.random.choice(len(self.mesh.vertices))
-        self.centroid = self.mesh.vertices[centroid_idx]
+        if self.current_patch_idx >= self.n_patches_per_mesh:
+            raise StopIteration
+        self.centroid = self.centroids_cache[self.current_patch_idx]
         self.radius_base = np.random.uniform(
             self.radius_base - self.radius_delta,
             self.radius_base + self.radius_delta)
+        self.current_patch_idx += 1
         return super(RandomEuclideanSphere, self).get_nbhood()
 
     @classmethod
     def from_config(cls, config):
         return cls(config['centroid'], config['radius_base'],
                    config['n_vertices'], config['geodesic_patches'],
-                   config['radius_scale_mode'], config['radius_delta'])
+                   config['radius_scale_mode'], config['radius_delta'],
+                   config['max_patches_per_mesh'])
 
 #
 # # the function for patch generator: breadth-first search
