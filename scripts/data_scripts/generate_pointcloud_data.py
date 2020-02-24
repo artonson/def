@@ -173,11 +173,12 @@ def save_point_patches(point_patches, output_file):
         has_sharp = np.stack([patch['has_sharp'] for patch in point_patches]).astype(bool)
         hdf5file.create_dataset('has_sharp', data=has_sharp, dtype=np.bool)
 
-        num_sharp_curves = np.stack([patch['num_sharp_curves'] for patch in point_patches]).astype(bool)
+        num_sharp_curves = np.stack([patch['num_sharp_curves'] for patch in point_patches])
         hdf5file.create_dataset('num_sharp_curves', data=num_sharp_curves, dtype=np.int8)
 
-        num_surfaces = np.stack([patch['num_surfaces'] for patch in point_patches]).astype(bool)
+        num_surfaces = np.stack([patch['num_surfaces'] for patch in point_patches])
         hdf5file.create_dataset('num_surfaces', data=num_surfaces, dtype=np.int8)
+
 
 def generate_patches(meshes_filename, feats_filename, data_slice, config, output_file):
     slice_start, slice_end = data_slice
