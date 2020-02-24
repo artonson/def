@@ -102,9 +102,14 @@ class PoissonDiskSampler(SamplerFunc):
             return_idx = np.random.choice(np.arange(len(points)), size=self.n_points, replace=False)
 
         points, normals = points[return_idx], normals[return_idx]
-        if self.resolution_deviation_tolerance > 0 and \
-                np.abs(self.resolution_3d - mean_mmd(points)) > self.resolution_deviation_tolerance:
-            raise DataGenerationException('Significant deviation in sampling density, discarding patch')
+        if self.resolution_deviation_tolerance > 0:
+            estimated_resolution_3d = mean_mmd(points)
+            if np.abs(self.resolution_3d - estimated_resolution_3d) > self.resolution_deviation_tolerance:
+                raise DataGenerationException(
+                    'Significant deviation in sampling density: '
+                    'resolution_3d = {resolution_3d:3.3f}, actual = {actual:3.3f} (difference = {diff:3.3f}, '
+                    'discarding patch'.format(resolution_3d=self.resolution_3d, actual=estimated_resolution_3d,
+                                              diff=np.abs(self.resolution_3d - estimated_resolution_3d)))
 
         return points, normals
 
