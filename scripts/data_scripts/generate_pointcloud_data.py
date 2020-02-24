@@ -112,11 +112,18 @@ def get_annotated_patches(item, config):
         noisy_points = noiser.make_noise(points, normals)
 
         # compute the TSharpDF
-        distances, directions = annotator.annotate(nbhood, nbhood_features, noisy_points)
+        try:
+            distances, directions = annotator.annotate(nbhood, nbhood_features, noisy_points)
+        except DataGenerationException as e:
+            eprint_t(str(e))
+            continue
 
         has_sharp = any(curve['sharp'] for curve in nbhood_features['curves'])
         if not has_sharp:
             distances = np.ones(distances.shape) * config['annotation']['distance_upper_bound']
+
+        num_sharp_curves = len([curve for curve in nbhood_features['curves'] if curve['sharp']])
+        num_surfaces = len(nbhood_features['surfaces'])
         patch_info = {
             'points': noisy_points,
             'normals': normals,
@@ -125,7 +132,9 @@ def get_annotated_patches(item, config):
             'item_id': item.item_id,
             'orig_vert_indices': mesh_vertex_indexes,
             'orig_face_indexes': mesh_face_indexes,
-            'has_sharp': has_sharp
+            'has_sharp': has_sharp,
+            'num_sharp_curves': num_sharp_curves,
+            'num_surfaces': num_surfaces,
         }
         yield patch_info
 
@@ -164,6 +173,11 @@ def save_point_patches(point_patches, output_file):
         has_sharp = np.stack([patch['has_sharp'] for patch in point_patches]).astype(bool)
         hdf5file.create_dataset('has_sharp', data=has_sharp, dtype=np.bool)
 
+        num_sharp_curves = np.stack([patch['num_sharp_curves'] for patch in point_patches]).astype(bool)
+        hdf5file.create_dataset('num_sharp_curves', data=num_sharp_curves, dtype=np.int8)
+
+        num_surfaces = np.stack([patch['num_surfaces'] for patch in point_patches]).astype(bool)
+        hdf5file.create_dataset('num_surfaces', data=num_surfaces, dtype=np.int8)
 
 def generate_patches(meshes_filename, feats_filename, data_slice, config, output_file):
     slice_start, slice_end = data_slice

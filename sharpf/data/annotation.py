@@ -76,7 +76,8 @@ class AnnotatorFunc(ABC):
             # validate for Lipshitz condition:
             # if for two points x_i and x_j (nearest neighbours of each other)
             # corresponding values f(x_i) and f(x_j) differ by more than ||x_i - x_j||, discard the patch
-            nn_distances, nn_indexes = cKDTree(points, leafsize=16).query(points, k=2)
+            n_omp_threads = int(os.environ.get('OMP_NUM_THREADS', 1))
+            nn_distances, nn_indexes = cKDTree(points, leafsize=16).query(points, k=2, n_jobs=n_omp_threads)
             values = np.abs(distances[nn_indexes[:, 0]] - distances[nn_indexes[:, 1]]) / nn_distances[:, 1]
             if np.any(values > 1.1):
                 raise DataGenerationException('Discontinuities found in SDF values, discarding patch')

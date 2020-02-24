@@ -40,5 +40,7 @@ def mean_mmd(points, impl='ckd'):
         p2p_dist = np.linalg.norm(points[:, np.newaxis] - points, axis=2)
         return np.mean(np.partition(p2p_dist, 1, axis=0)[1])
     else:
-        nn_distances, _ = cKDTree(points, leafsize=16).query(points, k=2)
+        import os
+        n_omp_threads = int(os.environ.get('OMP_NUM_THREADS', 1))
+        nn_distances, _ = cKDTree(points, leafsize=16).query(points, k=2, n_jobs=n_omp_threads)
         return np.mean(nn_distances[:, 1])

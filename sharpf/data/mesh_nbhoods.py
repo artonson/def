@@ -1,3 +1,4 @@
+import os
 from abc import ABC, abstractmethod
 
 import numpy as np
@@ -57,12 +58,16 @@ class EuclideanSphere(NeighbourhoodFunc):
             self.radius_scale = self.mesh.edges_unique_length.mean() if self.radius_scale_mode else 1
         elif self.radius_scale_mode == 'no_scale':
             pass
+        self.n_vertices = len(self.mesh.vertices)
 
     def get_nbhood(self):
         # select vertices falling within euclidean sphere
         try:
+            n_omp_threads = int(os.environ.get('OMP_NUM_THREADS', 1))
             _, mesh_vertex_indexes = self.tree.query(
-                self.centroid, distance_upper_bound=self.radius_base * self.radius_scale)
+                self.centroid, k=self.n_vertices,
+                distance_upper_bound=self.radius_base * self.radius_scale,
+                n_jobs=n_omp_threads)
         except RuntimeError:
             raise DataGenerationException('Querying in very large meshes failed')
 
