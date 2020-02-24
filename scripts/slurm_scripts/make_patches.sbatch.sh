@@ -53,7 +53,7 @@ if [[ "${VERBOSE}" = true ]]; then
 fi
 
 # get image filenames from here
-PROJECT_ROOT=/trinity/home/a.artemov/sharp_features/
+PROJECT_ROOT=/trinity/home/a.artemov/repos/sharp_features
 source "${PROJECT_ROOT}"/env.sh
 
 if [[ ! ${DATASET_CONFIG} ]]; then
@@ -108,7 +108,6 @@ SLICE_START=$(( ${CHUNK_SIZE} * ${SLURM_ARRAY_TASK_ID} ))
 SLICE_END=$(( ${CHUNK_SIZE} * (${SLURM_ARRAY_TASK_ID} + 1) ))
 echo "SLURM_ARRAY_TASK_ID=${SLURM_ARRAY_TASK_ID} SLICE_START=${SLICE_START} SLICE_END=${SLICE_END}"
 
-module load apps/singularity-3.2.0
 singularity exec \
   --bind ${CODE_PATH_HOST}:${CODE_PATH_CONTAINER} \
   --bind ${DATA_PATH_HOST}:${DATA_PATH_CONTAINER} \
@@ -116,8 +115,8 @@ singularity exec \
   --bind ${OUTPUT_PATH_HOST}:${OUTPUT_PATH_CONTAINER} \
   --bind "${PWD}":/run/user \
   "${SIMAGE_FILENAME}" \
-      bash -c 'export OMP_NUM_THREADS='"${OMP_NUM_THREADS} \\
-      python3  \\
+      bash -c 'export OMP_NUM_THREADS='"${OMP_NUM_THREADS}; \\
+      python3 ${MAKE_DATA_SCRIPT} \\
         --input-dir ${DATA_PATH_CONTAINER} \\
         --chunk "${CHUNK}" \\
         --output-dir ${OUTPUT_PATH_CONTAINER} \\
@@ -125,6 +124,6 @@ singularity exec \
         -n1 ${SLICE_START} -n2 ${SLICE_END} \\
         --dataset-config ${DATASET_PATH} \\
          ${VERBOSE_ARG} \\
-           1> >(tee ${LOGS_PATH_CONTAINER}/${SLURM_ARRAY_TASK_ID}.out) \\
-           2> >(tee ${LOGS_PATH_CONTAINER}/${SLURM_ARRAY_TASK_ID}.err)"
+           1> >(tee ${LOGS_PATH_CONTAINER}/${CHUNK}_${SLURM_ARRAY_TASK_ID}.out) \\
+           2> >(tee ${LOGS_PATH_CONTAINER}/${CHUNK}_${SLURM_ARRAY_TASK_ID}.err)"
 

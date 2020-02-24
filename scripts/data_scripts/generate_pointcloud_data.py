@@ -283,7 +283,8 @@ def parse_args():
                         required=False, help='min index of data to process')
     parser.add_argument('-n2', dest='slice_end', type=int,
                         required=False, help='max index of data to process')
-
+    parser.add_argument('--verbose', dest='verbose', action='store_true', default=False,
+                        required=False, help='be verbose')
     return parser.parse_args()
 
 
