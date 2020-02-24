@@ -5,10 +5,11 @@ import os
 
 from joblib import Parallel, delayed
 import numpy as np
-from scipy.spatial import KDTree
+from scipy.spatial import cKDTree
 import igl
 from pyaabb import pyaabb
 
+from sharpf.data import DataGenerationException
 from sharpf.utils.abc_utils import get_adjacent_features_by_bfs_with_depth1, build_surface_patch_graph
 from sharpf.utils.geometry import dist_vector_proj
 from sharpf.utils.mesh_utils.indexing import in2d
@@ -36,8 +37,9 @@ class AnnotatorFunc(ABC):
     """Implements obtaining point samples from meshes.
     Given a mesh, extracts a point cloud located on the
     mesh surface, i.e. a set of 3d point locations."""
-    def __init__(self, distance_upper_bound):
+    def __init__(self, distance_upper_bound, validate_annotation):
         self.distance_upper_bound = distance_upper_bound
+        self.validate_annotation = validate_annotation
 
     def annotate(self, mesh_patch, features_patch, points, **kwargs):
         """Noises a point cloud.
@@ -69,6 +71,15 @@ class AnnotatorFunc(ABC):
         distances, directions = compute_bounded_labels(
             points, projections, distances=distances,
             max_distance=self.distance_upper_bound)
+
+        if self.validate_annotation:
+            # validate for Lipshitz condition:
+            # if for two points x_i and x_j (nearest neighbours of each other)
+            # corresponding values f(x_i) and f(x_j) differ by more than ||x_i - x_j||, discard the patch
+            nn_distances, nn_indexes = cKDTree(points, leafsize=16).query(points, k=2)
+            values = np.abs(distances[nn_indexes[:, 0]] - distances[nn_indexes[:, 1]]) / nn_distances[:, 1]
+            if np.any(values > 1.1):
+                raise DataGenerationException('Discontinuities found in SDF values, discarding patch')
 
         return distances, directions
 
@@ -129,7 +140,7 @@ class AABBAnnotator(AnnotatorFunc, ABC):
 
     @classmethod
     def from_config(cls, config):
-        return cls(config['distance_upper_bound'])
+        return cls(config['distance_upper_bound'], config['validate_annotation'])
 
     def _prepare_aabb(self, mesh_patch, features):
         """Creates a set of axis-aligned bboxes """

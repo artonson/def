@@ -1,4 +1,5 @@
 import numpy as np
+from scipy.spatial.ckdtree import cKDTree
 
 
 def dist_vector_proj(p, i, lines):
@@ -34,6 +35,10 @@ def dist_vector_proj(p, i, lines):
             return proj_v2, v2
 
 
-def mean_mmd(points):
-    p2p_dist = np.linalg.norm(points[:, np.newaxis] - points, axis=2)
-    return np.mean(np.partition(p2p_dist, 1, axis=0)[1])
+def mean_mmd(points, impl='ckd'):
+    if impl == 'bruteforce':
+        p2p_dist = np.linalg.norm(points[:, np.newaxis] - points, axis=2)
+        return np.mean(np.partition(p2p_dist, 1, axis=0)[1])
+    else:
+        nn_distances, _ = cKDTree(points, leafsize=16).query(points, k=2)
+        return np.mean(nn_distances[:, 1])

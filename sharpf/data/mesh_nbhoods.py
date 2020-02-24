@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
 import numpy as np
-from scipy.spatial import KDTree
+from scipy.spatial import cKDTree
 import point_cloud_utils as pcu
 
 from sharpf.data import DataGenerationException
@@ -52,7 +52,7 @@ class EuclideanSphere(NeighbourhoodFunc):
 
     def index(self, mesh):
         self.mesh = mesh
-        self.tree = KDTree(mesh.vertices, leafsize=1000)
+        self.tree = cKDTree(mesh.vertices, leafsize=1000)
         if self.radius_scale_mode == 'from_edge_len':
             self.radius_scale = self.mesh.edges_unique_length.mean() if self.radius_scale_mode else 1
         elif self.radius_scale_mode == 'no_scale':
