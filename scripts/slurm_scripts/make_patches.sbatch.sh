@@ -1,69 +1,130 @@
 #!/bin/bash
 
-#SBATCH --job-name=sharpf_make_data_1024-noiseless-tsdf3.2
+#SBATCH --job-name=sharpf-data
 #SBATCH --output=array_%A_%a.out
 #SBATCH --error=array_%A_%a.err
 #SBATCH --array=1-20
-#SBATCH --time=3-0
+#SBATCH --time=
 #SBATCH --partition=cpu_big
-#SBATCH --cpus-per-task=24
-#SBATCH --ntasks-per-node=1
-#SBATCH --mem=40000
-###SBATCH --reservation=project_1
+#SBATCH --cpus-per-task=2
+#SBATCH --ntasks=1
+#SBATCH --mem=10000
 
-set -x
-CPUS_PER_TASK=24
+module load apps/singularity-3.2.0
 
-SIMAGES_DIR=/gpfs/gpfs0/3ddl/singularity-images
-IMAGE_NAME="artonson/sharp_features"
-IMAGE_VERSION="latest"
-IMAGE_NAME_TAG="${IMAGE_NAME}:${IMAGE_VERSION}"
-SIMAGE_FILENAME="${SIMAGES_DIR}/$(echo ${IMAGE_NAME_TAG} | tr /: _).sif"
+__usage="
+Usage: $0 -c chunk -o output_dir -d data_dir -l logs_dir -f config_file [-v]
 
-#DATASET="dist_field-512-noiseless-tsdf1.0"
-#DATASET="dist_field-1024-noiseless-tsdf1.0"
-#DATASET="dist_field-2048-noiseless-tsdf1.0"
-#DATASET="dist_field-4096-noise0.1-tsdf1.0"
-#DATASET="dist_field-4096-noise0.4-tsdf1.0"
-#DATASET="dist_field-4096-noise0.025-tsdf1.0"
-#DATASET="dist_field-4096-noise1.6-tsdf1.0"
-#DATASET="dist_field-4096-noise3.2-tsdf1.0"
-#DATASET="dist_field-4096-noiseless-tsdf0.4"
-#DATASET="dist_field-4096-noiseless-tsdf0.8"
-#DATASET="dist_field-4096-noiseless-tsdf1.0"
-#DATASET="dist_field-4096-noiseless-tsdf1.6"
-#DATASET="dist_field-4096-noiseless-tsdf3.2"
-#DATASET="dist_field-8192-noiseless-tsdf1.0"
-#DATASET="dist_field-512-noiseless-tsdf3.2"
-DATASET="dist_field-1024-noiseless-tsdf3.2"
-#DATASET="dist_field-2048-noiseless-tsdf3.2"
-#DATASET="dist_field-4096-noiseless-tsdf3.2"
-#DATASET="dist_field-8192-noiseless-tsdf3.2"
+  -c:   zero-based chunk identifier
+  -o: 	output directory where patches will be written
+  -d: 	input data directory
+  -l:   server logs dir
+  -f:   dataset config file (from scripts/data_scripts/configs/pointcloud_datasets dir
+  -v:   if set, verbose mode is activated (more output from the script generally)
 
-HOST_CODE_DIR="/trinity/home/a.matveev/sharp_features-master"
-HOST_DATA_DIR="/gpfs/gpfs0/3ddl/datasets/abc"
-HOST_OUT_DIR="/gpfs/gpfs0/3ddl/sharp_features/geodesic/${DATASET}"
-HOST_LOG_DIR="/trinity/home/a.matveev/logs"
-mkdir -p ${HOST_OUT_DIR} && chmod -R 777 ${HOST_OUT_DIR}
+Example:
+sbatch make_patches.sbatch.sh
+  -d /gpfs/gpfs0/3ddl/datasets/abc \\
+  -o /gpfs/gpfs0/3ddl/datasets/abc/eccv  \\
+  -l /home/artonson/tmp/logs  \\
+  -v
+"
 
-CONT_CODE_DIR="/code"
-CONT_DATA_DIR="/data"
-CONT_OUT_DIR="/out"
-CONT_LOG_DIR="/logs"
+usage() { echo "$__usage" >&2; }
 
-echo SLURM_ARRAY_TASK_ID="${SLURM_ARRAY_TASK_ID}"
+# Get all the required options and set the necessary variables
+VERBOSE=false
+while getopts "c:o:d:l:f:v" opt
+do
+    case ${opt} in
+        c) CHUNK=$OPTARG;;
+        o) OUTPUT_PATH_HOST=$OPTARG;;
+        d) DATA_PATH_HOST=$OPTARG;;
+        l) LOGS_PATH_HOST=$OPTARG;;
+        f) DATASET_CONFIG=$OPTARG;;
+        v) VERBOSE=true;;
+        *) usage; exit 1 ;;
+    esac
+done
+
+if [[ "${VERBOSE}" = true ]]; then
+    set -x
+    VERBOSE_ARG="--verbose"
+fi
+
+# get image filenames from here
+PROJECT_ROOT=/trinity/home/a.artemov/sharp_features/
+source "${PROJECT_ROOT}"/env.sh
+
+if [[ ! ${DATASET_CONFIG} ]]; then
+    echo "config_file is not set" && usage && exit 1
+fi
+
+if [[ ! ${CHUNK} ]]; then
+    echo "chunk is not set" && usage && exit 1
+fi
+
+OUTPUT_PATH_CONTAINER="/out"
+if [[ ! ${OUTPUT_PATH_HOST} ]]; then
+    echo "output_dir is not set" && usage && exit 1
+fi
+
+DATA_PATH_CONTAINER="/data"
+if [[ ! ${DATA_PATH_HOST} ]]; then
+    echo "data_dir is not set" && usage && exit 1
+fi
+
+LOGS_PATH_CONTAINER="/logs"
+if [[ ! ${LOGS_PATH_HOST} ]]; then
+    echo "logs_dir is not set" && usage && exit 1
+fi
+
+CODE_PATH_CONTAINER="/code"
+CODE_PATH_HOST=${PROJECT_ROOT}
+
+echo "******* LAUNCHING IMAGE ${SIMAGE_FILENAME} *******"
+echo "  "
+echo "  HOST OPTIONS:"
+echo "  data path:            ${DATA_PATH_HOST}"
+echo "  code path:            ${CODE_PATH_HOST}"
+echo "  logs path:            ${LOGS_PATH_HOST}"
+echo "  output path:          ${OUTPUT_PATH_HOST}"
+echo "  "
+echo "  CONTAINER OPTIONS:"
+echo "  data path:            ${DATA_PATH_CONTAINER}"
+echo "  code path:            ${CODE_PATH_CONTAINER}"
+echo "  logs path:            ${LOGS_PATH_CONTAINER}"
+echo "  output path:          ${OUTPUT_PATH_CONTAINER}"
+echo "  "
+
+CPUS_PER_TASK=1
+OMP_NUM_THREADS=2
+MAKE_DATA_SCRIPT="${CODE_PATH_CONTAINER}/scripts/data_scripts/generate_pointcloud_data.py"
+PC_CONFIGS_PATH_CONTAINER="${CODE_PATH_CONTAINER}/scripts/data_scripts/configs/pointcloud_datasets"
+DATASET_PATH="${PC_CONFIGS_PATH_CONTAINER}/${DATASET_CONFIG}"
+
+CHUNK_SIZE=100
+SLICE_START=$(( ${CHUNK_SIZE} * ${SLURM_ARRAY_TASK_ID} ))
+SLICE_END=$(( ${CHUNK_SIZE} * (${SLURM_ARRAY_TASK_ID} + 1) ))
+echo "SLURM_ARRAY_TASK_ID=${SLURM_ARRAY_TASK_ID} SLICE_START=${SLICE_START} SLICE_END=${SLICE_END}"
 
 module load apps/singularity-3.2.0
 singularity exec \
-  --bind ${HOST_CODE_DIR}:${CONT_CODE_DIR} \
-  --bind ${HOST_DATA_DIR}:${CONT_DATA_DIR} \
-  --bind ${HOST_LOG_DIR}:${CONT_LOG_DIR} \
-  --bind ${HOST_OUT_DIR}:${CONT_OUT_DIR} \
+  --bind ${CODE_PATH_HOST}:${CODE_PATH_CONTAINER} \
+  --bind ${DATA_PATH_HOST}:${DATA_PATH_CONTAINER} \
+  --bind ${LOGS_PATH_HOST}:${LOGS_PATH_CONTAINER} \
+  --bind ${OUTPUT_PATH_HOST}:${OUTPUT_PATH_CONTAINER} \
+  --bind "${PWD}":/run/user \
   "${SIMAGE_FILENAME}" \
-  python3 ${CONT_CODE_DIR}/scripts/dataset_utils/make_data.py \
-    --input-dir ${CONT_DATA_DIR} \
-    --chunk "${SLURM_ARRAY_TASK_ID}" \
-    --output-dir ${CONT_OUT_DIR} \
-    --jobs ${CPUS_PER_TASK} \
-    --dataset-config ${CONT_CODE_DIR}/sharpf/data/configs/${DATASET}.json
+      bash -c 'export OMP_NUM_THREADS='"${OMP_NUM_THREADS} \\
+      python3  \\
+        --input-dir ${DATA_PATH_CONTAINER} \\
+        --chunk "${CHUNK}" \\
+        --output-dir ${OUTPUT_PATH_CONTAINER} \\
+        --jobs ${CPUS_PER_TASK} \\
+        -n1 ${SLICE_START} -n2 ${SLICE_END} \\
+        --dataset-config ${DATASET_PATH} \\
+         ${VERBOSE_ARG} \\
+           1> >(tee ${LOGS_PATH_CONTAINER}/${SLURM_ARRAY_TASK_ID}.out) \\
+           2> >(tee ${LOGS_PATH_CONTAINER}/${SLURM_ARRAY_TASK_ID}.err)"
 
