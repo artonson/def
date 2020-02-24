@@ -62,7 +62,7 @@ class EuclideanSphere(NeighbourhoodFunc):
         # select vertices falling within euclidean sphere
         try:
             _, mesh_vertex_indexes = self.tree.query(
-                self.centroid, k=self.n_vertices, distance_upper_bound=self.radius_base * self.radius_scale)
+                self.centroid, distance_upper_bound=self.radius_base * self.radius_scale)
         except RuntimeError:
             raise DataGenerationException('Querying in very large meshes failed')
 
