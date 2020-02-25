@@ -29,6 +29,9 @@ from sharpf.utils.common import eprint_t
 from sharpf.utils.mesh_utils.io import trimesh_load
 
 
+LARGEST_PROCESSABLE_MESH_VERTICES = 20000
+
+
 def load_func_from_config(func_dict, config):
     return func_dict[config['type']].from_config(config)
 
@@ -91,6 +94,8 @@ def get_annotated_patches(item, config):
         # extract neighbourhood
         try:
             nbhood, mesh_vertex_indexes, mesh_face_indexes, scaler = nbhood_extractor.get_nbhood()
+            if len(nbhood.vertices) > LARGEST_PROCESSABLE_MESH_VERTICES:
+                raise DataGenerationException('Too large number of vertices in crop: {}'.format(len(nbhood.vertices)))
         except DataGenerationException as e:
             eprint_t(str(e))
             continue
