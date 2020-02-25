@@ -64,7 +64,7 @@ class PointNet2SamplingAndGrouping(NeighbourBase):
         return self.op(xyz, new_xyz, features, idx)
 
 
-class NeighourKNN(NeighbourBase):
+class NeighbourKNN(NeighbourBase):
     """
     NeighbourBase - Abstract class for patches preparation in ParameterizedPointNet
     Current class deals with: - sampling, aka centroids determination
@@ -108,5 +108,5 @@ class NeighourKNN(NeighbourBase):
 neighbour_module_by_kind = {
     'neighbour_base': NeighbourBase,
     'pointnet2_sampling_grouping': PointNet2SamplingAndGrouping,
-    'neighbour_knn': NeighourKNN
+    'neighbour_knn': NeighbourKNN
 }

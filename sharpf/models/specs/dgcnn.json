@@ -5,7 +5,7 @@
       "kind": "point_block_nlfai",
       "neighbours": {
         "kind": "neighbour_knn",
-        "k": 30
+        "k": 10
       },
       "local_transform": {
         "kind": "local_dynamic_graph"
@@ -28,7 +28,7 @@
       "kind": "point_block_nlfai",
       "neighbours": {
         "kind": "neighbour_knn",
-        "k": 30
+        "k": 10
       },
       "local_transform": {
         "kind": "local_dynamic_graph"
@@ -51,7 +51,7 @@
       "kind": "point_block_nlfai",
       "neighbours": {
         "kind": "neighbour_knn",
-        "k": 30
+        "k": 10
       },
       "local_transform": {
         "kind": "local_dynamic_graph"
@@ -72,8 +72,9 @@
     }
   ],
   "decoder_blocks": [
-      {
+    {
       "kind": "point_block_nlfai",
+      "in_features": [0,1,2],
       "neighbours": {
         "kind": "neighbour_base"
       },
@@ -86,9 +87,9 @@
         "blocks": 1
       },
       "aggregation": {
-        "kind": "aggregation_max",
-        "keepdim": true,
-        "dim": 2
+        "kind": "aggregation_max_pooling",
+        "kernel_size": [1024, 1],
+        "repeat_times": 1024
       },
       "interpolation": {
         "kind": "interpolation_base"
@@ -96,6 +97,7 @@
     },
     {
       "kind": "point_block_nlfai",
+      "in_features": [0,1,2],
       "neighbours": {
         "kind": "neighbour_base"
       },
@@ -105,6 +107,7 @@
       "features": {
         "kind": "stacked_conv",
         "channels": [1216, 512, 256],
+        "dropout_prob": 0.5,
         "blocks": 2
       },
       "aggregation": {
@@ -125,9 +128,7 @@
       "features": {
         "kind": "stacked_conv",
         "channels": [256, 1],
-        "blocks": 1,
-        "bn": 0,
-        "relu": 0
+        "blocks": 1
       },
       "aggregation": {
         "kind": "aggregation_base"

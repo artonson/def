@@ -59,11 +59,12 @@ class LocalDynamicGraph(LocalTransformBase):
 
     def forward(self, x):
         """
-        input: x: batch of points for local transformation, shape = (B, N, C, M_in)
+        input: x[0]: batch of points for local transformation, shape = (B, N, C, M_in)
                   B - batch size,
                   N_in - number of points,
                   C_in - number of features,
                   M_in - number of patches
+               x[1]: indices of nearest neighbour points for each point, shape = (B, N, M_out) tensor
         output: out: (B, N, C, M_out) tensor
         """
         idx = x[1]
@@ -74,7 +75,7 @@ class LocalDynamicGraph(LocalTransformBase):
 
         x = x.transpose(2, 1)
         x = x.view(batch_size, -1, num_points)
-        idx_base = torch.arange(0, batch_size, device=x.device).view(-1, 1, 1) * num_points
+        idx_base = torch.arange(0, batch_size, device=idx.device).view(-1, 1, 1) * num_points
         idx = idx + idx_base
         idx = idx.view(-1)
 

@@ -23,7 +23,9 @@ def load_data(data_path, partition, data_label, target_label):
         data = f[data_label][:].astype('float32')
         if target_label == 'directions':
             label = np.concatenate(
-                (f['distances'][:].astype('float32')[:, :, None], f[target_label][:].astype('float32')), axis=-1)
+                (f['distances'][:].astype('float32')[:, :, None], f[target_label][:].astype('float32'), ), 
+                axis=-1
+            )
         else:
             label = f[target_label][:].astype('float32')
         f.close()
@@ -89,7 +91,7 @@ class ABCData(Dataset):
             return points_labels, label
 
         else:
-            points_labels = np.hstack([pointcloud, np.atleast_2d(label)])
+            points_labels = np.hstack([pointcloud, np.atleast_2d(label).reshape(-1, 1)])
 
             if self.partition == 'train':
                 if self.target_label == 'directions':

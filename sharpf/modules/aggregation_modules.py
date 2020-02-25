@@ -93,9 +93,10 @@ class AggregationMaxPooling(AggregationBase):
 
     """
 
-    def __init__(self, kernel_size, **kwargs):
+    def __init__(self, kernel_size, repeat_times=1, **kwargs):
         super().__init__(**kwargs)
         self.kernel_size = kernel_size
+        self.repeat_times = repeat_times
         self.max_pool = nn.MaxPool2d(self.kernel_size)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -109,6 +110,7 @@ class AggregationMaxPooling(AggregationBase):
         """
         x = x.transpose(2, 1).contiguous()
         out = self.max_pool(x)
+        out = torch.repeat_interleave(out, self.repeat_times, 2)
         out = out.transpose(2, 1).contiguous()
         return out
 

@@ -102,7 +102,6 @@ def main(options):
         logger.info('Total number of mini val patches: ~{}'.format(len(val_mini_loader) * options.val_batch_size))
 
     model = load_model(options.model_spec_filename).to(device)
-
     logger.info_trainable_params(model)
 
     opt = torch.optim.Adam(

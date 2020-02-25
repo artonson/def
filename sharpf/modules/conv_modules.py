@@ -23,6 +23,8 @@ class ConvBase(ParameterizedModule):
        Performs a convolution operation
 
     """
+    def __init__(self, *args, **kwargs):
+        super().__init__()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -33,8 +35,7 @@ class ConvBase(ParameterizedModule):
                   M_in - number of patches
         output: out: (B, C_out, N_out, M_out) tensor
         """
-        out = x
-        return out
+        return x
 
 
 class StackedConv(ConvBase):
@@ -59,14 +60,32 @@ class StackedConv(ConvBase):
 
     """
     
-    def __init__(self, channels, kernel_size=1, bn=True, relu=True, blocks=1, **kwargs):
+    def __init__(
+        self, 
+        channels, 
+        kernel_size=1, 
+        bn=True, 
+        relu=True, 
+        dropout_prob=None,
+        blocks=1, 
+        **kwargs
+    ):
         super().__init__(**kwargs)
         self.channels = channels
         self.kernel_size = kernel_size
         self.bn = bn
         self.relu = relu
         self.blocks = blocks
-        self.conv = conv_model_creator(channels=self.channels, kernel_size=self.kernel_size, blocks=self.blocks, bn=self.bn, relu=self.relu)
+        self.dropout_prob = dropout_prob
+        self.conv = conv_model_creator(
+            channels=self.channels, 
+            kernel_size=self.kernel_size, 
+            blocks=self.blocks, 
+            bn=self.bn, 
+            relu=self.relu,
+            dropout_prob=self.dropout_prob,
+
+        )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
@@ -81,7 +100,7 @@ class StackedConv(ConvBase):
         return out.transpose(2, 1)
 
 
-def conv_model_creator(channels=(6, 64), kernel_size=1, blocks=1, bn=True, relu=True):
+def conv_model_creator(channels=(6, 64), kernel_size=1, blocks=1, bn=True, relu=True, dropout_prob=None):
     layers = []
     assert blocks == len(channels)-1, 'wrong number of blocks'
         
@@ -92,6 +111,8 @@ def conv_model_creator(channels=(6, 64), kernel_size=1, blocks=1, bn=True, relu=
             nn.ReLU(inplace=True) if relu else ConvBase(),
         )
         layers.append(layer)
+    if dropout_prob:
+        layers.append(nn.Dropout(p=dropout_prob))
     
     return nn.Sequential(*layers)
 

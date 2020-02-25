@@ -32,7 +32,7 @@ class DGCNN(ParameterizedModule):
         self.encoder_blocks = nn.ModuleList(encoder_blocks)
         self.decoder_blocks = nn.ModuleList(decoder_blocks)
 
-    def forward(self, points):
+    def old_forward(self, points):
         activations = [points]
         features = points
         for block in self.encoder_blocks:
@@ -45,6 +45,23 @@ class DGCNN(ParameterizedModule):
         features = self.decoder_blocks[1](torch.cat((expand, concatenated_features), dim=2))
         features = self.decoder_blocks[2](features)
         features = features.squeeze()
+        return features
+
+    def forward(self, points):
+        activations = {}
+        features = points
+        for idx, block in enumerate(self.encoder_blocks):
+            features = block(features)
+            activations[idx] = features
+        features = []
+        for idx, block in enumerate(self.decoder_blocks):
+            concatenated_features = torch.cat(
+                features + [activations[feat] for feat in block.in_features], 
+                dim=2
+            )
+            features = [block(concatenated_features)]
+
+        features = features[0].squeeze()
         return features
 
     @classmethod
