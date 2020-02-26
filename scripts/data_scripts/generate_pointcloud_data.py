@@ -263,7 +263,7 @@ def make_patches(options):
     with open(options.dataset_config) as config_file:
         config = json.load(config_file)
 
-    MAX_SEC_PER_PATCH = 100
+    MAX_SEC_PER_PATCH = 100 * 6
     max_patches_per_mesh = config['neighbourhood'].get('max_patches_per_mesh', 32)
     parallel = Parallel(n_jobs=options.n_jobs, backend='multiprocessing',
                         timeout=chunk_size * max_patches_per_mesh * MAX_SEC_PER_PATCH)

@@ -97,7 +97,7 @@ echo "  logs path:            ${LOGS_PATH_CONTAINER}"
 echo "  output path:          ${OUTPUT_PATH_CONTAINER}"
 echo "  "
 
-CPUS_PER_TASK=1
+N_TASKS=1
 OMP_NUM_THREADS=2
 MAKE_DATA_SCRIPT="${CODE_PATH_CONTAINER}/scripts/data_scripts/generate_pointcloud_data.py"
 PC_CONFIGS_PATH_CONTAINER="${CODE_PATH_CONTAINER}/scripts/data_scripts/configs/pointcloud_datasets"
@@ -118,9 +118,9 @@ singularity exec \
       bash -c 'export OMP_NUM_THREADS='"${OMP_NUM_THREADS}; \\
       python3 ${MAKE_DATA_SCRIPT} \\
         --input-dir ${DATA_PATH_CONTAINER} \\
-        --chunk "${CHUNK}" \\
+        --chunk ${CHUNK} \\
         --output-dir ${OUTPUT_PATH_CONTAINER} \\
-        --jobs ${CPUS_PER_TASK} \\
+        --jobs ${N_TASKS} \\
         -n1 ${SLICE_START} -n2 ${SLICE_END} \\
         --dataset-config ${DATASET_PATH} \\
          ${VERBOSE_ARG} \\
