@@ -5,6 +5,7 @@ import json
 import os
 import sys
 import traceback
+from collections import defaultdict
 
 import h5py
 from joblib import Parallel, delayed
@@ -25,15 +26,12 @@ from sharpf.data.mesh_nbhoods import NBHOOD_BY_TYPE
 from sharpf.data.noisers import NOISE_BY_TYPE
 from sharpf.data.point_samplers import SAMPLER_BY_TYPE
 from sharpf.utils.abc_utils import compute_features_nbhood, remove_boundary_features, get_curves_extents
-from sharpf.utils.common import eprint_t
+from sharpf.utils.common import eprint_t, add_suffix
+from sharpf.utils.config import load_func_from_config
 from sharpf.utils.mesh_utils.io import trimesh_load
 
 
 LARGEST_PROCESSABLE_MESH_VERTICES = 20000
-
-
-def load_func_from_config(func_dict, config):
-    return func_dict[config['type']].from_config(config)
 
 
 def scale_mesh(mesh, features, shape_fabrication_extent, resolution_3d,
@@ -114,34 +112,33 @@ def get_annotated_patches(item, config):
             continue
 
         # create a noisy sample
-        noisy_points = noiser.make_noise(points, normals)
+        for configuration, noisy_points in noiser.make_noise(points, normals):
+            # compute the TSharpDF
+            try:
+                distances, directions = annotator.annotate(nbhood, nbhood_features, noisy_points)
+            except DataGenerationException as e:
+                eprint_t(str(e))
+                continue
 
-        # compute the TSharpDF
-        try:
-            distances, directions = annotator.annotate(nbhood, nbhood_features, noisy_points)
-        except DataGenerationException as e:
-            eprint_t(str(e))
-            continue
+            has_sharp = any(curve['sharp'] for curve in nbhood_features['curves'])
+            if not has_sharp:
+                distances = np.ones(distances.shape) * config['annotation']['distance_upper_bound']
 
-        has_sharp = any(curve['sharp'] for curve in nbhood_features['curves'])
-        if not has_sharp:
-            distances = np.ones(distances.shape) * config['annotation']['distance_upper_bound']
-
-        num_sharp_curves = len([curve for curve in nbhood_features['curves'] if curve['sharp']])
-        num_surfaces = len(nbhood_features['surfaces'])
-        patch_info = {
-            'points': noisy_points,
-            'normals': normals,
-            'distances': distances,
-            'directions': directions,
-            'item_id': item.item_id,
-            'orig_vert_indices': mesh_vertex_indexes,
-            'orig_face_indexes': mesh_face_indexes,
-            'has_sharp': has_sharp,
-            'num_sharp_curves': num_sharp_curves,
-            'num_surfaces': num_surfaces,
-        }
-        yield patch_info
+            num_sharp_curves = len([curve for curve in nbhood_features['curves'] if curve['sharp']])
+            num_surfaces = len(nbhood_features['surfaces'])
+            patch_info = {
+                'points': noisy_points,
+                'normals': normals,
+                'distances': distances,
+                'directions': directions,
+                'item_id': item.item_id,
+                'orig_vert_indices': mesh_vertex_indexes,
+                'orig_face_indexes': mesh_face_indexes,
+                'has_sharp': has_sharp,
+                'num_sharp_curves': num_sharp_curves,
+                'num_surfaces': num_surfaces,
+            }
+            yield configuration, patch_info
 
 
 def save_point_patches(point_patches, output_file):
@@ -188,13 +185,14 @@ def save_point_patches(point_patches, output_file):
 def generate_patches(meshes_filename, feats_filename, data_slice, config, output_file):
     slice_start, slice_end = data_slice
     with ABCChunk([meshes_filename, feats_filename]) as data_holder:
-        point_patches = []
+        point_patches_by_config = defaultdict(list)
         for item in data_holder[slice_start:slice_end]:
             eprint_t("Processing chunk file {chunk}, item {item}".format(
                 chunk=meshes_filename, item=item.item_id))
             try:
-                for patch_info in get_annotated_patches(item, config):
-                    point_patches.append(patch_info)
+                for configuration, patch_info in get_annotated_patches(item, config):
+                    config_name = configuration.get('name')
+                    point_patches_by_config[config_name].append(patch_info)
 
             except Exception as e:
                 eprint_t('Error processing item {item_id} from chunk {chunk}: {what}'.format(
@@ -205,18 +203,20 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
                 eprint_t('Done processing item {item_id} from chunk {chunk}'.format(
                     item_id=item.item_id, chunk='[{},{}]'.format(meshes_filename, feats_filename)))
 
-    if len(point_patches) > 0:
-        try:
-            save_point_patches(point_patches, output_file)
+    for config_name, point_patches in point_patches_by_config.items():
+        if len(point_patches) == 0:
+            continue
 
+        output_file_config = add_suffix(output_file, config_name) if config_name else output_file
+        try:
+            save_point_patches(point_patches, output_file_config)
         except Exception as e:
             eprint_t('Error writing patches to disk at {output_file}: {what}'.format(
-                output_file=output_file, what=e))
+                output_file=output_file_config, what=e))
             eprint_t(traceback.format_exc())
-
         else:
             eprint_t('Done writing {num_patches} patches to disk at {output_file}'.format(
-                num_patches=len(point_patches), output_file=output_file))
+                num_patches=len(point_patches), output_file=output_file_config))
 
 
 def make_patches(options):

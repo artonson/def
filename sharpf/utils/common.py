@@ -17,3 +17,6 @@ def change_ext(filename, new_ext):
     return name + new_ext
 
 
+def add_suffix(filename, suffix, suffix_sep='_'):
+    name, ext = os.path.splitext(filename)
+    return '{}{}{}{}'.format(name, suffix_sep, suffix, ext)

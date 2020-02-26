@@ -25,14 +25,11 @@ from sharpf.data.imaging import IMAGING_BY_TYPE
 from sharpf.data.noisers import NOISE_BY_TYPE
 from sharpf.utils.abc_utils import compute_features_nbhood, remove_boundary_features, get_curves_extents
 from sharpf.utils.common import eprint_t
+from sharpf.utils.config import load_func_from_config
 from sharpf.utils.mesh_utils.io import trimesh_load
 
 
 LARGEST_PROCESSABLE_MESH_VERTICES = 20000
-
-
-def load_func_from_config(func_dict, config):
-    return func_dict[config['type']].from_config(config)
 
 
 def scale_mesh(mesh, features, shape_fabrication_extent, resolution_3d,
