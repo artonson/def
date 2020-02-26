@@ -21,7 +21,7 @@ sys.path[1:1] = [__dir__]
 from sharpf.data import DataGenerationException
 from sharpf.data.abc.abc_data import ABCModality, ABCChunk, ABC_7Z_FILEMASK
 from sharpf.data.annotation import ANNOTATOR_BY_TYPE
-from sharpf.data.imaging import IMAGING_BY_TYPE
+from sharpf.data.imaging import IMAGING_BY_TYPE, SCANNING_SEQ_BY_TYPE
 from sharpf.data.noisers import NOISE_BY_TYPE
 from sharpf.utils.abc_utils import compute_features_nbhood, remove_boundary_features, get_curves_extents
 from sharpf.utils.common import eprint_t
