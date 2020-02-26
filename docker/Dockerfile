@@ -73,7 +73,11 @@ ENV DYLD_LIBRARY_PATH=/usr/local/cuda/lib:$DYLD_LIBRARY_PATH
 #RUN pip install torch-geometric
 
 # Install geometry-related packages
-RUN conda install -c conda-forge igl=0.4.1 point_cloud_utils libspatialindex=1.9.3
+RUN conda install -c conda-forge \
+    igl=0.4.1 \
+    point_cloud_utils \
+    libspatialindex=1.9.3 \
+    pyembree=0.1.6
 
 RUN mkdir /home/user/code
 COPY --chown=user contrib/pythonaabb /home/user/code/pythonaabb
