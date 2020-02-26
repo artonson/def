@@ -160,7 +160,7 @@ def main(options):
                     preds = model.forward(data)  # currently model returns x, [f1, f2, f3]
     
             val_losses_per_sample = criterion(preds, label)
-            val_loss.append(val_losses_per_sample)
+            val_loss.append(val_losses_per_sample.cpu())
 
             # y_true_vector = vmetrics.batch_numpy_to_vector(label.cpu().numpy(), RASTER_RES)
             # y_pred_vector = vmetrics.batch_numpy_to_vector(preds.cpu().numpy(), RASTER_RES)
@@ -180,8 +180,7 @@ def main(options):
         _loader = _Loader()
 
         # scores = np.concatenate(val_metrics['{}val_{}'.format(prefix, 'iou_score')])
-
-        mean_val_loss = val_loss.mean()
+        mean_val_loss = val_loss.mean().item()
         writer.add_scalar(('{}val_' + options.loss_funct).format(prefix), mean_val_loss, global_step=log_i)
         logger.info('Validation loss: {:.4f}'.format(mean_val_loss))
         metrics_scalars = {name: np.mean(np.concatenate(values)) for name, values in val_metrics.items()}
@@ -229,7 +228,6 @@ def main(options):
             if batch_i % options.batches_before_save == 0:
                 weights_filename = '{prefix}_{batch_id}.weights'.format(
                     prefix=options.save_model_filename, batch_id=iter_i)
-                print(weights_filename)
                 torch.save({
                     'epoch': epoch_i,
                     'batch': batch_i,

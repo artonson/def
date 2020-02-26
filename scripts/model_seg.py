@@ -163,7 +163,7 @@ class DGCNN(nn.Module):
         x = self.conv8(x)
         x = self.conv9(x)
         
-        # x = self.dp1(x)
+        x = self.dp1(x)
         
         x = self.conv10(x)
         x = torch.squeeze(x)

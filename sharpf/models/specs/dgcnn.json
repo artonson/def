@@ -5,7 +5,7 @@
       "kind": "point_block_nlfai",
       "neighbours": {
         "kind": "neighbour_knn",
-        "k": 10
+        "k": 30
       },
       "local_transform": {
         "kind": "local_dynamic_graph"
@@ -28,7 +28,7 @@
       "kind": "point_block_nlfai",
       "neighbours": {
         "kind": "neighbour_knn",
-        "k": 10
+        "k": 30
       },
       "local_transform": {
         "kind": "local_dynamic_graph"
@@ -51,7 +51,7 @@
       "kind": "point_block_nlfai",
       "neighbours": {
         "kind": "neighbour_knn",
-        "k": 10
+        "k": 30
       },
       "local_transform": {
         "kind": "local_dynamic_graph"
@@ -107,7 +107,8 @@
       "features": {
         "kind": "stacked_conv",
         "channels": [1216, 512, 256],
-        "blocks": 2
+        "blocks": 2,
+        "dropout_prob": 0.5
       },
       "aggregation": {
         "kind": "aggregation_base"
