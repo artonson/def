@@ -1,47 +1,28 @@
-import yaml
-import pywavefront
-from yaml import CLoader as Loader, CDumper as Dumper
 import numpy as np
 
-def get_config(path):
-    with open(path, 'r') as stream:
-        config = yaml.load(stream, Loader=Loader)
-    return config
 
-def process_vertices(vertices):
-    '''Centering and scaling'''
-    centroid = vertices.mean(axis=0)
-#     print(centroid)
-    centered = vertices-centroid
-    max_dim = abs(centered.max(axis=0) - centered.min(axis=0))
-#     print(max_dim)
-    max_dim = max(max_dim)
-    centered/=max_dim
-    return centered
-
-
-def fibonacci_sphere_sampling(samples=1, randomize=True, radius=1.0, positive_z=False):
+def fibonacci_sphere_sampling(number_of_views=1, seed=None, radius=1.0, positive_z=False):
     # Returns [x,y,z] tuples of a fibonacci sphere sampling
     # http://extremelearning.com.au/evenly-distributing-points-on-a-sphere/
     # commonly needed to evenly cover an sphere enclosing the object
     # for rendering from that points
     # (hypothetically this should be giving us most important projections of a 3D shape)
-
     if positive_z:
-        samples *= 2
+        number_of_views *= 2
     rnd = 1.
-    if randomize:
-        rnd = random.random() * samples
+    if seed is not None:
+        np.random.seed(seed)
+        rnd = np.random.random() * number_of_views
 
     points = []
-    offset = 2. / samples
+    offset = 2. / number_of_views
     increment = np.pi * (3. - np.sqrt(5.))
 
-    for i in range(samples):
+    for i in range(number_of_views):
         y = ((i * offset) - 1) + (offset / 2)
         r = np.sqrt(1 - pow(y, 2))
 
-        phi = ((i + rnd) % samples) * increment
+        phi = ((i + rnd) % number_of_views) * increment
 
         x = np.cos(phi) * r
         z = np.sin(phi) * r

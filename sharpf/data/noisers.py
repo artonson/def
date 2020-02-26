@@ -7,6 +7,13 @@ class NoiserFunc(ABC):
     """Implements obtaining point samples from meshes.
     Given a mesh, extracts a point cloud located on the
     mesh surface, i.e. a set of 3d point locations."""
+    def __init__(self, scale):
+        self.scale = scale
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(config['scale'])
+
     @abstractmethod
     def make_noise(self, points, normals, **kwargs):
         """Noises a point cloud.
@@ -24,34 +31,27 @@ class NoiserFunc(ABC):
 
 class IsotropicGaussianNoise(NoiserFunc):
     """Noise independent of viewing angle, mesh, etc."""
-    def __init__(self, scale):
-        super(IsotropicGaussianNoise, self).__init__()
-        self.scale = scale
-
     def make_noise(self, points, normals, **kwargs):
         noise = np.random.normal(size=(len(points), 3), scale=self.scale)
         noisy_points = points + noise
         return noisy_points
 
-    @classmethod
-    def from_config(cls, config):
-        return cls(config['scale'])
-
 
 class NormalsGaussianNoise(NoiserFunc):
     """Add gaussian noise in the direction of the normal."""
-    def __init__(self, scale):
-        super(NormalsGaussianNoise, self).__init__()
-        self.scale = scale
-
     def make_noise(self, points, normals, **kwargs):
         noise = np.random.normal(size=(len(points), 1), scale=self.scale) * normals
         noisy_points = points + noise * normals
         return noisy_points
 
-    @classmethod
-    def from_config(cls, config):
-        return cls(config['scale'])
+
+class ZDirectionGaussianNoise(NoiserFunc):
+    """Add gaussian noise in the direction of the normal."""
+    def make_noise(self, points, normals, z_direction=None, **kwargs):
+        assert z_direction is not None
+        noise = np.random.normal(size=(len(points), 1), scale=self.scale) * z_direction
+        noisy_points = points + noise * z_direction
+        return noisy_points
 
 
 class NoNoise(NoiserFunc):
@@ -65,5 +65,6 @@ NOISE_BY_TYPE = {
     'no_noise': NoNoise,
     'isotropic_gaussian': IsotropicGaussianNoise,
     'normals_gaussian': NormalsGaussianNoise,
+    'z_direction': ZDirectionGaussianNoise,
 }
 

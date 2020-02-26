@@ -2,9 +2,9 @@
 
 import argparse
 import json
-from copy import deepcopy
 import os
 import sys
+import traceback
 
 import h5py
 from joblib import Parallel, delayed
@@ -18,90 +18,131 @@ __dir__ = os.path.normpath(
 
 sys.path[1:1] = [__dir__]
 
+from sharpf.data import DataGenerationException
 from sharpf.data.abc.abc_data import ABCModality, ABCChunk, ABC_7Z_FILEMASK
 from sharpf.data.annotation import ANNOTATOR_BY_TYPE
 from sharpf.data.imaging import IMAGING_BY_TYPE
 from sharpf.data.noisers import NOISE_BY_TYPE
-from sharpf.utils.common import eprint
+from sharpf.utils.abc_utils import compute_features_nbhood, remove_boundary_features, get_curves_extents
+from sharpf.utils.common import eprint_t
 from sharpf.utils.mesh_utils.io import trimesh_load
+
+
+LARGEST_PROCESSABLE_MESH_VERTICES = 20000
 
 
 def load_func_from_config(func_dict, config):
     return func_dict[config['type']].from_config(config)
 
 
-def compute_curves_nbhood(features, vert_indices, face_indexes):
-    """Extracts curves for the neighbourhood."""
-    nbhood_sharp_curves = []
-    for curve in features['curves']:
-        nbhood_vert_indices = np.array([
-            vert_index for vert_index in curve['vert_indices']
-            if vert_index + 1 in vert_indices
-        ])
-        if len(nbhood_vert_indices) == 0:
-            continue
-        for index, reindex in zip(vert_indices, np.arange(len(vert_indices))):
-            nbhood_vert_indices[np.where(nbhood_vert_indices == index - 1)] = reindex
-        nbhood_curve = deepcopy(curve)
-        nbhood_curve['vert_indices'] = nbhood_vert_indices
-        nbhood_sharp_curves.append(nbhood_curve)
+def scale_mesh(mesh, features, shape_fabrication_extent, resolution_3d,
+               short_curve_quantile=0.05, n_points_per_short_curve=4):
+    # compute standard size spatial extent
+    mesh_extent = np.max(mesh.bounding_box.extents)
+    mesh = mesh.apply_scale(shape_fabrication_extent / mesh_extent)
 
-    nbhood_features = {'curves': nbhood_sharp_curves}
-    return nbhood_features
+    # compute lengths of curves
+    sharp_curves_lengths = get_curves_extents(mesh, features)
+
+    least_len = np.quantile(sharp_curves_lengths, short_curve_quantile)
+    least_len_mm = resolution_3d * n_points_per_short_curve
+
+    mesh = mesh.apply_scale(least_len_mm / least_len)
+
+    return mesh
 
 
-def generate_depthmaps(meshes_filename, feats_filename, data_slice, config, output_file):
+# mm/pixel
+HIGH_RES = 0.02
+MED_RES = 0.05
+LOW_RES = 0.125
+XLOW_RES = 0.25
+
+
+def get_annotated_patches(item, config):
+    shape_fabrication_extent = config.get('shape_fabrication_extent', 10.0)
+    base_n_points_per_short_curve = config.get('base_n_points_per_short_curve', 8)
+    base_resolution_3d = config.get('base_resolution_3d', LOW_RES)
+
+    short_curve_quantile = config.get('short_curve_quantile', 0.05)
+
+    scanning_sequence = load_func_from_config(SCANNING_SEQ_BY_TYPE, config['scanning_sequence'])
     imaging = load_func_from_config(IMAGING_BY_TYPE, config['imaging'])
     noiser = load_func_from_config(NOISE_BY_TYPE, config['noise'])
     annotator = load_func_from_config(ANNOTATOR_BY_TYPE, config['annotation'])
 
-    slice_start, slice_end = data_slice
-    with ABCChunk([meshes_filename, feats_filename]) as data_holder:
-        point_patches = []
-        for item in data_holder[slice_start:slice_end]:
-            eprint("Processing chunk file {chunk}, item {item}".format(
-                chunk=meshes_filename, item=item.item_id))
-            # load the mesh and the feature curves annotations
-            try:
-                mesh = trimesh_load(item.obj)
-                features = yaml.load(item.feat, Loader=yaml.Loader)
+    # load the mesh and the feature curves annotations
+    mesh = trimesh_load(item.obj)
+    features = yaml.load(item.feat, Loader=yaml.Loader)
 
-                # create depthmaps (using raycasting or another graphics technique)
-                images, orig_vert_indices, orig_face_indexes, camera_poses = imaging.get_images(mesh)
+    # fix mesh fabrication size in physical mm
+    mesh = scale_mesh(mesh, features, shape_fabrication_extent, base_resolution_3d,
+                      short_curve_quantile=short_curve_quantile,
+                      n_points_per_short_curve=base_n_points_per_short_curve)
 
-                for image, vert_indices, face_indexes, camera_pose in zip(images, orig_vert_indices, orig_face_indexes, camera_poses):
-                    points = depthmap_to_pc(image, camera_pose)
-                    normals = ?
-                    # create a noisy sample
-                    noisy_points = noiser.make_noise(points, normals)
+    # generate rays
+    imaging.prepare(scanning_radius=np.max(mesh.bounding_box.extents) + 1.0)
 
-                    nbhood = build_nbhood(vert_indices, face_indexes)
+    for image_idx in range(scanning_sequence.n_images):
+        # prepare the mesh for rendering: rotate according to a certain
+        mesh, camera_pose = scanning_sequence.next_camera_pose(mesh)
 
-                    # create annotations: condition the features onto the nbhood, then compute the TSharpDF
-                    nbhood_features = compute_curves_nbhood(features, orig_vert_indices, orig_face_indexes)
-                    distances, directions = annotator.annotate(nbhood, nbhood_features, noisy_points)
+        # extract neighbourhood
+        try:
+            ray_indexes, points, normals, nbhood, mesh_vertex_indexes, mesh_face_indexes = imaging.get_image(mesh)
+        except DataGenerationException as e:
+            eprint_t(str(e))
+            continue
 
-                    has_sharp = any(curve['sharp'] for curve in nbhood_features['curves'])
-                    patch_info = {
-                        'image': noisy_points,
-                        'normals': normals,
-                        'distances': distances,
-                        'directions': directions,
-                        'item_id': item.item_id,
-                        'orig_vert_indices': orig_vert_indices,
-                        'orig_face_indexes': orig_face_indexes,
-                        'has_sharp': has_sharp
-                    }
-                    point_patches.append(patch_info)
+        # create annotations: condition the features onto the nbhood
+        nbhood_features = compute_features_nbhood(mesh, features, mesh_vertex_indexes, mesh_face_indexes)
 
-            except Exception as e:
-                eprint('Error processing item {item_id} from chunk {chunk}: {what}'.format(
-                    item_id=item.item_id, chunk='[{},{}]'.format(meshes_filename, feats_filename), what=e
-                ))
+        # remove vertices lying on the boundary (sharp edges found in 1 face only)
+        nbhood_features = remove_boundary_features(nbhood, nbhood_features, how='edges')
 
+        # create a noisy sample
+        noisy_points = noiser.make_noise(points, normals, z_direction=np.array([0., 0., -1.]))
+
+        # compute the TSharpDF
+        try:
+            distances, directions = annotator.annotate(nbhood, nbhood_features, noisy_points)
+        except DataGenerationException as e:
+            eprint_t(str(e))
+            continue
+
+        # convert everything to images
+        noisy_image = imaging.points_to_image(noisy_points, ray_indexes)
+        normals = imaging.points_to_image(normals, ray_indexes, assign_channels=[0, 1, 2])
+        distances = imaging.points_to_image(distances, ray_indexes, assign_channels=[0])
+        directions = imaging.points_to_image(directions, ray_indexes, assign_channels=[0, 1, 2])
+
+        # compute statistics
+        has_sharp = any(curve['sharp'] for curve in nbhood_features['curves'])
+        if not has_sharp:
+            distances = np.ones(distances.shape) * config['annotation']['distance_upper_bound']
+        num_sharp_curves = len([curve for curve in nbhood_features['curves'] if curve['sharp']])
+        num_surfaces = len(nbhood_features['surfaces'])
+
+        patch_info = {
+            'image': noisy_image,
+            'normals': normals,
+            'distances': distances,
+            'directions': directions,
+            'item_id': item.item_id,
+            'orig_vert_indices': mesh_vertex_indexes,
+            'orig_face_indexes': mesh_face_indexes,
+            'has_sharp': has_sharp,
+            'num_sharp_curves': num_sharp_curves,
+            'num_surfaces': num_surfaces,
+            'camera_pose': camera_pose
+        }
+        yield patch_info
+
+
+def save_point_patches(point_patches, output_file):
     with h5py.File(output_file, 'w') as hdf5file:
-        points = np.stack([patch['points'] for patch in point_patches])
-        hdf5file.create_dataset('points', data=points, dtype=np.float64)
+        images = np.stack([patch['image'] for patch in point_patches])
+        hdf5file.create_dataset('image', data=images, dtype=np.float64)
 
         normals = np.stack([patch['normals'] for patch in point_patches])
         hdf5file.create_dataset('normals', data=normals, dtype=np.float64)
@@ -115,25 +156,65 @@ def generate_depthmaps(meshes_filename, feats_filename, data_slice, config, outp
         item_ids = [patch['item_id'] for patch in point_patches]
         hdf5file.create_dataset('item_id', data=np.string_(item_ids), dtype=h5py.string_dtype(encoding='ascii'))
 
-        orig_vert_indices = [patch['orig_vert_indices'].astype('int32') for patch in point_patches]
+        mesh_vertex_indexes = [patch['orig_vert_indices'].astype('int32') for patch in point_patches]
         vert_dataset = hdf5file.create_dataset('orig_vert_indices',
-                                               shape=(len(orig_vert_indices),),
+                                               shape=(len(mesh_vertex_indexes),),
                                                dtype=h5py.special_dtype(vlen=np.int32))
-        for i, vert_indices in enumerate(orig_vert_indices):
+        for i, vert_indices in enumerate(mesh_vertex_indexes):
             vert_dataset[i] = vert_indices
 
-        orig_face_indexes = [patch['orig_face_indexes'].astype('int32') for patch in point_patches]
+        mesh_face_indexes = [patch['orig_face_indexes'].astype('int32') for patch in point_patches]
         face_dataset = hdf5file.create_dataset('orig_face_indexes',
-                                               shape=(len(orig_face_indexes),),
+                                               shape=(len(mesh_face_indexes),),
                                                dtype=h5py.special_dtype(vlen=np.int32))
-        for i, face_indices in enumerate(orig_face_indexes):
+        for i, face_indices in enumerate(mesh_face_indexes):
             face_dataset[i] = face_indices.flatten()
 
         has_sharp = np.stack([patch['has_sharp'] for patch in point_patches]).astype(bool)
         hdf5file.create_dataset('has_sharp', data=has_sharp, dtype=np.bool)
 
+        num_sharp_curves = np.stack([patch['num_sharp_curves'] for patch in point_patches])
+        hdf5file.create_dataset('num_sharp_curves', data=num_sharp_curves, dtype=np.int8)
 
-def main(options):
+        num_surfaces = np.stack([patch['num_surfaces'] for patch in point_patches])
+        hdf5file.create_dataset('num_surfaces', data=num_surfaces, dtype=np.int8)
+
+
+def generate_patches(meshes_filename, feats_filename, data_slice, config, output_file):
+    slice_start, slice_end = data_slice
+    with ABCChunk([meshes_filename, feats_filename]) as data_holder:
+        point_patches = []
+        for item in data_holder[slice_start:slice_end]:
+            eprint_t("Processing chunk file {chunk}, item {item}".format(
+                chunk=meshes_filename, item=item.item_id))
+            try:
+                for patch_info in get_annotated_patches(item, config):
+                    point_patches.append(patch_info)
+
+            except Exception as e:
+                eprint_t('Error processing item {item_id} from chunk {chunk}: {what}'.format(
+                    item_id=item.item_id, chunk='[{},{}]'.format(meshes_filename, feats_filename), what=e))
+                eprint_t(traceback.format_exc())
+
+            else:
+                eprint_t('Done processing item {item_id} from chunk {chunk}'.format(
+                    item_id=item.item_id, chunk='[{},{}]'.format(meshes_filename, feats_filename)))
+
+    if len(point_patches) > 0:
+        try:
+            save_point_patches(point_patches, output_file)
+
+        except Exception as e:
+            eprint_t('Error writing patches to disk at {output_file}: {what}'.format(
+                output_file=output_file, what=e))
+            eprint_t(traceback.format_exc())
+
+        else:
+            eprint_t('Done writing {num_patches} patches to disk at {output_file}'.format(
+                num_patches=len(point_patches), output_file=output_file))
+
+
+def make_patches(options):
     obj_filename = os.path.join(
         options.input_dir,
         ABC_7Z_FILEMASK.format(
@@ -151,13 +232,21 @@ def main(options):
         )
     )
 
-    with ABCChunk([obj_filename, feat_filename]) as abc_data:
-        num_data_items = len(abc_data)
+    if all([opt is not None for opt in (options.slice_start, options.slice_end)]):
+        slice_start, slice_end = options.slice_start, options.slice_end
+    else:
+        with ABCChunk([obj_filename, feat_filename]) as abc_data:
+            slice_start, slice_end = 0, len(abc_data)
+        if options.slice_start is not None:
+            slice_start = options.slice_start
+        if options.slice_end is not None:
+            slice_end = options.slice_end
 
     processes_to_spawn = 10 * options.n_jobs
-    chunk_size = num_data_items // processes_to_spawn
+    chunk_size = max(1, (slice_end - slice_start) // processes_to_spawn)
     abc_data_slices = [(start, start + chunk_size)
-                       for start in range(0, num_data_items, chunk_size)]
+                       for start in range(slice_start, slice_end, chunk_size)]
+
     output_files = [
         os.path.join(
             options.output_dir,
@@ -169,8 +258,11 @@ def main(options):
     with open(options.dataset_config) as config_file:
         config = json.load(config_file)
 
-    parallel = Parallel(n_jobs=options.n_jobs, backend='multiprocessing')
-    delayed_iterable = (delayed(generate_depthmaps)(obj_filename, feat_filename, data_slice, config, out_filename)
+    MAX_SEC_PER_PATCH = 100
+    max_patches_per_mesh = config['neighbourhood'].get('max_patches_per_mesh', 32)
+    parallel = Parallel(n_jobs=options.n_jobs, backend='multiprocessing',
+                        timeout=chunk_size * max_patches_per_mesh * MAX_SEC_PER_PATCH)
+    delayed_iterable = (delayed(generate_patches)(obj_filename, feat_filename, data_slice, config, out_filename)
                         for data_slice, out_filename in zip(abc_data_slices, output_files))
     parallel(delayed_iterable)
 
@@ -184,13 +276,18 @@ def parse_args():
                         required=True, help='input dir with ABC dataset.')
     parser.add_argument('-c', '--chunk', required=True, help='ABC chunk id to process.')
     parser.add_argument('-o', '--output-dir', dest='output_dir',
-                        required=True, help='output dir used to save HDF5 files.')
+                        required=True, help='output dir.')
     parser.add_argument('-g', '--dataset-config', dest='dataset_config',
                         required=True, help='dataset configuration file.')
-
+    parser.add_argument('-n1', dest='slice_start', type=int,
+                        required=False, help='min index of data to process')
+    parser.add_argument('-n2', dest='slice_end', type=int,
+                        required=False, help='max index of data to process')
+    parser.add_argument('--verbose', dest='verbose', action='store_true', default=False,
+                        required=False, help='be verbose')
     return parser.parse_args()
 
 
 if __name__ == '__main__':
     options = parse_args()
-    main(options)
+    make_patches(options)

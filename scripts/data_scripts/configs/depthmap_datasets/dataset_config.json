@@ -1,22 +1,26 @@
 {
+  "shape_fabrication_extent": 10.0,
+  "short_curve_quantile": 0.25,
+  "base_n_points_per_short_curve": 8,
+  "base_resolution_3d": 0.125,
   "scanning_sequence": {
     "type": "fibonacci_sampling",
     "n_images": 10
   },
-  "projector_model": {
+  "imaging": {
     "type": "raycasting",
     "projection": "ortho",
-    "resolution": 512,
-    "fov": [115, 85, 80],
-    "3d_resolution": 0.1
+    "resolution_image": 512,
+    "resolution_3d": 0.1,
+    "fov": [115, 85, 80]
   },
   "noise": {
-    "type": "normals_gaussian",
+    "type": "z_direction",
     "scale": 0.2
   },
   "annotation": {
-    "type": "resampling",
-    "sharp_discretization": 0.1,
-    "distance_upper_bound": 1.0
+    "type": "surface_based_aabb",
+    "distance_upper_bound": 1.0,
+    "validate_annotation": true
   }
 }
