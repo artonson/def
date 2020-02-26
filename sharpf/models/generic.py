@@ -60,7 +60,7 @@ class DGCNN(ParameterizedModule):
                 dim=2
             )
             features = [block(concatenated_features)]
-
+            
         features = features[0].squeeze()
         return features
 

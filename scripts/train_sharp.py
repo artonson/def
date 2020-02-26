@@ -102,6 +102,12 @@ def main(options):
         logger.info('Total number of mini val patches: ~{}'.format(len(val_mini_loader) * options.val_batch_size))
 
     model = load_model(options.model_spec_filename).to(device)
+    # from model_seg import DGCNN
+    # from collections import namedtuple
+
+    # Args = namedtuple('Args', ['k', 'dropout'])
+    # args = Args(10, 0.5)
+    # model = DGCNN(args)
     logger.info_trainable_params(model)
 
     opt = torch.optim.Adam(
@@ -145,13 +151,14 @@ def main(options):
         for batch_j, batch_data_val in islice(enumerate(loader), 0, end_batch_val):
             logger.info('Validating batch {}'.format(batch_j))
             # Run through validation dataset
+
             with logger.print_duration('    preparing batch on device'):
                 data, label = prepare_batch_on_device(batch_data_val, device)
 
             with torch.no_grad():
                 with logger.print_duration('    forward pass'):
-                    preds = model.forward(data)[0]  # currently model returns x, [f1, f2, f3]
-
+                    preds = model.forward(data)  # currently model returns x, [f1, f2, f3]
+    
             val_losses_per_sample = criterion(preds, label)
             val_loss.append(val_losses_per_sample)
 
@@ -199,9 +206,8 @@ def main(options):
                 batch_size = data.shape[0]
             with logger.print_duration('    forward pass'):
                 preds = model.forward(data)  # model returns x, (f1, f2, f3), saving only x
-
             loss = criterion(preds, label)
-            print(preds, label, loss.item())
+            # print(preds, label, loss.item())
             optimizer.zero_grad()
 
             with logger.print_duration('    backward pass'):
@@ -220,10 +226,10 @@ def main(options):
             if batch_i > 0 and batch_i % options.batches_before_val == 0 and val_mini_loader is not None:
                 logger.info('Running mini validation with {} batches'.format(len(val_mini_loader)))
                 validate(val_mini_loader, iter_i, prefix='mini')
-
             if batch_i % options.batches_before_save == 0:
                 weights_filename = '{prefix}_{batch_id}.weights'.format(
                     prefix=options.save_model_filename, batch_id=iter_i)
+                print(weights_filename)
                 torch.save({
                     'epoch': epoch_i,
                     'batch': batch_i,
