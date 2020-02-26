@@ -91,7 +91,6 @@ class ScanningSequence(ABC):
     """Implements obtaining camera poses."""
     def __init__(self, n_images):
         self.n_images = n_images
-        self.camera_poses
 
     @classmethod
     def from_config(cls, config):
