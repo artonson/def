@@ -3,7 +3,7 @@
 set -e
 
 # example launch string:
-# ./run_ecnet_in_docker.sh -i <input_dir> -o <output_dir> -d <docker image name> -c <docker container name> -g <gpu-indexes>
+# ./run_ecnet_in_docker.sh -i <input_dir> -o <output_dir (relative)> -d <docker image name> -c <docker container name> -g <gpu-indexes>
 #	-i: 	input directory with .xyz files
 #	-o: 	output directory
 #	-d: 	docker image name
@@ -72,7 +72,7 @@ SPLITCODE_PATH_HOST="${LOCAL_DIR}/../hdf5_utils"
 SPLITCODE_PATH_CONTAINER="/home/hdf5_utils"
 
 INPUT_FILE_CONTAINER="${DATA_PATH_CONTAINER}/$(basename "${INPUT_FILE}")"
-OUTPUT_FILE_CONTAINER="${DATA_PATH_CONTAINER}/$(basename "${OUTPUT_FILE}")"
+OUTPUT_FILE_CONTAINER="${DATA_PATH_CONTAINER}/${OUTPUT_FILE}"
 
 SPLIT_DATA_PATH_CONTAINER="${DATA_PATH_CONTAINER}/xyz_splitted"
 SPLIT_INPUT_CONTAINER="${SPLIT_DATA_PATH_CONTAINER}/*.xyz"
@@ -105,7 +105,8 @@ nvidia-docker run \
     -v "${SPLITCODE_PATH_HOST}":"${SPLITCODE_PATH_CONTAINER}" \
     "${IMAGE_NAME}" \
     /bin/bash \
-        -c "cd ${SPLITCODE_PATH_CONTAINER} && \\
+        -c "mkdir ${DATA_PATH_CONTAINER}/$(dirname "${OUTPUT_FILE}") && \\
+	cd ${SPLITCODE_PATH_CONTAINER} && \\
         echo 'Splitting input files...' && \\
 	python3 split_hdf5.py \\
           ${INPUT_FILE_CONTAINER} \\
