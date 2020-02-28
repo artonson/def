@@ -121,4 +121,10 @@ nvidia-docker run \
           --eval_input '${SPLIT_INPUT_CONTAINER}' \\
           --eval_output ${SPLIT_OUTPUT_CONTAINER} \\
           1>${LOGS_PATH_CONTAINER}/out.out \\
-          2>${LOGS_PATH_CONTAINER}/err.err"
+          2>${LOGS_PATH_CONTAINER}/err.err && \\
+       	echo 'Merging results into one file...' && \\
+        cd ${SPLITCODE_PATH_CONTAINER} && \\
+        python merge_hdf5.py \\
+	  --input_dir ${SPLIT_OUTPUT_CONTAINER} \\
+	  --input_format 'xyz' \\
+	  --output_file ${OUTPUT_FILE_CONTAINER}"
