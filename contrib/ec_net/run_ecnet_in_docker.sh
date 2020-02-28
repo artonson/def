@@ -98,8 +98,8 @@ echo "  output path:          ${OUTPUT_FILE_CONTAINER}"
 echo "  logs path:            ${LOGS_PATH_CONTAINER}"
 
 nvidia-docker run \
-    --rm \
     --name "${CONTAINER_NAME}" \
+    --rm \
     --env CUDA_VISIBLE_DEVICES="${GPU_ENV}" \
     -v "${DATA_PATH_HOST}":"${DATA_PATH_CONTAINER}" \
     -v "${LOGS_PATH_HOST}":"${LOGS_PATH_CONTAINER}" \
@@ -121,4 +121,4 @@ nvidia-docker run \
           --eval_input '${SPLIT_INPUT_CONTAINER}' \\
           --eval_output ${SPLIT_OUTPUT_CONTAINER} \\
           1>${LOGS_PATH_CONTAINER}/out.out \\
-          2>${LOGS_PATH_CONTAINER}/err.err &&"
+          2>${LOGS_PATH_CONTAINER}/err.err"
