@@ -80,10 +80,13 @@ def get_annotated_patches(item, config):
     # generate rays
     imaging.prepare(scanning_radius=np.max(mesh.bounding_box.extents) + 1.0)
 
+    # generate camera poses
+    scanning_sequence.prepare(scanning_radius=np.max(mesh.bounding_box.extents) + 1.0)
+
     for image_idx in range(scanning_sequence.n_images):
         # prepare the mesh for rendering: rotate according to a certain
         mesh, camera_pose = scanning_sequence.next_camera_pose(mesh)
-
+        
         # extract neighbourhood
         try:
             ray_indexes, points, normals, nbhood, mesh_vertex_indexes, mesh_face_indexes = imaging.get_image(mesh)
@@ -153,12 +156,13 @@ def save_point_patches(point_patches, output_file):
         item_ids = [patch['item_id'] for patch in point_patches]
         hdf5file.create_dataset('item_id', data=np.string_(item_ids), dtype=h5py.string_dtype(encoding='ascii'))
 
-        mesh_vertex_indexes = [patch['orig_vert_indices'].astype('int32') for patch in point_patches]
+        mesh_vertex_indexes = np.array([patch['orig_vert_indices'].astype('int32') for patch in point_patches])
         vert_dataset = hdf5file.create_dataset('orig_vert_indices',
-                                               shape=(len(mesh_vertex_indexes),),
+                                               shape=mesh_vertex_indexes.shape,
                                                dtype=h5py.special_dtype(vlen=np.int32))
+        
         for i, vert_indices in enumerate(mesh_vertex_indexes):
-            vert_dataset[i] = vert_indices
+            vert_dataset[i] = vert_indices.flatten()
 
         mesh_face_indexes = [patch['orig_face_indexes'].astype('int32') for patch in point_patches]
         face_dataset = hdf5file.create_dataset('orig_face_indexes',
@@ -256,7 +260,7 @@ def make_patches(options):
         config = json.load(config_file)
 
     MAX_SEC_PER_PATCH = 100
-    max_patches_per_mesh = config['neighbourhood'].get('max_patches_per_mesh', 32)
+    max_patches_per_mesh = config.get('max_patches_per_mesh', 32)
     parallel = Parallel(n_jobs=options.n_jobs, backend='multiprocessing',
                         timeout=chunk_size * max_patches_per_mesh * MAX_SEC_PER_PATCH)
     delayed_iterable = (delayed(generate_patches)(obj_filename, feat_filename, data_slice, config, out_filename)
