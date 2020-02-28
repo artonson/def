@@ -41,7 +41,7 @@ if __name__=='__main__':
         )
 
         data_i = np.loadtxt(file_path)
-        data.append(data_i)
+        data.append(data_i.astype(np.float32))
 
     data = np.array(data)
 

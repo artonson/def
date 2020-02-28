@@ -105,8 +105,7 @@ nvidia-docker run \
     -v "${LOGS_PATH_HOST}":"${LOGS_PATH_CONTAINER}" \
     -v "${SPLITCODE_PATH_HOST}":"${SPLITCODE_PATH_CONTAINER}" \
     "${IMAGE_NAME}" \
-    /bin/bash \
-        -c "mkdir ${DATA_PATH_CONTAINER}/$(dirname "${OUTPUT_FILE}") && \\
+    /bin/bash -c "mkdir -p ${DATA_PATH_CONTAINER}/$(dirname "${OUTPUT_FILE}") && \\
         cd ${SPLITCODE_PATH_CONTAINER} && \\
         echo 'Splitting input files...' && \\
         python split_hdf5.py \\
@@ -128,4 +127,7 @@ nvidia-docker run \
         python merge_hdf5.py \\
 	  --input_dir ${SPLIT_OUTPUT_CONTAINER} \\
 	  --input_format 'xyz' \\
-	  --output_file ${OUTPUT_FILE_CONTAINER}"
+	  --output_file ${OUTPUT_FILE_CONTAINER} && \\
+      echo 'Removing splitted dirs' && \\
+      rm -rf ${SPLIT_DATA_PATH_CONTAINER} && \\
+      rm -rf ${SPLIT_OUTPUT_CONTAINER}"

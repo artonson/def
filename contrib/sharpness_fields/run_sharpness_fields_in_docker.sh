@@ -126,5 +126,8 @@ nvidia-docker run \
 	echo 'Merging results...' && \\
 	python3 merge_hdf5.py \\
 	  --input_dir ${SPLIT_OUTPUT_CONTAINER} \\
-	  --input_format 'xyz' \\
-	  --output_file ${OUTPUT_FILE_CONTAINER}"
+	  --input_format 'txt' \\
+	  --output_file ${OUTPUT_FILE_CONTAINER} && \\
+      echo 'Removing splitted dirs' && \\
+      rm -rf ${SPLIT_DATA_PATH_CONTAINER} && \\
+      rm -rf ${SPLIT_OUTPUT_CONTAINER}"
