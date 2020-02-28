@@ -77,6 +77,7 @@ def get_annotated_patches(item, config):
                       short_curve_quantile=short_curve_quantile,
                       n_points_per_short_curve=base_n_points_per_short_curve)
 
+    print(mesh.vertices.mean())
     # generate rays
     imaging.prepare(scanning_radius=np.max(mesh.bounding_box.extents) + 1.0)
 
@@ -99,9 +100,8 @@ def get_annotated_patches(item, config):
 
         # remove vertices lying on the boundary (sharp edges found in 1 face only)
         nbhood_features = remove_boundary_features(nbhood, nbhood_features, how='edges')
-
         # create a noisy sample
-        noisy_points = noiser.make_noise(points, normals, z_direction=np.array([0., 0., -1.]))
+        noisy_points = points#noiser.make_noise(points, normals, z_direction=np.array([0., 0., -1.]))
 
         # compute the TSharpDF
         try:
@@ -113,7 +113,7 @@ def get_annotated_patches(item, config):
         # convert everything to images
         noisy_image = imaging.points_to_image(noisy_points, ray_indexes)
         normals = imaging.points_to_image(normals, ray_indexes, assign_channels=[0, 1, 2])
-        distances = imaging.points_to_image(distances, ray_indexes, assign_channels=[0])
+        distances = imaging.points_to_image(distances.reshape(-1, 1), ray_indexes, assign_channels=[0])
         directions = imaging.points_to_image(directions, ray_indexes, assign_channels=[0, 1, 2])
 
         # compute statistics
