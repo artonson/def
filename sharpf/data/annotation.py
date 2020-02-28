@@ -23,13 +23,12 @@ def compute_bounded_labels(points, projections, distances=None, max_distance=np.
     # boolean mask marking objects far away from sharp curves
     far_from_sharp = distances > max_distance
     distances[far_from_sharp] = max_distance
-
+    distances = distances.reshape(-1, 1)
     # compute directions for points close to sharp curves
     directions = np.zeros_like(points)
     directions[~far_from_sharp] = projections[~far_from_sharp] - points[~far_from_sharp]
     eps = 1e-6
     directions[~far_from_sharp] /= (np.linalg.norm(directions[~far_from_sharp], axis=1, keepdims=True) + eps)
-
     return distances, directions
 
 
@@ -82,6 +81,7 @@ class AnnotatorFunc(ABC):
             if np.any(values > 1.1):
                 raise DataGenerationException('Discontinuities found in SDF values, discarding patch')
 
+        print('class',directions.shape)
         return distances, directions
 
     @abstractmethod
@@ -249,7 +249,7 @@ class AABBSurfacePatchAnnotator(AABBAnnotator):
         # tree = KDTree(mesh_patch.vertices, leafsize=100)
         # _, closest_nbhood_vertex_idx = tree.query(points)
         _, point_face_indexes, _ = \
-            igl.point_mesh_squared_distance(points, mesh_patch.vertices, mesh_patch.faces)
+            igl.point_mesh_squared_distance(points, np.squeeze(mesh_patch.vertices, axis = 1), mesh_patch.faces)
 
         # understand which surface patches are adjacent to which sharp features
         # and other surface patches

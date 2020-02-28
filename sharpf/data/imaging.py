@@ -60,7 +60,7 @@ class RaycastingImaging(ImagingFunc):
         # assemble mesh fragment into a submesh
         nbhood = reindex_zerobased(mesh, mesh_vertex_indexes, mesh_face_indexes)
 
-        return points, normals, nbhood, mesh_vertex_indexes, mesh_face_indexes
+        return ray_indexes, points, normals, nbhood, mesh_vertex_indexes, mesh_face_indexes
 
     def points_to_image(self, points, ray_indexes, assign_channels=None):
         xy_to_ij = self.rays_screen_coords[ray_indexes]
