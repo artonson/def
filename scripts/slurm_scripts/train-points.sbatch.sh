@@ -123,7 +123,6 @@ singularity exec \
         --loss-funct ${LOSS_FUNCTION} \\
         --train-batch-size ${TRAIN_BATCH_SIZE} \\
         --val-batch-size ${VAL_BATCH_SIZE} \\
-        --save-model-file ${SAVE_MODEL_FILEPREFIX} \\
         --data-root ${DATA_PATH_CONTAINER} \\
         --data-label points \\
         --target-label distances \\
