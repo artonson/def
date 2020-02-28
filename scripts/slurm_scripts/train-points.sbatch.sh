@@ -97,10 +97,12 @@ OMP_NUM_THREADS=4
 TRAIN_SCRIPT="${CODE_PATH_CONTAINER}/scripts/train_scripts/train_sharp.py"
 MODEL_CONFIGS_PATH_CONTAINER="${CODE_PATH_CONTAINER}/sharpf/models/specs"
 MODEL_SPEC_PATH="${MODEL_CONFIGS_PATH_CONTAINER}/${MODEL_CONFIG}"
+GPU_ID=0
+NUM_EPOCHS=10
 LOSS_FUNCTION=regress_sharpdf
 TRAIN_BATCH_SIZE=16
 VAL_BATCH_SIZE=16
-SAVE_MODEL_FILEPREFIX=${LOGS_PATH_CONTAINER}/${MODEL_CONFIG}_weights
+#SAVE_MODEL_FILEPREFIX=${LOGS_PATH_CONTAINER}/${MODEL_CONFIG}_weights
 
 echo "SLURM_ARRAY_TASK_ID=${SLURM_ARRAY_TASK_ID}"
 
@@ -116,8 +118,6 @@ singularity exec \
         --gpu ${GPU_ID} \\
         --model-spec ${MODEL_SPEC_PATH} \\
         --epochs ${NUM_EPOCHS} \\
-        --model-spec ${MODEL_SPEC} \\
-        --infer-from-spec \\
         --overwrite \\
         --log-dir-prefix ${LOGS_PATH_CONTAINER} \\
         --loss-funct ${LOSS_FUNCTION} \\
