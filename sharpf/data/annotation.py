@@ -174,7 +174,9 @@ class AABBAnnotator(AnnotatorFunc, ABC):
             ]
             for curve in features['curves'] if curve['sharp']])
 
-        sharp_edges = mesh_patch.vertices[sharp_edge_indexes]
+        sharp_edges = np.squeeze(mesh_patch.vertices[sharp_edge_indexes], axis=-2)
+        print(sharp_edges)
+        print(sharp_edges.shape)
         aabboxes = create_aabboxes(sharp_edges)
         return aabboxes, sharp_edges
 

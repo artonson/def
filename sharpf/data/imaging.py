@@ -46,6 +46,7 @@ class RaycastingImaging(ImagingFunc):
             raise DataGenerationException('Raycasting was not prepared')
 
         # get a point cloud with corresponding indexes
+        print(self.rays_origins, self.rays_directions)
         mesh_face_indexes, ray_indexes, points = ray_cast_mesh(
             mesh, self.rays_origins, self.rays_directions)
 
@@ -54,12 +55,15 @@ class RaycastingImaging(ImagingFunc):
 
         # compute indexes of faces and vertices in the original mesh
         mesh_face_indexes = np.unique(mesh_face_indexes)
-        mesh_vertex_indexes = np.unique(
-            mesh.faces[mesh_face_indexes].reshape(-1, 1), axis=1)
-
+        if mesh.faces[mesh_face_indexes].shape[0] != 0:
+            mesh_vertex_indexes = np.unique(
+                mesh.faces[mesh_face_indexes].reshape(-1, 1), axis=1)
+        else:
+            mesh_vertex_indexes = mesh_face_indexes
+           
         # assemble mesh fragment into a submesh
         nbhood = reindex_zerobased(mesh, mesh_vertex_indexes, mesh_face_indexes)
-
+ 
         return ray_indexes, points, normals, nbhood, mesh_vertex_indexes, mesh_face_indexes
 
     def points_to_image(self, points, ray_indexes, assign_channels=None):
