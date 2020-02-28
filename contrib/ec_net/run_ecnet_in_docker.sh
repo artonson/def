@@ -10,13 +10,12 @@ set -e
 #	-c: 	docker container name
 #	-g: 	comma-separated gpu indexes
 
-usage() { echo "Usage: $0 -i <input_file> -o <output_file (relative path)> -l <label> -d <docker_image_name> -c <container_name> -g <gpu_indexes>" >&2; }
+usage() { echo "Usage: $0 -i <input_file> -l <label> -d <docker_image_name> -c <container_name> -g <gpu_indexes>" >&2; }
 
 while getopts "i:o:l:d:c:g:" opt
 do
     case ${opt} in
         i) INPUT_FILE=$OPTARG;;
-        o) OUTPUT_FILE=$OPTARG;;
         l) DATA_LABEL=$OPTARG;;
         d) IMAGE_NAME=$OPTARG;;
         c) CONTAINER_NAME=$OPTARG;;
@@ -27,12 +26,6 @@ done
 
 if [[ ! ${INPUT_FILE} ]]; then
     echo "input_file is not set";
-    usage
-    exit 1
-fi
-
-if [[ ! ${OUTPUT_FILE} ]]; then
-    echo "output_file is not set";
     usage
     exit 1
 fi
@@ -71,11 +64,10 @@ SPLITCODE_PATH_HOST="${LOCAL_DIR}/../hdf5_utils"
 SPLITCODE_PATH_CONTAINER="/home/hdf5_utils"
 
 INPUT_FILE_CONTAINER="${DATA_PATH_CONTAINER}/$(basename "${INPUT_FILE}")"
-OUTPUT_FILE_CONTAINER="${DATA_PATH_CONTAINER}/${OUTPUT_FILE}"
 
 SPLIT_DATA_PATH_CONTAINER="${DATA_PATH_CONTAINER}/xyz_splitted"
 SPLIT_INPUT_CONTAINER="${SPLIT_DATA_PATH_CONTAINER}/*.xyz"
-SPLIT_OUTPUT_CONTAINER="${DATA_PATH_CONTAINER}/results_splitted"
+SPLIT_OUTPUT_CONTAINER="${DATA_PATH_CONTAINER}/ec_net_results"
 CODE_PATH_CONTAINER="/home/EC-Net/code"
 MODEL_PATH_CONTAINER="/home/EC-Net/model/pretrain"
 
@@ -83,7 +75,7 @@ echo "******* LAUNCHING IMAGE ${IMAGE_NAME} IN CONTAINER ${CONTAINER_NAME} *****
 echo "  "
 echo "  HOST OPTIONS:"
 echo "  input path:           ${INPUT_FILE}"
-echo "  output path:          ${OUTPUT_FILE}"
+echo "  output path:          ${DATA_PATH_HOST}/ec_net_results"
 echo "  split code path:      ${SPLITCODE_PATH_HOST}"
 echo "  logs path:            ${LOGS_PATH_HOST}"
 echo "  "
@@ -105,8 +97,7 @@ nvidia-docker run \
     -v "${LOGS_PATH_HOST}":"${LOGS_PATH_CONTAINER}" \
     -v "${SPLITCODE_PATH_HOST}":"${SPLITCODE_PATH_CONTAINER}" \
     "${IMAGE_NAME}" \
-    /bin/bash -c "mkdir -p ${DATA_PATH_CONTAINER}/$(dirname "${OUTPUT_FILE}") && \\
-        cd ${SPLITCODE_PATH_CONTAINER} && \\
+    /bin/bash -c "cd ${SPLITCODE_PATH_CONTAINER} && \\
         echo 'Splitting input files...' && \\
         python split_hdf5.py \\
           ${INPUT_FILE_CONTAINER} \\
@@ -122,12 +113,5 @@ nvidia-docker run \
           --eval_output ${SPLIT_OUTPUT_CONTAINER} \\
           1>${LOGS_PATH_CONTAINER}/out.out \\
           2>${LOGS_PATH_CONTAINER}/err.err && \\
-       	echo 'Merging results into one file...' && \\
-        cd ${SPLITCODE_PATH_CONTAINER} && \\
-        python merge_hdf5.py \\
-	  --input_dir ${SPLIT_OUTPUT_CONTAINER} \\
-	  --input_format 'xyz' \\
-	  --output_file ${OUTPUT_FILE_CONTAINER} && \\
-      echo 'Removing splitted dirs' && \\
-      rm -rf ${SPLIT_DATA_PATH_CONTAINER} && \\
-      rm -rf ${SPLIT_OUTPUT_CONTAINER}"
+       rm -rf ${SPLIT_DATA_PATH_CONTAINER} && \\
+       echo 'Output is in ${DATA_PATH_HOST}/ec_net_results'"
