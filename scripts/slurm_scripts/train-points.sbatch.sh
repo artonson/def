@@ -133,6 +133,6 @@ singularity exec \
         --data-label points \\
         --target-label distances \\
          ${VERBOSE_ARG} \\
-           1> >(tee ${LOGS_PATH_CONTAINER}/${MODEL_CONFIG}.out) \\
-           2> >(tee ${LOGS_PATH_CONTAINER}/${MODEL_CONFIG}.err)"
+           1> >(tee ${LOGS_PATH_CONTAINER}/${MODEL_CONFIG}_${SLURM_JOB_ID}.out) \\
+           2> >(tee ${LOGS_PATH_CONTAINER}/${MODEL_CONFIG}_${SLURM_JOB_ID}.err)"
 
