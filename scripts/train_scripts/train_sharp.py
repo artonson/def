@@ -110,16 +110,11 @@ def main(options):
     # model = DGCNN(args)
     logger.info_trainable_params(model)
 
-    opt = torch.optim.Adam(
-        model.parameters(),
-        lr=options.lr)
-
+    optimizer = torch.optim.Adam(model.parameters(), lr=options.lr)
     if options.scheduler == 'exp':
-        scheduler = ExponentialLR(opt, gamma=0.5)
-        optimizer = opt
+        scheduler = ExponentialLR(optimizer, gamma=0.9)
     else:
         scheduler = None
-        optimizer = ScheduledOptimizer(opt)
 
     if options.init_model_filename:
         checkpoint = torch.load(options.init_model_filename)
@@ -241,6 +236,8 @@ def main(options):
 
         logger.info('Running validation on the whole validation dataset with {} batches'.format(len(val_loader)))
         validate(val_loader, (epoch_i + 1) * len(train_loader))
+        if None is not scheduler:
+            scheduler.step()
 
     if options.tboard_json_logging_file:
         writer.export_scalars_to_json(options.tboard_json_logging_file)
