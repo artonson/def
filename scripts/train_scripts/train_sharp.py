@@ -41,7 +41,7 @@ def make_loaders_fn(options):
                               target_label=options.target_label),
                       num_workers=1,
                       batch_size=options.train_batch_size, shuffle=False, drop_last=False), \
-           DataLoader(ABCData(data_path=options.data_root, partition='test',
+           DataLoader(ABCData(data_path=options.data_root, partition='val',
                               data_label=options.data_label, target_label=options.target_label),
                       batch_size=options.val_batch_size, shuffle=False, drop_last=False), \
            None  # add mini val

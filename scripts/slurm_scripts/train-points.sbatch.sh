@@ -77,6 +77,8 @@ fi
 CODE_PATH_CONTAINER="/code"
 CODE_PATH_HOST=${PROJECT_ROOT}
 
+SIMAGE_FILENAME=/gpfs/gpfs0/3ddl/singularity-images/artonson_sharp_features_pointweb-ops.sif
+
 echo "******* LAUNCHING IMAGE ${SIMAGE_FILENAME} *******"
 echo "  "
 echo "  HOST OPTIONS:"
@@ -102,15 +104,18 @@ NUM_EPOCHS=10
 LOSS_FUNCTION=regress_sharpdf
 TRAIN_BATCH_SIZE=16
 VAL_BATCH_SIZE=16
+LEARNING_RATE=0.001
 #SAVE_MODEL_FILEPREFIX=${LOGS_PATH_CONTAINER}/${MODEL_CONFIG}_weights
 
 echo "SLURM_ARRAY_TASK_ID=${SLURM_ARRAY_TASK_ID}"
 
 singularity exec \
+  --nv \
   --bind ${CODE_PATH_HOST}:${CODE_PATH_CONTAINER} \
   --bind ${DATA_PATH_HOST}:${DATA_PATH_CONTAINER} \
   --bind ${LOGS_PATH_HOST}:${LOGS_PATH_CONTAINER} \
   --bind ${OUTPUT_PATH_HOST}:${OUTPUT_PATH_CONTAINER} \
+  --bind /gpfs:/gpfs \
   --bind "${PWD}":/run/user \
   "${SIMAGE_FILENAME}" \
       bash -c 'export OMP_NUM_THREADS='"${OMP_NUM_THREADS}; \\
@@ -123,10 +128,11 @@ singularity exec \
         --loss-funct ${LOSS_FUNCTION} \\
         --train-batch-size ${TRAIN_BATCH_SIZE} \\
         --val-batch-size ${VAL_BATCH_SIZE} \\
+        --lr ${LEARNING_RATE} \\
         --data-root ${DATA_PATH_CONTAINER} \\
         --data-label points \\
         --target-label distances \\
          ${VERBOSE_ARG} \\
-           1> >(tee ${LOGS_PATH_CONTAINER}/${SLURM_ARRAY_TASK_ID}.out) \\
-           2> >(tee ${LOGS_PATH_CONTAINER}/${SLURM_ARRAY_TASK_ID}.err)"
+           1> >(tee ${LOGS_PATH_CONTAINER}/${MODEL_CONFIG}.out) \\
+           2> >(tee ${LOGS_PATH_CONTAINER}/${MODEL_CONFIG}.err)"
 
