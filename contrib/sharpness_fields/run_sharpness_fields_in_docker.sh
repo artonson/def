@@ -3,20 +3,18 @@
 set -e
 
 # example launch string:
-# ./run_ecnet_in_docker.sh -i <input_dir> -o <output_dir (relative)> -d <docker image name> -c <docker container name> -g <gpu-indexes>
+# ./run_ecnet_in_docker.sh -i <input_dir>  -d <docker image name> -c <docker container name> -g <gpu-indexes>
 #	-i: 	input directory with .xyz files
-#	-o: 	output directory
 #	-d: 	docker image name
 #	-c: 	docker container name
 #	-g: 	comma-separated gpu indexes
 
-usage() { echo "Usage: $0 -i <input_file> -o <output_file> -l <label> -d <docker_image_name> -c <container_name> -g <gpu_indexes>" >&2; }
+usage() { echo "Usage: $0 -i <input_file> -l <label> -d <docker_image_name> -c <container_name> -g <gpu_indexes>" >&2; }
 
 while getopts "i:o:l:d:c:g:" opt
 do
     case ${opt} in
         i) INPUT_FILE=$OPTARG;;
-        o) OUTPUT_FILE=$OPTARG;;
         l) DATA_LABEL=$OPTARG;;
         d) IMAGE_NAME=$OPTARG;;
         c) CONTAINER_NAME=$OPTARG;;
@@ -27,12 +25,6 @@ done
 
 if [[ ! ${INPUT_FILE} ]]; then
     echo "input_file is not set";
-    usage
-    exit 1
-fi
-
-if [[ ! ${OUTPUT_FILE} ]]; then
-    echo "output_file is not set";
     usage
     exit 1
 fi
@@ -72,25 +64,23 @@ SPLITCODE_PATH_HOST="${LOCAL_DIR}/../hdf5_utils"
 SPLITCODE_PATH_CONTAINER="/home/hdf5_utils"
 
 INPUT_FILE_CONTAINER="${DATA_PATH_CONTAINER}/$(basename "${INPUT_FILE}")"
-OUTPUT_FILE_CONTAINER="${DATA_PATH_CONTAINER}/${OUTPUT_FILE}"
 
 SPLIT_DATA_PATH_CONTAINER="${DATA_PATH_CONTAINER}/xyz_splitted"
 SPLIT_INPUT_CONTAINER="${SPLIT_DATA_PATH_CONTAINER}/*.xyz"
-SPLIT_OUTPUT_CONTAINER="${DATA_PATH_CONTAINER}/results_splitted"
+SPLIT_OUTPUT_CONTAINER="${DATA_PATH_CONTAINER}/sharpness_fields_results"
 MODEL_PATH_CONTAINER="${CODE_PATH_CONTAINER}/sharpness_model.pt"
 
 echo "******* LAUNCHING IMAGE ${IMAGE_NAME} IN CONTAINER ${CONTAINER_NAME} *******"
 echo "  "
 echo "  HOST OPTIONS:"
 echo "  input path:           ${INPUT_FILE}"
-echo "  output path:          ${OUTPUT_FILE}"
+echo "  output path:          ${DATA_PATH_HOST}/xyz_splitted"
 echo "  code path:            ${CODE_PATH_CONTAINER}"
 echo "  logs path:            ${LOGS_PATH_HOST}"
 echo "  "
 echo "  CONTAINER OPTIONS:"
 echo "  input path:           ${INPUT_FILE_CONTAINER}"
 echo "  split input path:     ${SPLIT_INPUT_CONTAINER}"
-echo "  output path:          ${OUTPUT_FILE_CONTAINER}"
 echo "  model path:           ${MODEL_PATH_CONTAINER}"
 echo "  code path:            ${CODE_PATH_CONTAINER}"
 echo "  logs path:            ${LOGS_PATH_CONTAINER}"
@@ -105,29 +95,21 @@ nvidia-docker run \
     -v "${SPLITCODE_PATH_HOST}":"${SPLITCODE_PATH_CONTAINER}" \
     "${IMAGE_NAME}" \
     /bin/bash \
-        -c "mkdir ${DATA_PATH_CONTAINER}/$(dirname "${OUTPUT_FILE}") && \\
-	cd ${SPLITCODE_PATH_CONTAINER} && \\
-        echo 'Splitting input files...' && \\
-	python3 split_hdf5.py \\
-          ${INPUT_FILE_CONTAINER} \\
-          --output_dir ${SPLIT_DATA_PATH_CONTAINER} \\
-          --output_format 'xyz' \\
-          --label ${DATA_LABEL} && \\
-        cd ${CODE_PATH_CONTAINER} && \\
-	echo 'Evaluating the model...' && \\
-        python3 compute_sharpness.py \\
-          '${SPLIT_INPUT_CONTAINER}' \\
-          '${SPLIT_OUTPUT_CONTAINER}' \\
-          -m ${MODEL_PATH_CONTAINER} \\
-          -r 5.0 \\
-          1>${LOGS_PATH_CONTAINER}/out.out \\
-          2>${LOGS_PATH_CONTAINER}/err.err && \\
-	cd ${SPLITCODE_PATH_CONTAINER} && \\
-	echo 'Merging results...' && \\
-	python3 merge_hdf5.py \\
-	  --input_dir ${SPLIT_OUTPUT_CONTAINER} \\
-	  --input_format 'txt' \\
-	  --output_file ${OUTPUT_FILE_CONTAINER} && \\
-      echo 'Removing splitted dirs' && \\
-      rm -rf ${SPLIT_DATA_PATH_CONTAINER} && \\
-      rm -rf ${SPLIT_OUTPUT_CONTAINER}"
+        -c "cd ${SPLITCODE_PATH_CONTAINER} && \\
+            echo 'Splitting input files...' && \\
+            python3 split_hdf5.py \\
+                  ${INPUT_FILE_CONTAINER} \\
+                  --output_dir ${SPLIT_DATA_PATH_CONTAINER} \\
+                  --output_format 'xyz' \\
+                  --label ${DATA_LABEL} && \\
+            cd ${CODE_PATH_CONTAINER} && \\
+            echo 'Evaluating the model...' && \\
+            python3 compute_sharpness.py \\
+                  '${SPLIT_INPUT_CONTAINER}' \\
+                  '${SPLIT_OUTPUT_CONTAINER}' \\
+                  -m ${MODEL_PATH_CONTAINER} \\
+                  -r 5.0 \\
+                  1>${LOGS_PATH_CONTAINER}/out.out \\
+                  2>${LOGS_PATH_CONTAINER}/err.err && \\
+            rm -rf ${SPLIT_DATA_PATH_CONTAINER} && \\
+            echo 'Results are in ${DATA_PATH_HOST}/xyz_splitted'"

@@ -3,9 +3,8 @@
 set -e
 
 # example launch string:
-# ./run_ecnet_in_docker.sh -i <input_dir> -o <output_dir> -d <docker image name> -c <docker container name> -g <gpu-indexes>
+# ./run_ecnet_in_docker.sh -i <input_dir> -d <docker image name> -c <docker container name> -g <gpu-indexes>
 #	-i: 	input directory with .xyz files
-#	-o: 	output directory
 #	-d: 	docker image name
 #	-c: 	docker container name
 #	-g: 	comma-separated gpu indexes
@@ -86,7 +85,6 @@ echo "  model path:           ${MODEL_PATH_CONTAINER}"
 echo "  input path:           ${INPUT_FILE_CONTAINER}"
 echo "  split input path:     ${SPLIT_INPUT_CONTAINER}"
 echo "  split output path:    ${SPLIT_OUTPUT_CONTAINER}"
-echo "  output path:          ${OUTPUT_FILE_CONTAINER}"
 echo "  logs path:            ${LOGS_PATH_CONTAINER}"
 
 nvidia-docker run \
