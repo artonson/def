@@ -46,9 +46,9 @@ CONTAINER="gbobrovskih/cgal_4-14:latest"
 docker inspect --type=image ${CONTAINER} >/dev/null || docker pull ${CONTAINER}
 
 HOST_CODE_DIR=$(realpath $(dirname `realpath $0`))     # dirname of THIS file
-CONT_CODE_DIR="/home/usr/code/"
-CONT_DATA_DIR="/home/usr/data/"
-CONT_LOG_DIR="/home/usr/logs/"
+CONT_CODE_DIR="/home/user/code/"
+CONT_DATA_DIR="/home/user/data/"
+CONT_LOG_DIR="/home/user/logs/"
 
 if [[ -z "${RR}" ]] ; then
     # set offset_radius to default
@@ -77,16 +77,19 @@ echo "      Environment: CUDA_VISIBLE_DEVICES=${GPU_ENV}"
 echo ""
 NAME="3ddl.`whoami`.`uuidgen`.`echo ${GPU_ENV} | tr , .`.voronoi_R${RR}_r${Rr}_thresh${THRESH}.sharp_features"
 docker run \
+    --rm \
     --name ${NAME} \
     --interactive=true \
     --runtime=nvidia \
-    --rm \
     --tty=true \
     --env CUDA_VISIBLE_DEVICES=${GPU_ENV} \
     --env PYTHONPATH=${CONT_CODE_DIR} \
     --shm-size=${SHARED_MEM} \
-    --mount type=bind,source=${HOST_CODE_DIR},target=${CONT_CODE_DIR} \
-    --mount type=bind,source=${HOST_DATA_DIR},target=${CONT_DATA_DIR} \
-    --mount type=bind,source=${HOST_LOG_DIR},target=${CONT_LOG_DIR} \
+    -v ${HOST_CODE_DIR}:${CONT_CODE_DIR} \
+    -v ${HOST_DATA_DIR}:${CONT_DATA_DIR} \
+    -v ${HOST_LOG_DIR}:${CONT_LOG_DIR} \
     --workdir ${CONT_CODE_DIR} \
-    ${CONTAINER} /bin/bash -c "sudo chown 1000 ${CONT_LOG_DIR};echo \"compiling /home/user/code/voronoi_1/voronoi_1.cpp\"; g++ -o voronoi /home/user/code/voronoi_1/voronoi_1.cpp -lCGAL -I/CGAL-4.14.1/include -lgmp; python src/read_data_voronoi.py -d ${CONT_DATA_DIR} -o ${CONT_LOG_DIR} -R ${RR} -r ${Rr} -t ${THRESH};" 
+    ${CONTAINER} /bin/bash -c "echo \"compiling /home/user/code/voronoi_1.cpp\" && \\
+                g++ -o voronoi /home/user/code/voronoi_1.cpp -lCGAL -I/CGAL-4.14.1/include -lgmp >${CONT_LOG_DIR}/out.out 2>${CONT_LOG_DIR}/err.err && \\ 
+                python src/read_data_voronoi.py -d ${CONT_DATA_DIR} -o ${CONT_DATA_DIR} -R ${RR} -r ${Rr} -t ${THRESH} && \\
+                rm -rf ${CONT_DATA_DIR}/voronoi_tmp" 
