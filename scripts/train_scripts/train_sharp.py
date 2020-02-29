@@ -20,12 +20,12 @@ __dir__ = os.path.normpath(
 )
 sys.path[1:1] = [__dir__]
 
-from sharpf.util.logging import create_logger
+from sharpf.data.datasets.hdf5_datasets import LotsOfHdf5Files
 from sharpf.models import load_model
-from sharpf.util.os import require_empty
-from sharpf.data.data import ABCData
-from sharpf.util.util import bce_loss, smooth_l1_loss, smooth_l1_reg_loss
-
+from sharpf.modules.losses import bce_loss, smooth_l1_loss, smooth_l1_reg_loss
+from sharpf.utils.logging import create_logger
+from sharpf.utils.matrix_torch import random_3d_rotation_and_scale
+from sharpf.utils.os import require_empty
 
 LOSS = {
     'has_sharp': bce_loss,
@@ -36,21 +36,37 @@ LOSS = {
 
 
 def make_loaders_fn(options):
-    return DataLoader(ABCData(data_path=options.data_root, partition='train',
-                              data_label=options.data_label,
-                              target_label=options.target_label),
-                      num_workers=1,
-                      batch_size=options.train_batch_size, shuffle=False, drop_last=False), \
-           DataLoader(ABCData(data_path=options.data_root, partition='val',
-                              data_label=options.data_label, target_label=options.target_label),
-                      batch_size=options.val_batch_size, shuffle=False, drop_last=False), \
-           None  # add mini val
+    return \
+        DataLoader(
+            LotsOfHdf5Files(
+                data_dir=options.data_root,
+                partition='train',
+                data_label=options.data_label,
+                target_label=options.target_label,
+                max_loaded_files=10),
+            num_workers=1,
+            batch_size=options.train_batch_size,
+            shuffle=False,
+            drop_last=False
+        ), \
+        DataLoader(
+            LotsOfHdf5Files(
+                data_dir=options.data_root,
+                partition='val',
+                data_label=options.data_label,
+                target_label=options.target_label,
+                max_loaded_files=10,
+            ),
+            batch_size=options.val_batch_size,
+            shuffle=False,
+            drop_last=False), \
+        None  # add mini val
 
 
 def prepare_batch_on_device(batch_data, device):
     data, label = batch_data
-    data = data.float().to(device)
-    label = label.float().to(device).squeeze()
+    data = data.float().to(device, non_blocking=True)
+    label = label.float().to(device, non_blocking=True).squeeze()
     return data, label
 
 
@@ -153,7 +169,7 @@ def main(options):
             with torch.no_grad():
                 with logger.print_duration('    forward pass'):
                     preds = model.forward(data)  # currently model returns x, [f1, f2, f3]
-    
+
             val_losses_per_sample = criterion(preds, label)
             val_loss.append(val_losses_per_sample.cpu())
 
@@ -188,6 +204,7 @@ def main(options):
                             num_items=end_batch_val)
 
     for epoch_i in range(epochs_completed, epochs_completed + options.epochs):
+        logger.info('Training epoch {}'.format(epoch_i))
         for batch_i, batch_data in islice(enumerate(train_loader), batches_completed_in_epoch, end_batch_train):
 
             model.train()
@@ -197,11 +214,9 @@ def main(options):
             logger.info('Training batch {}'.format(batch_i))
             with logger.print_duration('    preparing batch on device'):
                 data, label = prepare_batch_on_device(batch_data, device)
-                batch_size = data.shape[0]
             with logger.print_duration('    forward pass'):
                 preds = model.forward(data)  # model returns x, (f1, f2, f3), saving only x
             loss = criterion(preds, label)
-            # print(preds, label, loss.item())
             optimizer.zero_grad()
 
             with logger.print_duration('    backward pass'):
@@ -267,6 +282,8 @@ def parse_args():
                              'and --tboard-dir are formed automatically [default: False].')
     parser.add_argument('--log-dir-prefix', dest='logs_dir', default='/logs',
                         help='path to root of logging location [default: /logs].')
+    parser.add_argument('-u', '--continue', dest='continue', action='store_true', default=False,
+                        help='If set, continue from last saved model.')
     parser.add_argument('-m', '--init-model-file', dest='init_model_filename',
                         help='Path to initializer model file [default: none].')
     parser.add_argument('-s', '--save-model-file', dest='save_model_filename',
