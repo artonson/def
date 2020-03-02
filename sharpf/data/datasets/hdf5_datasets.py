@@ -32,7 +32,7 @@ class Hdf5File(Dataset):
             self.reload()
         else:
             with h5py.File(self.filename, 'r') as f:
-                self.num_items = len(f)
+                self.num_items = len(f['has_sharp'])
 
     def __len__(self):
         return self.num_items
@@ -75,7 +75,7 @@ class LotsOfHdf5Files(Dataset):
         self.files = [Hdf5File(filename, data_label, target_label,
                                transform=transform, target_transform=target_transform, preload=False)
                       for filename in filenames]
-        self.cum_num_items = np.cumsum([len(f) for f in self.files])
+        self.cum_num_items = np.insert(np.cumsum([len(f) for f in self.files]), 0, 0)
         self.current_file_idx = 0
         self.max_loaded_files = max_loaded_files
 

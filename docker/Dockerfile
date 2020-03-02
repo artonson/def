@@ -52,7 +52,7 @@ ENV CONDA_DEFAULT_ENV=py36
 ENV CONDA_PREFIX=/home/user/miniconda/envs/$CONDA_DEFAULT_ENV
 ENV PATH=$CONDA_PREFIX/bin:$PATH
 
-RUN conda install pytorch==1.2.0 torchvision==0.4.0 cudatoolkit=9.2 -c pytorch
+RUN conda install pytorch==1.2.0 torchvision==0.4.0 cudatoolkit==9.2 -c pytorch
 
 ## Install general requirements for the sharp features
 COPY docker/requirements.txt /opt/requirements.txt
