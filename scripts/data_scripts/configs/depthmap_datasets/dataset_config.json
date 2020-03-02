@@ -11,7 +11,7 @@
     "type": "raycasting",
     "projection": "ortho",
     "resolution_image": 512,
-    "resolution_3d": 0.1,
+    "resolution_3d": 0.125,
     "fov": [115, 85, 80]
   },
   "noise": {

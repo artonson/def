@@ -133,10 +133,10 @@ class FibonacciSamplingScanningSequence(ScanningSequence):
         angles = euclid_to_sphere(pose)  # [0, theta, phi]
         transform = from_pose(angles, [0, 0, 0])  # rotation + translation
 
-        z_shift = -3
+        # z_shift = -3
         mesh_transformed = mesh.copy()
         mesh_transformed.apply_transform(transform)
-        mesh_transformed.apply_translation([0, 0, z_shift])
+        # mesh_transformed.apply_translation([0, 0, z_shift])
 
         return mesh_transformed, pose
 
