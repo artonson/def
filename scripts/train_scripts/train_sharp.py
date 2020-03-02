@@ -208,7 +208,7 @@ def main(options):
         for batch_i, batch_data in islice(enumerate(train_loader), batches_completed_in_epoch, end_batch_train):
 
             model.train()
-            iter_i = epoch_i * len(train_loader) + batch_i
+            iter_i = (epoch_i * len(train_loader) + batch_i) * train_loader.batch_size
 
             # Train for one batch
             logger.info('Training batch {}'.format(batch_i))

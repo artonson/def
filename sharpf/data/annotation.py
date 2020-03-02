@@ -253,7 +253,7 @@ class AABBSurfacePatchAnnotator(AABBAnnotator):
         # tree = KDTree(mesh_patch.vertices, leafsize=100)
         # _, closest_nbhood_vertex_idx = tree.query(points)
         _, point_face_indexes, _ = \
-            igl.point_mesh_squared_distance(points, np.squeeze(mesh_patch.vertices, axis = 1), mesh_patch.faces)
+            igl.point_mesh_squared_distance(points, mesh_patch.vertices, mesh_patch.faces)
 
         # understand which surface patches are adjacent to which sharp features
         # and other surface patches
