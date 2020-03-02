@@ -75,7 +75,7 @@ class LotsOfHdf5Files(Dataset):
         self.files = [Hdf5File(filename, data_label, target_label,
                                transform=transform, target_transform=target_transform, preload=False)
                       for filename in filenames]
-        self.cum_num_items = np.insert(np.cumsum([len(f) for f in self.files]), 0, 0)
+        self.cum_num_items = np.cumsum([len(f) for f in self.files])
         self.current_file_idx = 0
         self.max_loaded_files = max_loaded_files
 
@@ -83,8 +83,8 @@ class LotsOfHdf5Files(Dataset):
         return self.cum_num_items[-1]
 
     def __getitem__(self, index):
-        file_index = np.searchsorted(self.cum_num_items, index, side='right')
-        relative_index = index - self.cum_num_items[file_index - 1]
+        file_index = np.searchsorted(self.cum_num_items, index, side='left')
+        relative_index = index - self.cum_num_items[file_index] if file_index > 0 else index
         data, target = self.files[file_index][relative_index]
         loaded_file_indexes = [i for i, f in enumerate(self.files) if f.is_loaded()]
         if len(loaded_file_indexes) > self.max_loaded_files:
