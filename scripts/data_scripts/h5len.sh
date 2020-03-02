@@ -34,4 +34,4 @@ singularity exec \
   "${SIMAGE_FILENAME}" \
       bash -c \
       "python3 ${H5_LEN_SCRIPT} \\
-        --input-dir ${INPUT_DIR}"
+        --input-dir ${INPUT_DIR_CONTAINER}"
