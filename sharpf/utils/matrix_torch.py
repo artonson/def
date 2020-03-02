@@ -81,7 +81,7 @@ def random_3d_rotation_and_scale(scale_range):
     angle_x, angle_y, angle_z = (torch.rand(3) * 2 * math.pi).numpy()
 
     min_scale, max_scale = scale_range
-    scale_value = min_scale + torch.rand(1).numpy() * (max_scale - min_scale)
+    scale_value = min_scale + torch.rand(1).item() * (max_scale - min_scale)
     scale = create_scale_matrix(scale_value, scale_value, scale_value)
 
     rotation_x = create_rotation_matrix_x(angle_x)
