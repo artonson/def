@@ -83,7 +83,7 @@ class LotsOfHdf5Files(Dataset):
         return self.cum_num_items[-1]
 
     def __getitem__(self, index):
-        file_index = np.searchsorted(self.cum_num_items, index, side='left')
+        file_index = np.searchsorted(self.cum_num_items, index, side='right')
         relative_index = index - self.cum_num_items[file_index] if file_index > 0 else index
         data, target = self.files[file_index][relative_index]
         loaded_file_indexes = [i for i, f in enumerate(self.files) if f.is_loaded()]
