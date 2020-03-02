@@ -36,6 +36,7 @@ LOSS = {
 
 
 def make_loaders_fn(options):
+    num_workers = os.environ.get('OMP_NUM_THREADS', 1)
     return \
         DataLoader(
             LotsOfHdf5Files(
@@ -44,7 +45,7 @@ def make_loaders_fn(options):
                 data_label=options.data_label,
                 target_label=options.target_label,
                 max_loaded_files=10),
-            num_workers=1,
+            num_workers=num_workers,
             batch_size=options.train_batch_size,
             shuffle=False,
             drop_last=False
