@@ -24,8 +24,8 @@ from sharpf.data.datasets.hdf5_datasets import LotsOfHdf5Files
 from sharpf.models import load_model
 from sharpf.modules.losses import bce_loss, smooth_l1_loss, smooth_l1_reg_loss
 from sharpf.utils.logging import create_logger
-from sharpf.utils.matrix_torch import random_3d_rotation_and_scale
 from sharpf.utils.os import require_empty
+
 
 LOSS = {
     'has_sharp': bce_loss,

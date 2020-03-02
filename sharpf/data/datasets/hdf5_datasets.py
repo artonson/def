@@ -22,7 +22,7 @@ class Random3DRotationAndScale(Callable):
 class Hdf5File(Dataset):
     def __init__(self, filename, data_label, target_label, preload=True,
                  transform=None, target_transform=None):
-        self.filename = filename
+        self.filename = os.path.normpath(os.path.realpath(filename))
         self.data_label = data_label
         self.target_label = target_label
         self.transform = transform
@@ -65,11 +65,13 @@ class Hdf5File(Dataset):
 
 
 class LotsOfHdf5Files(Dataset):
-    def __init__(self, data_dir, partition, data_label, target_label,
+    def __init__(self, data_dir, data_label, target_label, partition=None,
                  transform=None, target_transform=None, max_loaded_files=0):
         self.data_label = data_label
         self.target_label = target_label
-        filenames = glob.glob(os.path.join(data_dir, partition, '*.hdf5'))
+        if None is not partition:
+            data_dir = os.path.join(data_dir, partition)
+        filenames = glob.glob(os.path.join(data_dir, '*.hdf5'))
         self.files = [Hdf5File(filename, data_label, target_label,
                                transform=transform, target_transform=target_transform, preload=False)
                       for filename in filenames]
