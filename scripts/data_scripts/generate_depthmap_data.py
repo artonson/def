@@ -77,7 +77,8 @@ def get_annotated_patches(item, config):
                       short_curve_quantile=short_curve_quantile,
                       n_points_per_short_curve=base_n_points_per_short_curve)
 
-    print(mesh.vertices.mean())
+    mesh = mesh.apply_translation(-mesh.vertices.mean(axis=0))
+
     # generate rays
     imaging.prepare(scanning_radius=np.max(mesh.bounding_box.extents) + 1.0)
 

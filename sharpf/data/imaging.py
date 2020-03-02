@@ -124,6 +124,7 @@ class FibonacciSamplingScanningSequence(ScanningSequence):
         # scanning radius is determined from the mesh extent
         self.camera_poses = fibonacci_sphere_sampling(
             self.n_images, radius=scanning_radius)
+        self.current_pose_index = 0
 
     def next_camera_pose(self, mesh):
         if None is self.camera_poses:
