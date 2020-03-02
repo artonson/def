@@ -37,7 +37,7 @@ class Hdf5File(Dataset):
                     self.num_items = len(f['has_sharp'])
                 except KeyError:
                     eprint('File {} is not compatible with Hdf5File interface'.format(self.filename))
-                self.num_items = 0
+                    self.num_items = 0
 
     def __len__(self):
         return self.num_items
