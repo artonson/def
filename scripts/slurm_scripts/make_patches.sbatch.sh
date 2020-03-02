@@ -4,7 +4,7 @@
 #SBATCH --output=array_%A_%a.out
 #SBATCH --error=array_%A_%a.err
 #SBATCH --array=1-80
-#SBATCH --time=
+#SBATCH --time=24:00:00
 #SBATCH --partition=cpu_big
 #SBATCH --cpus-per-task=4
 #SBATCH --ntasks=1
