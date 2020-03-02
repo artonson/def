@@ -85,7 +85,9 @@ class LotsOfHdf5Files(Dataset):
         self.max_loaded_files = max_loaded_files
 
     def __len__(self):
-        return self.cum_num_items[-1]
+        if len(self.cum_num_items) > 0:
+            return self.cum_num_items[-1]
+        return 0
 
     def __getitem__(self, index):
         file_index = np.searchsorted(self.cum_num_items, index, side='right')
