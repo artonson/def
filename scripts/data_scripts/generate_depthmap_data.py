@@ -91,7 +91,8 @@ def get_annotated_patches(item, config):
         
         # extract neighbourhood
         try:
-            ray_indexes, points, normals, nbhood, mesh_vertex_indexes, mesh_face_indexes = imaging.get_image(mesh)
+            ray_indexes, points, normals, nbhood, mesh_vertex_indexes, mesh_face_indexes = \
+                imaging.get_image(mesh, features)
         except DataGenerationException as e:
             eprint_t(str(e))
             continue

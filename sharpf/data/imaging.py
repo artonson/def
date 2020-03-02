@@ -12,7 +12,7 @@ from sharpf.utils.view import from_pose, euclid_to_sphere
 class ImagingFunc(ABC):
     """Implements obtaining depthmaps from meshes."""
     @abstractmethod
-    def get_image(self, mesh):
+    def get_image(self, mesh, features):
         """Extracts a point cloud.
 
         :param mesh: an input mesh
@@ -41,12 +41,11 @@ class RaycastingImaging(ImagingFunc):
         self.rays_screen_coords, self.rays_origins, self.rays_directions = generate_rays(
             self.resolution_image, self.resolution_3d, radius=scanning_radius)
 
-    def get_image(self, mesh):
+    def get_image(self, mesh, features):
         if any(value is None for value in [self.rays_screen_coords, self.rays_origins, self.rays_directions]):
             raise DataGenerationException('Raycasting was not prepared')
 
         # get a point cloud with corresponding indexes
-        print(self.rays_origins, self.rays_directions)
         mesh_face_indexes, ray_indexes, points = ray_cast_mesh(
             mesh, self.rays_origins, self.rays_directions)
 
@@ -54,16 +53,16 @@ class RaycastingImaging(ImagingFunc):
         normals = mesh.face_normals[mesh_face_indexes]
 
         # compute indexes of faces and vertices in the original mesh
-        mesh_face_indexes = np.unique(mesh_face_indexes)
-        if mesh.faces[mesh_face_indexes].shape[0] != 0:
-            mesh_vertex_indexes = np.unique(
-                mesh.faces[mesh_face_indexes].reshape(-1, 1), axis=1)
-        else:
-            mesh_vertex_indexes = mesh_face_indexes
-           
+        hit_surfaces_face_indexes = []
+        for idx, surface in enumerate(features['surfaces']):
+            surface_face_indexes = np.array(surface['face_indices'])
+            if np.any(np.isin(surface_face_indexes, mesh_face_indexes, assume_unique=True)):
+                hit_surfaces_face_indexes.extend(surface_face_indexes)
+        mesh_face_indexes = np.unique(hit_surfaces_face_indexes)
+        mesh_vertex_indexes = np.unique(mesh.faces[mesh_face_indexes])
+
         # assemble mesh fragment into a submesh
         nbhood = reindex_zerobased(mesh, mesh_vertex_indexes, mesh_face_indexes)
- 
         return ray_indexes, points, normals, nbhood, mesh_vertex_indexes, mesh_face_indexes
 
     def points_to_image(self, points, ray_indexes, assign_channels=None):
