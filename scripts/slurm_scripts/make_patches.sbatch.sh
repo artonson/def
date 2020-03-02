@@ -3,12 +3,12 @@
 #SBATCH --job-name=sharpf-data
 #SBATCH --output=array_%A_%a.out
 #SBATCH --error=array_%A_%a.err
-#SBATCH --array=1-20
+#SBATCH --array=1-80
 #SBATCH --time=
 #SBATCH --partition=cpu_big
-#SBATCH --cpus-per-task=2
+#SBATCH --cpus-per-task=4
 #SBATCH --ntasks=1
-#SBATCH --mem=10000
+#SBATCH --mem=40000
 
 module load apps/singularity-3.2.0
 
