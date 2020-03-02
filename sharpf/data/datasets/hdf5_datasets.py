@@ -23,7 +23,7 @@ class Random3DRotationAndScale(Callable):
 class Hdf5File(Dataset):
     def __init__(self, filename, data_label, target_label, preload=True,
                  transform=None, target_transform=None):
-        self.filename = os.path.normpath(filename)
+        self.filename = os.path.normpath(os.path.realpath(filename))
         self.data_label = data_label
         self.target_label = target_label
         self.transform = transform
