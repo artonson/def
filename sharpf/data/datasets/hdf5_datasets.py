@@ -7,6 +7,7 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
+from sharpf.utils.common import eprint
 from sharpf.utils.matrix_torch import random_3d_rotation_and_scale
 
 
@@ -22,7 +23,7 @@ class Random3DRotationAndScale(Callable):
 class Hdf5File(Dataset):
     def __init__(self, filename, data_label, target_label, preload=True,
                  transform=None, target_transform=None):
-        self.filename = os.path.normpath(os.path.realpath(filename))
+        self.filename = os.path.normpath(filename)
         self.data_label = data_label
         self.target_label = target_label
         self.transform = transform
@@ -32,7 +33,11 @@ class Hdf5File(Dataset):
             self.reload()
         else:
             with h5py.File(self.filename, 'r') as f:
-                self.num_items = len(f['has_sharp'])
+                try:
+                    self.num_items = len(f['has_sharp'])
+                except KeyError:
+                    eprint('File {} is not compatible with Hdf5File interface'.format(self.filename))
+                self.num_items = 0
 
     def __len__(self):
         return self.num_items
