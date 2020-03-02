@@ -16,8 +16,10 @@ class Random3DRotationAndScale(Callable):
         self.scale_range = scale_range
 
     def __call__(self, data):
+        data = torch.cat((data, torch.ones(len(data), 1)), dim=1)
         transform = random_3d_rotation_and_scale(self.scale_range)
-        return torch.mm(data, transform)
+        data = torch.mm(data, transform)
+        return data[:, :-1]
 
 
 class Hdf5File(Dataset):
