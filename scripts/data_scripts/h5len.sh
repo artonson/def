@@ -9,7 +9,7 @@ usage() { echo "$__usage" >&2; }
 while getopts "i:" opt
 do
     case ${opt} in
-        i) INPUT_DIR_HOST=true;;
+        i) INPUT_DIR_HOST=$OPTARG;;
         *) usage; exit 1 ;;
     esac
 done
@@ -30,7 +30,7 @@ CODE_PATH_HOST=${PROJECT_ROOT}
 
 singularity exec \
   --bind ${CODE_PATH_HOST}:${CODE_PATH_CONTAINER} \
-  --bind "${INPUT_DIR}":${INPUT_DIR_CONTAINER} \
+  --bind "${INPUT_DIR_HOST}":${INPUT_DIR_CONTAINER} \
   "${SIMAGE_FILENAME}" \
       bash -c \
       "python3 ${H5_LEN_SCRIPT} \\
