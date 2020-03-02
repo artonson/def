@@ -138,6 +138,7 @@ class FibonacciSamplingScanningSequence(ScanningSequence):
         mesh_transformed.apply_transform(transform)
         # mesh_transformed.apply_translation([0, 0, z_shift])
 
+        self.current_pose_index += 1
         return mesh_transformed, pose
 
 
