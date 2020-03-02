@@ -33,7 +33,7 @@ def parse_options():
 
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument('-i', '--input', dest='h5_input', help='HDF5 input file.')
-    group.add_argument('--input-dir', dest='h5_input_dir', help='directory of HDF5 input files.')
+    group.add_argument('-d', '--input-dir', dest='h5_input_dir', help='directory of HDF5 input files.')
 
     parser.add_argument('-t', '--total-only', dest='total_only', action='store_true', default=False,
                         help='print total only for directory.')
