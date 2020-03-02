@@ -94,6 +94,8 @@ echo "  logs path:            ${LOGS_PATH_CONTAINER}"
 echo "  output path:          ${OUTPUT_PATH_CONTAINER}"
 echo "  "
 
+echo "SLURM_ARRAY_TASK_ID=${SLURM_ARRAY_TASK_ID}"
+
 N_TASKS=1
 OMP_NUM_THREADS=4
 TRAIN_SCRIPT="${CODE_PATH_CONTAINER}/scripts/train_scripts/train_sharp.py"
@@ -106,8 +108,7 @@ TRAIN_BATCH_SIZE=16
 VAL_BATCH_SIZE=16
 LEARNING_RATE=0.001
 #SAVE_MODEL_FILEPREFIX=${LOGS_PATH_CONTAINER}/${MODEL_CONFIG}_weights
-
-echo "SLURM_ARRAY_TASK_ID=${SLURM_ARRAY_TASK_ID}"
+LOGS_PREFIX="${LOGS_PATH_CONTAINER}/${MODEL_CONFIG}_${SLURM_JOB_ID}_${SLURM_ARRAY_TASK_ID}"
 
 singularity exec \
   --nv \
@@ -124,7 +125,7 @@ singularity exec \
         --model-spec ${MODEL_SPEC_PATH} \\
         --epochs ${NUM_EPOCHS} \\
         --overwrite \\
-        --log-dir-prefix ${LOGS_PATH_CONTAINER} \\
+        --log-dir-prefix ${LOGS_PREFIX} \\
         --loss-funct ${LOSS_FUNCTION} \\
         --train-batch-size ${TRAIN_BATCH_SIZE} \\
         --val-batch-size ${VAL_BATCH_SIZE} \\
@@ -133,6 +134,6 @@ singularity exec \
         --data-label points \\
         --target-label distances \\
          ${VERBOSE_ARG} \\
-           1> >(tee ${LOGS_PATH_CONTAINER}/${MODEL_CONFIG}_${SLURM_JOB_ID}.out) \\
-           2> >(tee ${LOGS_PATH_CONTAINER}/${MODEL_CONFIG}_${SLURM_JOB_ID}.err)"
+           1> >(tee ${LOGS_PREFIX}.out) \\
+           2> >(tee ${LOGS_PREFIX}.err)"
 
