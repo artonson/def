@@ -46,7 +46,8 @@ class Hdf5File(Dataset):
         if not self.is_loaded():
             self.reload()
 
-        data, target = self.data[index], self.target[index]
+        data, target = torch.from_numpy(self.data[index]), \
+                       torch.from_numpy(self.target[index])
 
         if self.transform is not None:
             data = self.transform(data)
@@ -54,7 +55,7 @@ class Hdf5File(Dataset):
         if self.target_transform is not None:
             target = self.target_transform(target)
 
-        return torch.from_numpy(data), torch.from_numpy(target)
+        return data, target
 
     def reload(self):
         with h5py.File(self.filename, 'r') as f:
