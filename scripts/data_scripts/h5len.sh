@@ -31,6 +31,7 @@ CODE_PATH_HOST=${PROJECT_ROOT}
 singularity exec \
   --bind ${CODE_PATH_HOST}:${CODE_PATH_CONTAINER} \
   --bind "${INPUT_DIR_HOST}":${INPUT_DIR_CONTAINER} \
+  --bind /gpfs:/gpfs \
   "${SIMAGE_FILENAME}" \
       bash -c \
       "python3 ${H5_LEN_SCRIPT} \\
