@@ -78,7 +78,7 @@ def create_transform(local_rotation, local_position, scale, rotate_around=None, 
 
 
 def random_3d_rotation_and_scale(scale_range):
-    angle_x, angle_y, angle_z = torch.rand(size=(3,)) * 2 * math.pi
+    angle_x, angle_y, angle_z = torch.rand(3) * 2 * math.pi
 
     min_scale, max_scale = scale_range
     scale_value = min_scale + torch.rand() * (max_scale - min_scale)
