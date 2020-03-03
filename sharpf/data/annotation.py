@@ -85,7 +85,7 @@ class AnnotatorFunc(ABC):
                 data_slices = [(start, start + 4096) for start in range(0, len(nn_indexes), 4096)]
                 for start, end in data_slices:
                     indexes = np.arange(start, end)
-                    values = np.abs(distances[nn_indexes[indexes, 0]] - distances[nn_indexes[indexes, 1]]) / np.atleast_2d(nn_distances[indexes, 1]).T
+                    values = np.abs(distances[nn_indexes[indexes, 0]] - distances[nn_indexes[indexes, 1]]) / nn_distances[indexes, 1]
                     if np.any(values > 1.1):
                         raise DataGenerationException('Discontinuities found in SDF values, discarding patch')
 
