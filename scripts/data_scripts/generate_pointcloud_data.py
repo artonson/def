@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
 import argparse
+from collections import defaultdict
 import json
 import os
 import sys
 import traceback
-from collections import defaultdict
 
 import h5py
 from joblib import Parallel, delayed

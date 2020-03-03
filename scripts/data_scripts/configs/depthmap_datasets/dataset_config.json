@@ -15,8 +15,9 @@
     "fov": [115, 85, 80]
   },
   "noise": {
-    "type": "z_direction",
-    "scale": 0.2
+    "type": "many_noisers",
+    "subtype": "z_direction",
+    "scale": [0.0]
   },
   "annotation": {
     "type": "surface_based_aabb",
