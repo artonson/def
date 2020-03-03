@@ -10,19 +10,19 @@ def get_adjacent_features_by_bfs_with_depth1(surface_idx, adjacent_sharp_feature
 
     adjacent_sharp_indexes = adjacent_sharp_features[surface_idx]
 
-    if not adjacent_sharp_indexes:
-        adjacent_sharp_indexes = []
+    # if not adjacent_sharp_indexes:
+    #     adjacent_sharp_indexes = []
+    #
+    for adjacent_surface_idx in adjacent_surfaces[surface_idx]:
+        adjacent_surface_adjacent_sharp_features = \
+            {adjacent_surface_idx: adjacent_sharp_features[adjacent_surface_idx]}
 
-        for adjacent_surface_idx in adjacent_surfaces[surface_idx]:
-            adjacent_surface_adjacent_sharp_features = \
-                {adjacent_surface_idx: adjacent_sharp_features[adjacent_surface_idx]}
+        adjacent_surface_adjacent_sharp_indexes = \
+            get_adjacent_features_by_bfs_with_depth1(
+                adjacent_surface_idx, adjacent_surface_adjacent_sharp_features,
+                defaultdict(list))
 
-            adjacent_surface_adjacent_sharp_indexes = \
-                get_adjacent_features_by_bfs_with_depth1(
-                    adjacent_surface_idx, adjacent_surface_adjacent_sharp_features,
-                    defaultdict(list))
-
-            adjacent_sharp_indexes.extend(adjacent_surface_adjacent_sharp_indexes)
+        adjacent_sharp_indexes.extend(adjacent_surface_adjacent_sharp_indexes)
 
     return adjacent_sharp_indexes
 
