@@ -17,6 +17,22 @@ def reindex_zerobased(mesh, vert_indices, face_indices):
     return submesh
 
 
+def reindex_zerobased_fast(mesh, vert_indices, face_indices):
+    """Returns a submesh with reindexed faces."""
+    selected_vertices = mesh.vertices[vert_indices]
+    selected_faces = np.array(mesh.faces[face_indices])
+    face_reindexer = np.zeros(np.max(vert_indices))
+    face_reindexer[vert_indices] = np.arange(len(vert_indices))
+    selected_faces = face_reindexer[selected_faces]
+
+    submesh = trimesh.base.Trimesh(
+        vertices=selected_vertices,
+        faces=selected_faces,
+        process=False,
+        validate=False)
+    return submesh
+
+
 def compute_relative_indexes(mesh, sub_mesh):
     """Returns vertex_indexes and face_indexes such that
     mesh.vertices[vertex_indices] ~ sub_mesh.vertices
