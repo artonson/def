@@ -101,7 +101,8 @@ def get_annotated_patches(item, config):
         # remove vertices lying on the boundary (sharp edges found in 1 face only)
         nbhood_features = remove_boundary_features(nbhood, nbhood_features, how='edges')
         # create a noisy sample
-        for configuration, noisy_points in noiser.make_noise(points, normals):
+        for configuration, noisy_points in noiser.make_noise(
+                points, normals, z_direction=np.array([0., 0., -1.])):
             # compute the TSharpDF
             try:
                 distances, directions, has_sharp = annotator.annotate(nbhood, nbhood_features, noisy_points)
