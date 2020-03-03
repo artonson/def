@@ -3,6 +3,8 @@ from copy import deepcopy
 
 import numpy as np
 
+from sharpf.utils.mesh_utils.indexing import reindex_array, in2d
+
 
 def get_adjacent_features_by_bfs_with_depth1(surface_idx, adjacent_sharp_features, adjacent_surfaces):
     """If adjacent sharp curves exist, return one of them.
@@ -55,43 +57,31 @@ def compute_features_nbhood(mesh, features, mesh_vertex_indexes, mesh_face_index
     nbhood_curves = []
     for curve in features['curves']:
         curve_vertex_indexes = np.array(curve['vert_indices'])
-        nbhood_vertex_indexes = curve_vertex_indexes[
-            np.where(np.isin(curve_vertex_indexes, mesh_vertex_indexes))[0]]
-        if len(nbhood_vertex_indexes) == 0:
+        curve_vertex_indexes = curve_vertex_indexes[
+            np.where(np.isin(curve_vertex_indexes, mesh_vertex_indexes, assume_unique=True))[0]]
+        if len(curve_vertex_indexes) == 0:
             continue
 
-        for index, reindex in zip(np.sort(mesh_vertex_indexes), np.arange(len(mesh_vertex_indexes))):
-            nbhood_vertex_indexes[np.where(nbhood_vertex_indexes == index)] = reindex
+        curve_vertex_indexes = reindex_array(curve_vertex_indexes, np.sort(mesh_vertex_indexes))
 
         nbhood_curve = deepcopy(curve)
-        nbhood_curve['vert_indices'] = nbhood_vertex_indexes
+        nbhood_curve['vert_indices'] = curve_vertex_indexes
         nbhood_curves.append(nbhood_curve)
 
     nbhood_surfaces = []
     for idx, surface in enumerate(features['surfaces']):
         surface_face_indexes = np.array(surface['face_indices'])
-        nbhood_face_indexes = surface_face_indexes[
-            np.where(np.isin(surface_face_indexes, mesh_face_indexes, assume_unique=True))[0]
-        ]
-        if len(nbhood_face_indexes) == 0:
+        surface_face_indexes = surface_face_indexes[
+            np.where(np.isin(surface_face_indexes, mesh_face_indexes, assume_unique=True))[0]]
+        if len(surface_face_indexes) == 0:
             continue
 
-        surface_faces = np.array(mesh.faces[nbhood_face_indexes])
-        for index, reindex in zip(np.sort(mesh_vertex_indexes), np.arange(len(mesh_vertex_indexes))):
-            surface_faces[np.where(surface_faces == index)] = reindex
-
-        #         surface_vertex_indexes = np.array(surface['vert_indices'])
-        #         nbhood_vertex_indexes = surface_vertex_indexes[
-        #             np.where(np.isin(surface_vertex_indexes, mesh_vertex_indexes))[0]]
-
-        #         for index, reindex in zip(np.sort(mesh_vertex_indexes), np.arange(len(mesh_vertex_indexes))):
-        #             nbhood_vertex_indexes[np.where(nbhood_vertex_indexes == index)] = reindex
+        surface_faces = reindex_array(mesh.faces[surface_face_indexes], np.sort(mesh_vertex_indexes))
+        # surface_face_indexes = np.where(in2d(mesh.faces, mesh.faces[surface_face_indexes]))[0]
 
         nbhood_surface = deepcopy(surface)
-        #         nbhood_surface['vert_indices'] = nbhood_vertex_indexes
         nbhood_surface['face_indices'] = surface_faces
         nbhood_surface['vert_indices'] = np.unique(surface_faces)
-
         nbhood_surfaces.append(nbhood_surface)
 
     nbhood_features = {

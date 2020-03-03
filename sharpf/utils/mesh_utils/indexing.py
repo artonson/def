@@ -2,7 +2,7 @@ import trimesh
 import numpy as np
 
 
-def reindex_zerobased(mesh, vert_indices, face_indices):
+def reindex_zerobased_slow(mesh, vert_indices, face_indices):
     """Returns a submesh with reindexed faces."""
     selected_vertices = mesh.vertices[vert_indices]
     selected_faces = np.array(mesh.faces[face_indices])
@@ -17,13 +17,11 @@ def reindex_zerobased(mesh, vert_indices, face_indices):
     return submesh
 
 
-def reindex_zerobased_fast(mesh, vert_indices, face_indices):
+def reindex_zerobased(mesh, vert_indices, face_indices):
     """Returns a submesh with reindexed faces."""
     selected_vertices = mesh.vertices[vert_indices]
     selected_faces = np.array(mesh.faces[face_indices])
-    face_reindexer = np.zeros(np.max(vert_indices))
-    face_reindexer[vert_indices] = np.arange(len(vert_indices))
-    selected_faces = face_reindexer[selected_faces]
+    selected_faces = reindex_array(selected_faces, vert_indices)
 
     submesh = trimesh.base.Trimesh(
         vertices=selected_vertices,
@@ -72,7 +70,7 @@ def test_compute_relative_indexes():
         assert np.all(test_mesh.vertices[vertex_indexes] == sub_mesh.vertices, axis=1)
 
 
-def in2d(ar1, ar2):
+def in2d_memhuge(ar1, ar2):
     """
     Tests whether values from ar1 are also in ar2.
 
@@ -89,3 +87,45 @@ def in2d(ar1, ar2):
     idx = (ar1[:, np.newaxis] == ar2[np.newaxis, ...]).all(axis=2).any(axis=1)
 
     return idx
+
+
+def asvoid(arr):
+    """
+    Based on http://stackoverflow.com/a/16973510/190597 (Jaime, 2013-06)
+    View the array as dtype np.void (bytes). The items along the last axis are
+    viewed as one value. This allows comparisons to be performed on the entire row.
+    """
+    arr = np.ascontiguousarray(arr)
+    if np.issubdtype(arr.dtype, np.floating):
+        """ Care needs to be taken here since
+        np.array([-0.]).view(np.void) != np.array([0.]).view(np.void)
+        Adding 0. converts -0. to 0.
+        """
+        arr += 0.
+    return arr.view(np.dtype((np.void, arr.dtype.itemsize * arr.shape[-1])))
+
+
+def in2d(a, b, assume_unique=False):
+    a = asvoid(a)
+    b = asvoid(b)
+    return np.in1d(a, b, assume_unique)
+
+
+def reindex_array(arr, idx):
+    """
+    Substitutes values in arr by values in [0, 1, ..., |idx|] = reidx
+    such that arr[i] == reidx[idx[i]] iff arr[i] == idx[i]
+
+    :param arr: n-d array with values in idx
+    :param idx: indexing array
+
+    Returns
+    -------
+    reindexed_arr : ndarray, bool
+            The values `ar1[idx]` are in `ar2`.
+    """
+    reindexer = np.zeros(np.max(idx) + 1).astype(int)  # get the number of requested indexes
+    reindexer[idx] = np.arange(len(idx))  # map old indexes to zero-based new ones
+    reindexed_arr = reindexer[arr]  # reindex by asking for the new index
+
+    return reindexed_arr
