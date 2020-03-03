@@ -23,7 +23,6 @@ def compute_bounded_labels(points, projections, distances=None, max_distance=np.
     # boolean mask marking objects far away from sharp curves
     far_from_sharp = distances > max_distance
     distances[far_from_sharp] = max_distance
-    distances = distances.reshape(-1, 1)
     # compute directions for points close to sharp curves
     directions = np.zeros_like(points)
     directions[~far_from_sharp] = projections[~far_from_sharp] - points[~far_from_sharp]
@@ -39,6 +38,12 @@ class AnnotatorFunc(ABC):
     def __init__(self, distance_upper_bound, validate_annotation):
         self.distance_upper_bound = distance_upper_bound
         self.validate_annotation = validate_annotation
+
+    def flat_annotation(self, points):
+        projections = np.zeros_like(points)
+        distances = np.ones_like(points[:, 0]) * self.distance_upper_bound
+        directions = np.zeros_like(points)
+        return projections, distances, directions
 
     def annotate(self, mesh_patch, features_patch, points, **kwargs):
         """Noises a point cloud.
@@ -60,31 +65,31 @@ class AnnotatorFunc(ABC):
         """
 
         # if patch is without sharp features
-        if all(not curve['sharp'] for curve in features_patch['curves']):
-            distances = np.ones_like(points[:, 0]) * self.distance_upper_bound
-            directions = np.zeros_like(points)
-            return distances, directions
+        has_sharp = any(curve['sharp'] for curve in features_patch['curves'])
+        if not has_sharp:
+            _, distances, directions = self.flat_annotation(points)
 
-        projections, distances = self.do_annotate(mesh_patch, features_patch, points)
+        else:
+            projections, distances = self.do_annotate(mesh_patch, features_patch, points)
 
-        distances, directions = compute_bounded_labels(
-            points, projections, distances=distances,
-            max_distance=self.distance_upper_bound)
+            distances, directions = compute_bounded_labels(
+                points, projections, distances=distances,
+                max_distance=self.distance_upper_bound)
 
-        if self.validate_annotation:
-            # validate for Lipshitz condition:
-            # if for two points x_i and x_j (nearest neighbours of each other)
-            # corresponding values f(x_i) and f(x_j) differ by more than ||x_i - x_j||, discard the patch
-            n_omp_threads = int(os.environ.get('OMP_NUM_THREADS', 1))
-            nn_distances, nn_indexes = cKDTree(points, leafsize=16).query(points, k=2, n_jobs=n_omp_threads)
-            data_slices = [(start, start + 4096) for start in range(0, len(nn_indexes), 4096)]
-            for start, end in data_slices:
-                indexes = np.arange(start, end)
-                values = np.abs(distances[nn_indexes[indexes, 0]] - distances[nn_indexes[indexes, 1]]) / np.atleast_2d(nn_distances[indexes, 1]).T
-                if np.any(values > 1.1):
-                    raise DataGenerationException('Discontinuities found in SDF values, discarding patch')
+            if self.validate_annotation:
+                # validate for Lipshitz condition:
+                # if for two points x_i and x_j (nearest neighbours of each other)
+                # corresponding values f(x_i) and f(x_j) differ by more than ||x_i - x_j||, discard the patch
+                n_omp_threads = int(os.environ.get('OMP_NUM_THREADS', 1))
+                nn_distances, nn_indexes = cKDTree(points, leafsize=16).query(points, k=2, n_jobs=n_omp_threads)
+                data_slices = [(start, start + 4096) for start in range(0, len(nn_indexes), 4096)]
+                for start, end in data_slices:
+                    indexes = np.arange(start, end)
+                    values = np.abs(distances[nn_indexes[indexes, 0]] - distances[nn_indexes[indexes, 1]]) / np.atleast_2d(nn_distances[indexes, 1]).T
+                    if np.any(values > 1.1):
+                        raise DataGenerationException('Discontinuities found in SDF values, discarding patch')
 
-        return distances, directions
+        return distances, directions, has_sharp
 
     @abstractmethod
     def do_annotate(self, mesh_patch, features, points, **kwargs):
@@ -258,7 +263,7 @@ class AABBSurfacePatchAnnotator(AABBAnnotator):
         adjacent_sharp_features, adjacent_surfaces = build_surface_patch_graph(features_patch)
 
         # compute distance, iterating over points sampled from corresponding surface patches
-        distances, projections = np.ones(len(points)) * self.distance_upper_bound, np.zeros_like(points)
+        projections, distances, _ = self.flat_annotation(points)
         for surface_idx, surface in enumerate(features_patch['surfaces']):
             # constrain distance computation to certain sharp features only
             adjacent_sharp_indexes = get_adjacent_features_by_bfs_with_depth1(

@@ -107,7 +107,7 @@ def get_annotated_patches(item, config):
 
         # compute the TSharpDF
         try:
-            distances, directions = annotator.annotate(nbhood, nbhood_features, noisy_points)
+            distances, directions, has_sharp = annotator.annotate(nbhood, nbhood_features, noisy_points)
         except DataGenerationException as e:
             eprint_t(str(e))
             continue
@@ -119,9 +119,6 @@ def get_annotated_patches(item, config):
         directions = imaging.points_to_image(directions, ray_indexes, assign_channels=[0, 1, 2])
 
         # compute statistics
-        has_sharp = any(curve['sharp'] for curve in nbhood_features['curves'])
-        if not has_sharp:
-            distances = np.ones(distances.shape) * config['annotation']['distance_upper_bound']
         num_sharp_curves = len([curve for curve in nbhood_features['curves'] if curve['sharp']])
         num_surfaces = len(nbhood_features['surfaces'])
 
