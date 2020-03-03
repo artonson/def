@@ -8,7 +8,7 @@ def get_adjacent_features_by_bfs_with_depth1(surface_idx, adjacent_sharp_feature
     """If adjacent sharp curves exist, return one of them.
     If not, return ones adjacent to adjacent surfaces. """
 
-    adjacent_sharp_indexes = adjacent_sharp_features[surface_idx]
+    adjacent_sharp_indexes = deepcopy(adjacent_sharp_features[surface_idx])
 
     # if not adjacent_sharp_indexes:
     #     adjacent_sharp_indexes = []
@@ -149,7 +149,7 @@ def remove_boundary_features(mesh, features, how='none'):
 
     non_boundary_features = {
         'curves': non_boundary_curves,
-        'surfaces': features['surfaces']
+        'surfaces': features.get('surfaces', [])
     }
     return non_boundary_features
 
