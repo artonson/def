@@ -25,8 +25,6 @@ class Epoch:
     def _to_device(self):
         self.model.to(self.device)
         self.loss.to(self.device)
-        # for metric in self.metrics:
-        #     metric.to(self.device)
 
     def _format_logs(self, logs):
         str_logs = ['{} - {:.4}'.format(k, v) for k, v in logs.items()]
@@ -55,7 +53,6 @@ class Epoch:
             else:
                 metrics_meters[metric.__name__] = AverageValueMeter()
 
-        metrics_all = np.zeros((len(dataloader.dataset), len(metrics_meters.keys()), 2))
         with tqdm(dataloader, desc=self.stage_name, file=sys.stdout, disable=not (self.verbose)) as iterator:
             for i, iter_ in enumerate(iterator):
                 x, y = iter_
@@ -96,33 +93,26 @@ class Epoch:
                     y_pred_activated[y_pred_activated >= 0.5] = 1.0
                     y_pred_activated[y_pred_activated < 0.5] = 0.0
 
-                # metrics_logs={}
-                # for i_met, metric_fn in enumerate(self.metrics):
-                #     metric_value = []
-                #     for i_bs in range(batch_size):
-                #         per_class_metric = []
-                #         for i_cl in range(self.model.classes): # num of classes
-                #             value = metric_fn.forward(y_pred_activated[i_bs][i_cl], y[i_bs][i_cl])
-                #             per_class_metric.append(value)#.cpu().detach().numpy()
-                #             for i_name in range(len(value)):
-                #                 metrics_all[i_bs+i*batch_size][i_name][i_cl] = value[i_name]
-                #
-                #         metric_value.append(per_class_metric)
-                #     metric_value = np.array(metric_value).reshape(batch_size, self.model.classes, len(metric_fn.__name__))
-                #     for j, name in enumerate(metric_fn.__name__):
-                #         for class_ in range(self.model.classes):
-                #             metrics_logs[name+'_'+str(class_)] = metric_value[:, class_, j].mean()
+                metrics_logs = {}
+                for i_met, metric_fn in enumerate(self.metrics):
+                    metric_value = []
+                    for i_bs in range(batch_size):
+                        metric_value.append(metric_fn.forward(y_pred_activated[i_bs], y[i_bs]))
+                    metric_value = np.array(metric_value).reshape(batch_size, self.model.classes, len(metric_fn.__name__))
+                    
+                    for j, name in enumerate(metric_fn.__name__):
+                        for class_ in range(self.model.classes):
+                            metrics_logs[name+'_'+str(class_)] = metric_value[:, class_, j].mean()
 
-                #metrics_logs = {k: v.mean for k, v in metrics_meters.items()}
+                metrics_logs = {k: v.mean for k, v in metrics_meters.items()}
 
-                # if self.stage_name == 'valid':
-                #     logs.update(metrics_logs)
+                if self.stage_name == 'valid':
+                    logs.update(metrics_logs)
 
                 if self.verbose and i%self.save_each_batch == 0:
                     s = self._format_logs(logs)
                     iterator.set_postfix_str(s)
 
-        #torch.save(metrics_all, '{}/all_metrics_{}'.format(self.save_dir, self.stage_name))
         return logs
 
 
