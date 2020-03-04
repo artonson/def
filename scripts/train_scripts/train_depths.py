@@ -121,7 +121,7 @@ if __name__ == '__main__':
         verbose=True
     )
 
-    PATH = '{}/seg_model_{}_dslen_{}_epoch_{}'
+    PATH = '{}/seg_model_{}_epoch_{}'
     if args.load_model_filename is not None:
         model.load_state_dict(torch.load(args.load_model_filename))
 
@@ -130,7 +130,7 @@ if __name__ == '__main__':
 
         train_logs = train_epoch.run(train_loader, epoch)
         if args.save_model:
-            torch.save(model.state_dict(), PATH.format(args.output_dir, cfg['encoder'], len(train_loader.dataset), epoch))
+            torch.save(model.state_dict(), PATH.format(args.output_dir, cfg['name'], epoch))
         val_logs = val_epoch.run(val_loader, epoch)
 
         # save log
@@ -138,6 +138,30 @@ if __name__ == '__main__':
             json.dump(train_logs, fp)
         with open('{}/val_log_epoch_{}.json'.format(args.logs_dir, epoch), 'w') as fp:
             json.dump(val_logs, fp)
+
+    predict_epoch = PredictEpoch(
+        cfg['task'],
+        model,
+        loss=loss,
+        metrics=metrics,
+        optimizer=optimizer,
+        gradient_clipping=args.clip,
+        writer=writer,
+        save_each_batch=10,
+        save_dir=args.dir,
+        device=DEVICE,
+        verbose=True
+    )
+
+    with tqdm(dataloader, desc='prediction', file=sys.stdout, disable=False) as iterator:
+        for i, iter_ in enumerate(iterator):
+            x, y = iter_
+            x, y = x.to(self.device), y.to(self.device)
+
+            loss, y_pred = self.batch_update(x, y)
+
+            # save prediction
+            torch.save('{}/prediction_{}_by_{}_model'.format(args.output_dir, i+1, cfg['name']))
 
     writer.close()
 

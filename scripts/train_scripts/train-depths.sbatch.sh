@@ -124,7 +124,6 @@ singularity exec \
         --gpu ${GPU_ID} \\
         --model-spec ${MODEL_SPEC_PATH} \\
         --epochs ${NUM_EPOCHS} \\
-        --overwrite \\
         --log-dir-prefix ${LOGS_PREFIX} \\
         --loss-funct ${LOSS_FUNCTION} \\
         --train-batch-size ${TRAIN_BATCH_SIZE} \\
