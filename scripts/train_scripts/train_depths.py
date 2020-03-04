@@ -75,7 +75,7 @@ def get_args():
 if __name__ == '__main__':
     args = get_args()
     writer = SummaryWriter(args.logs)
-    cfg = json.load(args.model_spec_filename)
+    cfg = json.load(open(args.model_spec_filename))
     model = Unet(
         encoder_name=cfg['encoder'],
         encoder_weights=None,
