@@ -52,10 +52,10 @@ class Hdf5File(Dataset):
                        torch.from_numpy(self.target[index])
 
         if self.transform is not None:
-            data = self.transform(data)
+            data, target = self.transform.forward(data, target)
 
-        if self.target_transform is not None:
-            target = self.target_transform(target)
+        # if self.target_transform is not None:
+        #     target = self.target_transform(target)
 
         return data, target
 
@@ -92,6 +92,14 @@ class LotsOfHdf5Files(Dataset):
             return self.cum_num_items[-1]
         return 0
 
+    def normalize(self, data):
+        norm_data = np.copy(data)
+        norm_data -= np.mean(norm_data)
+        std = np.linalg.norm(norm_data, axis=1).max()
+        if std > 0:
+            norm_data /= std
+        return norm_data
+
     def __getitem__(self, index):
         file_index = np.searchsorted(self.cum_num_items, index, side='right')
         relative_index = index - self.cum_num_items[file_index] if file_index > 0 else index
@@ -100,4 +108,17 @@ class LotsOfHdf5Files(Dataset):
         if len(loaded_file_indexes) > self.max_loaded_files:
             file_index_to_unload = np.random.choice(loaded_file_indexes)
             self.files[file_index_to_unload].unload()
+        if self.data_label == 'image':
+            dist_new = np.copy(data)
+            mask = ((data.numpy() != 0.0)).astype(float)
+            mask[mask == 0.0] = np.nan
+
+            dist_new *= mask
+            dist1 = np.array((dist_new != np.nan) & (dist_new < 0.25)).astype(float)
+            dist2 = np.array((dist_new != np.nan) & (dist_new > 0.25)).astype(float)
+            target = torch.cat([torch.FloatTensor(dist1).unsqueeze(0), torch.FloatTensor(dist2).unsqueeze(0)], dim=1)[0]
+            mask[np.isnan(mask)] = 0.0
+            data = torch.FloatTensor(self.normalize(data))
+            data = torch.cat([data, data, data, torch.FloatTensor(mask)], dim=0)
+        
         return data, target

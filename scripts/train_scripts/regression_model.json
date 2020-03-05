@@ -1,7 +1,7 @@
 {
   "name": "reg_unet_vgg16_bn_partconv",
   "task": "regression",
-  "encoder": "vgg16_bn_partconv",
+  "encoder": "vgg16_partconv_bn",
   "activation": "None",
   "classes": ["distance_to_sharp"]
 }

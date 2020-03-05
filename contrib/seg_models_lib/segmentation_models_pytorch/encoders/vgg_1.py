@@ -32,13 +32,14 @@ class VGGEncoder(VGG):
         for i,module in enumerate(self.features):
             if isinstance(module, nn.MaxPool2d):
                 features.append(x)
-            #if i == 0:
-            if isinstance(module, nn.MaxPool2d):
-                x = module(x,mask)
-            else:
+            if i == 0:
                 x = module(x, mask)
-            #else:
-            #    x = module(x)
+            else:
+                x = module(x)
+            # if isinstance(module, nn.MaxPool2d):
+            #     x = module(x)
+            # else:
+            #     x = module(x, mask)
 
         features.append(x)
         features = features[1:]

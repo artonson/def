@@ -9,6 +9,9 @@ class EncoderDecoder(Model):
         super().__init__()
         self.encoder = encoder
         self.decoder = decoder
+
+        if activation == 'None':
+            activation = None
         
         if callable(activation) or activation is None:
             self.activation = activation
