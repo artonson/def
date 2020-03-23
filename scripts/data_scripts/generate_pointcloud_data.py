@@ -22,6 +22,7 @@ sys.path[1:1] = [__dir__]
 from sharpf.data import DataGenerationException
 from sharpf.data.abc.abc_data import ABCModality, ABCChunk, ABC_7Z_FILEMASK
 from sharpf.data.annotation import ANNOTATOR_BY_TYPE
+from sharpf.data.data_provider import DepthIO
 from sharpf.data.mesh_nbhoods import NBHOOD_BY_TYPE
 from sharpf.data.noisers import NOISE_BY_TYPE
 from sharpf.data.point_samplers import SAMPLER_BY_TYPE
@@ -137,44 +138,55 @@ def get_annotated_patches(item, config):
             yield configuration, patch_info
 
 
-def save_point_patches(point_patches, output_file):
+def save_point_patches(patches, output_file):
+    with h5py.File(output_file, 'w') as f:
+        for key in ['points', 'normals', 'distances', 'directions']:
+            DepthIO.write(f, key, np.stack([patch[key] for patch in patches]))
+        DepthIO.write(f, 'item_id', [patch['item_id'] for patch in patches])
+        DepthIO.write(f, 'orig_vert_indices', [patch['orig_vert_indices'].astype('int32') for patch in patches])
+        DepthIO.write(f, 'orig_face_indexes', [patch['orig_face_indexes'].astype('int32') for patch in patches])
+        DepthIO.write(f, 'has_sharp', np.stack([patch['has_sharp'] for patch in patches]).astype(bool))
+        DepthIO.write(f, 'num_sharp_curves', np.stack([patch['num_sharp_curves'] for patch in patches]))
+        DepthIO.write(f, 'num_surfaces', np.stack([patch['num_surfaces'] for patch in patches]))
+
+
     with h5py.File(output_file, 'w') as hdf5file:
-        points = np.stack([patch['points'] for patch in point_patches])
+        points = np.stack([patch['points'] for patch in patches])
         hdf5file.create_dataset('points', data=points, dtype=np.float64)
 
-        normals = np.stack([patch['normals'] for patch in point_patches])
+        normals = np.stack([patch['normals'] for patch in patches])
         hdf5file.create_dataset('normals', data=normals, dtype=np.float64)
 
-        distances = np.stack([patch['distances'] for patch in point_patches])
+        distances = np.stack([patch['distances'] for patch in patches])
         hdf5file.create_dataset('distances', data=distances, dtype=np.float64)
 
-        directions = np.stack([patch['directions'] for patch in point_patches])
+        directions = np.stack([patch['directions'] for patch in patches])
         hdf5file.create_dataset('directions', data=directions, dtype=np.float64)
 
-        item_ids = [patch['item_id'] for patch in point_patches]
+        item_ids = [patch['item_id'] for patch in patches]
         hdf5file.create_dataset('item_id', data=np.string_(item_ids), dtype=h5py.string_dtype(encoding='ascii'))
 
-        mesh_vertex_indexes = [patch['orig_vert_indices'].astype('int32') for patch in point_patches]
+        mesh_vertex_indexes = [patch['orig_vert_indices'].astype('int32') for patch in patches]
         vert_dataset = hdf5file.create_dataset('orig_vert_indices',
                                                shape=(len(mesh_vertex_indexes),),
                                                dtype=h5py.special_dtype(vlen=np.int32))
         for i, vert_indices in enumerate(mesh_vertex_indexes):
             vert_dataset[i] = vert_indices
 
-        mesh_face_indexes = [patch['orig_face_indexes'].astype('int32') for patch in point_patches]
+        mesh_face_indexes = [patch['orig_face_indexes'].astype('int32') for patch in patches]
         face_dataset = hdf5file.create_dataset('orig_face_indexes',
                                                shape=(len(mesh_face_indexes),),
                                                dtype=h5py.special_dtype(vlen=np.int32))
         for i, face_indices in enumerate(mesh_face_indexes):
             face_dataset[i] = face_indices.flatten()
 
-        has_sharp = np.stack([patch['has_sharp'] for patch in point_patches]).astype(bool)
+        has_sharp = np.stack([patch['has_sharp'] for patch in patches]).astype(bool)
         hdf5file.create_dataset('has_sharp', data=has_sharp, dtype=np.bool)
 
-        num_sharp_curves = np.stack([patch['num_sharp_curves'] for patch in point_patches])
+        num_sharp_curves = np.stack([patch['num_sharp_curves'] for patch in patches])
         hdf5file.create_dataset('num_sharp_curves', data=num_sharp_curves, dtype=np.int8)
 
-        num_surfaces = np.stack([patch['num_surfaces'] for patch in point_patches])
+        num_surfaces = np.stack([patch['num_surfaces'] for patch in patches])
         hdf5file.create_dataset('num_surfaces', data=num_surfaces, dtype=np.int8)
 
 

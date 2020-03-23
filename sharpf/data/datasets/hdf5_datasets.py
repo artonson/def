@@ -23,20 +23,32 @@ class Random3DRotationAndScale(Callable):
 
 
 class Hdf5File(Dataset):
-    def __init__(self, filename, data_label, target_label, preload=True,
-                 transform=None, target_transform=None):
+    def __init__(self, filename, data_label, target_label, labels=None, preload=True,
+                 io=None, transform=None, target_transform=None):
+        """Represents HDF5 dataset contained in a single HDF5 file.
+
+        :param filename: name of the file
+        :param data_label: string label in HDF5 dataset corresponding to data to train from
+        :param target_label: string label in HDF5 dataset corresponding to targets
+        :param labels: a list of HDF5 dataset labels to read off the file
+        :param preload: if True, data is read off disk in constructor; otherwise load lazily
+        :param transform: callable implementing data transform (e.g., adding noise)
+        :param target_transform: callable implementing target transform
+        """
         self.filename = os.path.normpath(os.path.realpath(filename))
         self.data_label = data_label
         self.target_label = target_label
+        self.labels = labels or [data_label, target_label]
         self.transform = transform
         self.target_transform = target_transform
-        self.data, self.target = None, None
+        self.items = None  # this is where the data internally is read to
+        self._io = io
         if preload:
             self.reload()
         else:
             with h5py.File(self.filename, 'r') as f:
                 try:
-                    self.num_items = len(f['has_sharp'])
+                    self.num_items = len(self._io.length(f))
                 except KeyError:
                     eprint('File {} is not compatible with Hdf5File interface'.format(self.filename))
                     self.num_items = 0
@@ -48,8 +60,10 @@ class Hdf5File(Dataset):
         if not self.is_loaded():
             self.reload()
 
-        data, target = torch.from_numpy(self.data[index]), \
-                       torch.from_numpy(self.target[index])
+        data_items, target_items = self.items[self.data_label], \
+                                   self.items[self.target_label]
+        data, target = torch.from_numpy(data_items[index]), \
+                       torch.from_numpy(target_items[index])
 
         if self.transform is not None:
             data = self.transform(data)
@@ -57,30 +71,33 @@ class Hdf5File(Dataset):
         if self.target_transform is not None:
             target = self.target_transform(target)
 
-        return data, target
+        if self.labels != [self.data_label, self.target_label]:
+            return data, target, self.items
+        else:
+            return data, target
 
     def reload(self):
         with h5py.File(self.filename, 'r') as f:
-            self.data = np.array(f[self.data_label]).astype('float32')
-            self.target = np.array(f[self.target_label]).astype('float32')
-            self.num_items = len(f)
+            self.items = {label: self._io.read(f, label)
+                          for label in self.labels}
+            self.num_items = len(self._io.length(f))
 
     def is_loaded(self):
-        return None is not self.data and None is not self.target
+        return None is not self.items
 
     def unload(self):
-        self.data, self.target = None, None
+        self.items = None
 
 
 class LotsOfHdf5Files(Dataset):
-    def __init__(self, data_dir, data_label, target_label, partition=None,
+    def __init__(self, data_dir, data_label, target_label, labels=None, partition=None,
                  transform=None, target_transform=None, max_loaded_files=0):
         self.data_label = data_label
         self.target_label = target_label
         if None is not partition:
             data_dir = os.path.join(data_dir, partition)
         filenames = glob.glob(os.path.join(data_dir, '*.hdf5'))
-        self.files = [Hdf5File(filename, data_label, target_label,
+        self.files = [Hdf5File(filename, data_label, target_label, labels=labels,
                                transform=transform, target_transform=target_transform, preload=False)
                       for filename in filenames]
         self.cum_num_items = np.cumsum([len(f) for f in self.files])

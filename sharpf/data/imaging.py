@@ -90,6 +90,7 @@ IMAGING_BY_TYPE = {
     'raycasting': RaycastingImaging,
 }
 
+
 class ScanningSequence(ABC):
     """Implements obtaining camera poses."""
     def __init__(self, n_images):
