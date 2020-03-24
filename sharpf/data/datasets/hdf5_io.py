@@ -62,17 +62,3 @@ class HDF5IO:
 
     def length(self, hdf5_file):
         return len(hdf5_file[self.len_label])
-
-
-DepthIO = HDF5IO({
-    'points': Float64('points'),
-    'normals': Float64('normals'),
-    'distances': Float64('distances'),
-    'directions': Float64('directions'),
-    'item_id': AsciiString('item_id'),
-    'orig_vert_indices': VarInt32('orig_vert_indices'),
-    'orig_face_indexes': VarInt32('orig_face_indexes'),
-    'has_sharp': Bool('has_sharp'),
-    'num_sharp_curves': Int8('num_sharp_curves'),
-    'num_surfaces': Int8('num_surfaces'),
-}, len_label='has_sharp')

@@ -13,15 +13,16 @@ __dir__ = os.path.normpath(
 sys.path[1:1] = [__dir__]
 
 from sharpf.data.datasets.hdf5_datasets import LotsOfHdf5Files
+from sharpf.data.datasets.sharpf_io import save_point_patches, DepthIO
 
 
 class BufferedHDF5Writer(object):
-    def __init__(self, output_dir=None, output_files=None, n_meshes_file=float('+inf'),
+    def __init__(self, output_dir=None, prefix='', n_items_per_file=float('+inf'),
                  verbose=False, save_fn=None):
         self.output_dir = output_dir
-        self.output_files = output_files
+        self.prefix = prefix
         self.file_id = 0
-        self.n_meshes_file = n_meshes_file
+        self.n_items_per_file = n_items_per_file
         self.data = []
         self.verbose = verbose
         self.save_fn = save_fn
@@ -35,17 +36,21 @@ class BufferedHDF5Writer(object):
 
     def append(self, data):
         self.data.append(data)
-        if -1 != self.n_meshes_file and len(self.data) >= self.n_meshes_file:
+        self.check_flush()
+
+    def extend(self, data):
+        self.data.extend(data)
+        self.check_flush()
+
+    def check_flush(self):
+        if -1 != self.n_items_per_file and len(self.data) >= self.n_items_per_file:
             self._flush()
             self.file_id += 1
             self.data = []
 
     def _flush(self):
-        """Create the next file (as indicated by self.file_id"""
-        if self.output_files:
-            filename = self.output_files[self.file_id]
-        else:
-            filename = os.path.join(self.output_dir, '{}.hdf5'.format(self.file_id))
+        filename = '{prefix}{id}.hdf5'.format(prefix=self.prefix, id=self.file_id)
+        filename = os.path.join(self.output_dir, filename)
         self.save_fn(self.data, filename)
         if self.verbose:
             print('Saved {} with {} items'.format(filename, len(self.data)))
@@ -58,38 +63,42 @@ def main(options):
     #  3) understand if any modifications must be made to mesh denoising/vector fields
     #  4) rewrite LotsOfHdf5Files with custom data/target labels
 
+    batch_size = 128
     loader = DataLoader(
         LotsOfHdf5Files(
             data_dir=options.hdf5_input_dir,
+            io=DepthIO,
             data_label=options.data_label,
             target_label=options.target_label,
             labels=options.keys,
             max_loaded_files=10),
         num_workers=options.n_jobs,
-        batch_size=options.num_items_per_file,
+        batch_size=batch_size,
         shuffle=options.random_shuffle,
-        worker_init_fn=worker_init_fn,
-        collate_fn=collate_to_list,
+        # worker_init_fn=worker_init_fn,
     )
 
-    for batch in loader:
-        save_point_patches(batch, )
-
-    hdf5_writer_params = {
+    writer_params = {
         'output_dir': options.hdf5_output_dir,
-        'output_files': output_hdf5_files,
-        'n_meshes_file': options.num_items_per_file,
+        'n_items_per_file': options.num_items_per_file,
+        'save_fn': save_point_patches,
         'verbose': options.verbose,
-        'save_fn': save_point_patches
     }
-    with BufferedHDF5Writer(**hdf5_writer_params) as hdf_writer:
-        for batch in loader:
-            hdf_writer.append(item)
+    train_writer_params = {'prefix': options.train_prefix, **writer_params}
+    val_writer_params = {'prefix': options.val_prefix, **writer_params}
+
+    with BufferedHDF5Writer(**train_writer_params) as train_writer, \
+            BufferedHDF5Writer(**val_writer_params) as val_writer:
+
+        for batch_idx, batch in enumerate(loader):
+            seen_fraction = batch_idx * batch_size / len(loader.dataset)
+            writer = train_writer if seen_fraction <= options.train_fraction else val_writer
+            writer.extend(batch)
 
 
 def parse_options():
     parser = argparse.ArgumentParser(
-        description='Defragment (make N batches), sluffle, and create train/test split from a dir of HDF5s')
+        description='De-fragment (make desired size batches), shuffle, and create train/test split from a dir of HDF5s')
 
     parser.add_argument('-i', '--input-dir', dest='hdf5_input_dir', help='directory of HDF5 input files.')
     parser.add_argument('-o', '--output-dir', dest='hdf5_output_dir', help='directory with HDF5 output files.')
@@ -98,12 +107,17 @@ def parse_options():
                         help='how many items to put into each output HDF5 file.')
     parser.add_argument('-t', '--train-fraction', dest='train_fraction', type=float, default=0.8,
                         help='fraction of items to keep as training set.')
+    parser.add_argument('--train-prefix', dest='train_prefix', default='train_',
+                        help='string prefix of output filename to use for train split.')
+    parser.add_argument('--val-prefix', dest='val_prefix', default='val_',
+                        help='string prefix of output filename to use for validation split.')
     parser.add_argument('-s', '--random-shuffle', dest='random_shuffle', action='store_true', default=False,
                         help='perform random shuffle of the output.')
     parser.add_argument('-r', '--random-seed', dest='random_seed',
                         help='specify a fixed random seed for reproducibility.')
     parser.add_argument('-k', '--key', dest='keys', action='append',
-                        help='specify keys to put into resulting HDF5 files (can me multiple; empty means ALL encountered keys).')
+                        help='specify keys to put into resulting HDF5 files '
+                             '(can me multiple; empty means ALL encountered keys).')
     parser.add_argument('-j', '--jobs', dest='n_jobs',
                         type=int, default=4, help='CPU jobs to use in parallel [default: 4].')
 

@@ -23,11 +23,12 @@ class Random3DRotationAndScale(Callable):
 
 
 class Hdf5File(Dataset):
-    def __init__(self, filename, data_label, target_label, labels=None, preload=True,
-                 io=None, transform=None, target_transform=None):
+    def __init__(self, filename, io, data_label, target_label, labels=None, preload=True,
+                 transform=None, target_transform=None):
         """Represents HDF5 dataset contained in a single HDF5 file.
 
         :param filename: name of the file
+        :param io: HDF5IO object serving as a I/O interface to the HDF5 data files
         :param data_label: string label in HDF5 dataset corresponding to data to train from
         :param target_label: string label in HDF5 dataset corresponding to targets
         :param labels: a list of HDF5 dataset labels to read off the file
@@ -38,17 +39,18 @@ class Hdf5File(Dataset):
         self.filename = os.path.normpath(os.path.realpath(filename))
         self.data_label = data_label
         self.target_label = target_label
-        self.labels = labels or [data_label, target_label]
+        self.default_labels = [data_label, target_label]
+        self.labels = list(set.union(labels or [], self.default_labels))
         self.transform = transform
         self.target_transform = target_transform
         self.items = None  # this is where the data internally is read to
-        self._io = io
+        self.io = io
         if preload:
             self.reload()
         else:
             with h5py.File(self.filename, 'r') as f:
                 try:
-                    self.num_items = len(self._io.length(f))
+                    self.num_items = len(self.io.length(f))
                 except KeyError:
                     eprint('File {} is not compatible with Hdf5File interface'.format(self.filename))
                     self.num_items = 0
@@ -71,16 +73,19 @@ class Hdf5File(Dataset):
         if self.target_transform is not None:
             target = self.target_transform(target)
 
-        if self.labels != [self.data_label, self.target_label]:
-            return data, target, self.items
-        else:
-            return data, target
+        item = {label: self.items[label]
+                for label in self.labels}
+        item.update({
+            self.data_label: data,
+            self.target_label: target,
+        })
+        return item
 
     def reload(self):
         with h5py.File(self.filename, 'r') as f:
-            self.items = {label: self._io.read(f, label)
+            self.items = {label: self.io.read(f, label)
                           for label in self.labels}
-            self.num_items = len(self._io.length(f))
+            self.num_items = len(self.io.length(f))
 
     def is_loaded(self):
         return None is not self.items
@@ -90,14 +95,14 @@ class Hdf5File(Dataset):
 
 
 class LotsOfHdf5Files(Dataset):
-    def __init__(self, data_dir, data_label, target_label, labels=None, partition=None,
+    def __init__(self, data_dir, io, data_label, target_label, labels=None, partition=None,
                  transform=None, target_transform=None, max_loaded_files=0):
         self.data_label = data_label
         self.target_label = target_label
         if None is not partition:
             data_dir = os.path.join(data_dir, partition)
         filenames = glob.glob(os.path.join(data_dir, '*.hdf5'))
-        self.files = [Hdf5File(filename, data_label, target_label, labels=labels,
+        self.files = [Hdf5File(filename, io, data_label, target_label, labels=labels,
                                transform=transform, target_transform=target_transform, preload=False)
                       for filename in filenames]
         self.cum_num_items = np.cumsum([len(f) for f in self.files])
@@ -112,9 +117,9 @@ class LotsOfHdf5Files(Dataset):
     def __getitem__(self, index):
         file_index = np.searchsorted(self.cum_num_items, index, side='right')
         relative_index = index - self.cum_num_items[file_index] if file_index > 0 else index
-        data, target = self.files[file_index][relative_index]
+        item = self.files[file_index][relative_index]
         loaded_file_indexes = [i for i, f in enumerate(self.files) if f.is_loaded()]
         if len(loaded_file_indexes) > self.max_loaded_files:
             file_index_to_unload = np.random.choice(loaded_file_indexes)
             self.files[file_index_to_unload].unload()
-        return data, target
+        return item
