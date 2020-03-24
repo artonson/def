@@ -50,7 +50,7 @@ class Hdf5File(Dataset):
         else:
             with h5py.File(self.filename, 'r') as f:
                 try:
-                    self.num_items = len(self.io.length(f))
+                    self.num_items = self.io.length(f)
                 except KeyError:
                     eprint('File {} is not compatible with Hdf5File interface'.format(self.filename))
                     self.num_items = 0
@@ -85,7 +85,7 @@ class Hdf5File(Dataset):
         with h5py.File(self.filename, 'r') as f:
             self.items = {label: self.io.read(f, label)
                           for label in self.labels}
-            self.num_items = len(self.io.length(f))
+            self.num_items = self.io.length(f)
 
     def is_loaded(self):
         return None is not self.items
