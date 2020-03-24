@@ -123,13 +123,13 @@ def get_annotated_patches(item, config):
             num_sharp_curves = len([curve for curve in nbhood_features['curves'] if curve['sharp']])
             num_surfaces = len(nbhood_features['surfaces'])
             patch_info = {
-                'points': noisy_points,
-                'normals': normals,
-                'distances': distances,
-                'directions': directions,
+                'points': np.array(noisy_points).astype(np.float64),
+                'normals': np.array(normals).astype(np.float64),
+                'distances': np.array(distances).astype(np.float64),
+                'directions': np.array(directions).astype(np.float64),
                 'item_id': item.item_id,
-                'orig_vert_indices': mesh_vertex_indexes,
-                'orig_face_indexes': mesh_face_indexes,
+                'orig_vert_indices': np.array(mesh_vertex_indexes).astype(np.int32),
+                'orig_face_indexes': np.array(mesh_face_indexes).astype(np.int32),
                 'has_sharp': has_sharp,
                 'num_sharp_curves': num_sharp_curves,
                 'num_surfaces': num_surfaces,

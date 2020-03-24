@@ -70,7 +70,7 @@ def main(options):
             io=DepthIO,
             data_label=options.data_label,
             target_label=options.target_label,
-            labels=options.keys,
+            labels=options.keys or '*',
             max_loaded_files=10),
         num_workers=options.n_jobs,
         batch_size=batch_size,

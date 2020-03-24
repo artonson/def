@@ -39,21 +39,29 @@ class Hdf5File(Dataset):
         self.filename = os.path.normpath(os.path.realpath(filename))
         self.data_label = data_label
         self.target_label = target_label
-        self.default_labels = [data_label, target_label]
-        self.labels = list(set.union(set(labels or []), set(self.default_labels)))
+        self.default_labels = {data_label, target_label}
         self.transform = transform
         self.target_transform = target_transform
         self.items = None  # this is where the data internally is read to
         self.io = io
         if preload:
             self.reload()
-        else:
-            with h5py.File(self.filename, 'r') as f:
-                try:
-                    self.num_items = self.io.length(f)
-                except KeyError:
-                    eprint('File {} is not compatible with Hdf5File interface'.format(self.filename))
-                    self.num_items = 0
+
+        with h5py.File(self.filename, 'r') as f:
+            self.num_items = self._get_length(f)
+            if labels == '*':
+                labels = set(f.keys())
+
+        self.labels = list(self.default_labels.union(set(labels)))
+
+    def _get_length(self, hdf5_file):
+        try:
+            num_items = self.io.length(hdf5_file)
+        except KeyError:
+            eprint('File {} is not compatible with Hdf5File I/O interface {}'.format(
+                self.filename, str(self.io.__class__)))
+            num_items = 0
+        return num_items
 
     def __len__(self):
         return self.num_items
@@ -85,7 +93,7 @@ class Hdf5File(Dataset):
         with h5py.File(self.filename, 'r') as f:
             self.items = {label: self.io.read(f, label)
                           for label in self.labels}
-            self.num_items = self.io.length(f)
+            self.num_items = self._get_length(f)
 
     def is_loaded(self):
         return None is not self.items

@@ -30,9 +30,8 @@ def save_point_patches(patches, filename):
         for key in ['points', 'normals', 'distances', 'directions']:
             DepthIO.write(f, key, patches[key].numpy())
         DepthIO.write(f, 'item_id', patches['item_id'])
-        DepthIO.write(f, 'orig_vert_indices', patches['orig_vert_indices'].numpy().astype('int32'))
-        DepthIO.write(f, 'orig_face_indexes', patches['orig_face_indexes'].numpy().astype('int32'))
+        DepthIO.write(f, 'orig_vert_indices', patches['orig_vert_indices'].numpy())
+        DepthIO.write(f, 'orig_face_indexes', patches['orig_face_indexes'].numpy())
         DepthIO.write(f, 'has_sharp', patches['has_sharp'].numpy().astype(np.bool))
         DepthIO.write(f, 'num_sharp_curves', patches['num_sharp_curves'].numpy())
         DepthIO.write(f, 'num_surfaces', patches['num_surfaces'].numpy())
-
