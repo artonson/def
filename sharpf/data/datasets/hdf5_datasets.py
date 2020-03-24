@@ -40,7 +40,7 @@ class Hdf5File(Dataset):
         self.data_label = data_label
         self.target_label = target_label
         self.default_labels = [data_label, target_label]
-        self.labels = list(set.union(labels or [], self.default_labels))
+        self.labels = list(set.union(set(labels or []), set(self.default_labels)))
         self.transform = transform
         self.target_transform = target_transform
         self.items = None  # this is where the data internally is read to
