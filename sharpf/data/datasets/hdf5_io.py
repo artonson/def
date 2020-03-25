@@ -11,7 +11,7 @@ class HDF5Dataset:
         self.dtype = dtype
 
     @property
-    def is_varlen(self):
+    def is_fixed_len(self):
         return True
 
     def set(self, hdf5_file, data):
@@ -46,7 +46,7 @@ class AsciiString(HDF5Dataset):
 
 class VariableLenDataset(HDF5Dataset):
     @property
-    def is_varlen(self):
+    def is_fixed_len(self):
         return False
 
 
@@ -83,11 +83,11 @@ def collate_mapping_with_io(batch_mapping, io):
     def _batch_keys_subset(batch_mapping, keys):
         return [{key: mapping[key] for key in keys} for mapping in batch_mapping]
 
-    fixlen_keys = [key for key, value in io.datasets.items() if not value.is_varlen]
+    fixlen_keys = [key for key, value in io.datasets.items() if value.is_fixed_len]
     fixlen_collatable = _batch_keys_subset(batch_mapping, fixlen_keys)
     fixlen_collated = default_collate(fixlen_collatable)
 
-    varlen_keys = [key for key, value in io.datasets.items() if value.is_varlen]
+    varlen_keys = [key for key, value in io.datasets.items() if not value.is_fixed_len]
     varlen_collatable = _batch_keys_subset(batch_mapping, varlen_keys)
     varlen_collated = collate_varlen_to_list(varlen_collatable)
 
