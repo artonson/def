@@ -56,7 +56,7 @@ class Hdf5File(Dataset):
             else:
                 labels = set(labels)
 
-        default_labels = {[label for label in [data_label, target_label] if label is not None]}
+        default_labels = set([label for label in [data_label, target_label] if label is not None])
         self.labels = list(default_labels.union(labels))
 
         if preload:
