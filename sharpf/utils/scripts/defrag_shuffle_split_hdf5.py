@@ -64,7 +64,7 @@ class BufferedHDF5Writer(object):
 
 
 def main(options):
-    batch_size = 128
+    batch_size = min(128, options.num_items_per_file)
     loader = DataLoader(
         LotsOfHdf5Files(
             data_dir=options.hdf5_input_dir,
