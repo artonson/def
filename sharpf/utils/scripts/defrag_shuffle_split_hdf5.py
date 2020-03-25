@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import collections
 import os
 import sys
 from functools import partial
@@ -37,11 +38,15 @@ class BufferedHDF5Writer(object):
             self._flush()
 
     def append(self, data):
+        assert isinstance(data, collections.abc.Mapping)
         self.data.append(data)
         self.check_flush()
 
     def extend(self, data):
-        self.data.extend(data)
+        self.data.extend([
+            dict(zip(data, item_values))
+            for item_values in zip(*data.values())
+        ])
         self.check_flush()
 
     def check_flush(self):
@@ -59,12 +64,6 @@ class BufferedHDF5Writer(object):
 
 
 def main(options):
-    # TODO:
-    #  1) understand the logic of dataloader in pytorch, and whether raw dataloader may be used (without BufferedHDF5Writer);
-    #  2) understand how one should implement collate to ensure building a patch is a) correct and b) generic;
-    #  3) understand if any modifications must be made to mesh denoising/vector fields
-    #  4) rewrite LotsOfHdf5Files with custom data/target labels
-
     batch_size = 128
     loader = DataLoader(
         LotsOfHdf5Files(
