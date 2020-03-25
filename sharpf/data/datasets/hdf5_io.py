@@ -14,8 +14,8 @@ class HDF5Dataset:
     def is_fixed_len(self):
         return True
 
-    def set(self, hdf5_file, data):
-        hdf5_file.create_dataset(self.name, data=data, dtype=self.dtype)
+    def set(self, hdf5_file, data, compression=None):
+        hdf5_file.create_dataset(self.name, data=data, dtype=self.dtype, compression=compression)
 
     def get(self, hdf5_file):
         return np.array(hdf5_file[self.name]).astype(self.dtype)
@@ -40,8 +40,8 @@ class AsciiString(HDF5Dataset):
     def __init__(self, name):
         super().__init__(name, dtype=h5py.string_dtype(encoding='ascii'))
 
-    def set(self, hdf5_file, data):
-        hdf5_file.create_dataset(self.name, data=np.string_(data), dtype=self.dtype)
+    def set(self, hdf5_file, data, compression=None):
+        hdf5_file.create_dataset(self.name, data=np.string_(data), dtype=self.dtype, compression=compression)
 
 
 class VariableLenDataset(HDF5Dataset):
@@ -54,20 +54,21 @@ class VarInt32(VariableLenDataset):
     def __init__(self, name):
         super().__init__(name, dtype=h5py.special_dtype(vlen=np.int32))
 
-    def set(self, hdf5_file, data):
-        dataset = hdf5_file.create_dataset(self.name, shape=(len(data), ), dtype=self.dtype)
+    def set(self, hdf5_file, data, compression=None):
+        dataset = hdf5_file.create_dataset(self.name, shape=(len(data), ), dtype=self.dtype, compression=compression)
         for i, item in enumerate(data):
             dataset[i] = item
 
 
 class HDF5IO:
-    def __init__(self, datasets, len_label):
+    def __init__(self, datasets, len_label, compression=None):
         self.datasets = datasets
         self.len_label = len_label
+        self.compression = compression
 
     def write(self, hdf5_file, label, value):
         dataset = self.datasets[label]
-        dataset.set(hdf5_file, value)
+        dataset.set(hdf5_file, value, compression=self.compression)
 
     def read(self, hdf5_file, label):
         dataset = self.datasets[label]
