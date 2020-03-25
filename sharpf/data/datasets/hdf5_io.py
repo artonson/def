@@ -1,11 +1,18 @@
+import collections
+
 import h5py
 import numpy as np
+from torch.utils.data._utils.collate import default_collate
 
 
 class HDF5Dataset:
     def __init__(self, name, dtype):
         self.name = name
         self.dtype = dtype
+
+    @property
+    def is_varlen(self):
+        return True
 
     def set(self, hdf5_file, data):
         hdf5_file.create_dataset(self.name, data=data, dtype=self.dtype)
@@ -37,7 +44,13 @@ class AsciiString(HDF5Dataset):
         hdf5_file.create_dataset(self.name, data=np.string_(data), dtype=self.dtype)
 
 
-class VarInt32(HDF5Dataset):
+class VariableLenDataset(HDF5Dataset):
+    @property
+    def is_varlen(self):
+        return False
+
+
+class VarInt32(VariableLenDataset):
     def __init__(self, name):
         super().__init__(name, dtype=h5py.special_dtype(vlen=np.int32))
 
@@ -62,3 +75,27 @@ class HDF5IO:
 
     def length(self, hdf5_file):
         return len(hdf5_file[self.len_label])
+
+
+def collate_mapping_with_io(batch_mapping, io):
+    assert isinstance(batch_mapping[0], collections.abc.Mapping)
+
+    def _batch_keys_subset(batch_mapping, keys):
+        return [{key: mapping[key] for key in keys} for mapping in batch_mapping]
+
+    fixlen_keys = [key for key, value in io.dataset.items() if not value.is_varlen]
+    fixlen_collatable = _batch_keys_subset(batch_mapping, fixlen_keys)
+    fixlen_collated = default_collate(fixlen_collatable)
+
+    varlen_keys = [key for key, value in io.dataset.items() if value.is_varlen]
+    varlen_collatable = _batch_keys_subset(batch_mapping, varlen_keys)
+    varlen_collated = collate_varlen_to_list(varlen_collatable)
+
+    return [{**fixlen_item, **varlen_item}
+            for fixlen_item, varlen_item in zip(fixlen_collated, varlen_collated)]
+
+
+def collate_varlen_to_list(batch):
+    # creates a list of variable-length sequences
+    return {key: [d[key] for d in batch]
+            for key in batch[0]}

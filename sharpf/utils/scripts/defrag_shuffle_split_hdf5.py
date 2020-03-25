@@ -3,6 +3,7 @@
 import argparse
 import os
 import sys
+from functools import partial
 
 from torch.utils.data import DataLoader
 
@@ -14,6 +15,7 @@ sys.path[1:1] = [__dir__]
 
 from sharpf.data.datasets.hdf5_datasets import LotsOfHdf5Files
 from sharpf.data.datasets.sharpf_io import save_point_patches, DepthIO
+from sharpf.data.datasets.hdf5_io import collate_mapping_with_io
 
 
 class BufferedHDF5Writer(object):
@@ -75,6 +77,7 @@ def main(options):
         num_workers=options.n_jobs,
         batch_size=batch_size,
         shuffle=options.random_shuffle,
+        collate_fn=partial(collate_mapping_with_io, io=DepthIO),
         # worker_init_fn=worker_init_fn,
     )
 
