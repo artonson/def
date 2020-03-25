@@ -113,10 +113,8 @@ class Hdf5File(Dataset):
 
 
 class LotsOfHdf5Files(Dataset):
-    def __init__(self, data_dir, io, data_label, target_label, labels=None, partition=None,
+    def __init__(self, data_dir, io, data_label=None, target_label=None, labels=None, partition=None,
                  transform=None, target_transform=None, max_loaded_files=0):
-        self.data_label = data_label
-        self.target_label = target_label
         if None is not partition:
             data_dir = os.path.join(data_dir, partition)
         filenames = glob.glob(os.path.join(data_dir, '*.hdf5'))
