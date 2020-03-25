@@ -31,7 +31,7 @@ class Hdf5File(Dataset):
         :param io: HDF5IO object serving as a I/O interface to the HDF5 data files
         :param data_label: string label in HDF5 dataset corresponding to data to train from
         :param target_label: string label in HDF5 dataset corresponding to targets
-        :param labels: a list of HDF5 dataset labels to read off the file
+        :param labels: a list of HDF5 dataset labels to read off the file ('*' for ALL keys)
         :param preload: if True, data is read off disk in constructor; otherwise load lazily
         :param transform: callable implementing data transform (e.g., adding noise)
         :param target_transform: callable implementing target transform
@@ -51,6 +51,8 @@ class Hdf5File(Dataset):
             self.num_items = self._get_length(f)
             if labels == '*':
                 labels = set(f.keys())
+            elif None is labels:
+                labels = set()
 
         self.labels = list(self.default_labels.union(set(labels)))
 
