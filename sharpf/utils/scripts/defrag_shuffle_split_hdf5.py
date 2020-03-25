@@ -70,8 +70,6 @@ def main(options):
         LotsOfHdf5Files(
             data_dir=options.hdf5_input_dir,
             io=DepthIO,
-            data_label=options.data_label,
-            target_label=options.target_label,
             labels=options.keys or '*',
             max_loaded_files=10),
         num_workers=options.n_jobs,

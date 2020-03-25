@@ -23,7 +23,7 @@ class Random3DRotationAndScale(Callable):
 
 
 class Hdf5File(Dataset):
-    def __init__(self, filename, io, data_label, target_label, labels=None, preload=True,
+    def __init__(self, filename, io, data_label=None, target_label=None, labels=None, preload=True,
                  transform=None, target_transform=None):
         """Represents HDF5 dataset contained in a single HDF5 file.
 
@@ -37,15 +37,15 @@ class Hdf5File(Dataset):
         :param target_transform: callable implementing target transform
         """
         self.filename = os.path.normpath(os.path.realpath(filename))
+        assert not all([value is None for value in [data_label, target_label, labels]]), \
+            'Specify value for at least data_label, target_label, or labels'
+
         self.data_label = data_label
         self.target_label = target_label
-        self.default_labels = {data_label, target_label}
         self.transform = transform
         self.target_transform = target_transform
         self.items = None  # this is where the data internally is read to
         self.io = io
-        if preload:
-            self.reload()
 
         with h5py.File(self.filename, 'r') as f:
             self.num_items = self._get_length(f)
@@ -53,8 +53,14 @@ class Hdf5File(Dataset):
                 labels = set(f.keys())
             elif None is labels:
                 labels = set()
+            else:
+                labels = set(labels)
 
-        self.labels = list(self.default_labels.union(set(labels)))
+        default_labels = {[label for label in [data_label, target_label] if label is not None]}
+        self.labels = list(default_labels.union(labels))
+
+        if preload:
+            self.reload()
 
     def _get_length(self, hdf5_file):
         try:
@@ -72,23 +78,25 @@ class Hdf5File(Dataset):
         if not self.is_loaded():
             self.reload()
 
-        data_items, target_items = self.items[self.data_label], \
-                                   self.items[self.target_label]
-        data, target = torch.from_numpy(data_items[index]), \
-                       torch.from_numpy(target_items[index])
-
-        if self.transform is not None:
-            data = self.transform(data)
-
-        if self.target_transform is not None:
-            target = self.target_transform(target)
-
         item = {label: self.items[label][index]
                 for label in self.labels}
-        item.update({
-            self.data_label: data,
-            self.target_label: target,
-        })
+
+        if None is not self.data_label:
+            data = torch.from_numpy(self.items[self.data_label][index])
+
+            if self.transform is not None:
+                data = self.transform(data)
+
+            item.update({self.data_label: data})
+
+        if None is not self.target_label:
+            target = torch.from_numpy(self.items[self.target_label][index])
+
+            if self.target_transform is not None:
+                target = self.target_transform(target)
+
+            item.update({self.target_label: target})
+
         return item
 
     def reload(self):
