@@ -91,8 +91,7 @@ def collate_mapping_with_io(batch_mapping, io):
     varlen_collatable = _batch_keys_subset(batch_mapping, varlen_keys)
     varlen_collated = collate_varlen_to_list(varlen_collatable)
 
-    return [{**fixlen_item, **varlen_item}
-            for fixlen_item, varlen_item in zip(fixlen_collated, varlen_collated)]
+    return {**fixlen_collated, **varlen_collated}
 
 
 def collate_varlen_to_list(batch):
