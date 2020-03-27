@@ -84,6 +84,7 @@ singularity exec \
   --bind ${CODE_PATH_HOST}:${CODE_PATH_CONTAINER} \
   --bind "${INPUT_PATH_HOST}":${INPUT_PATH_CONTAINER} \
   --bind "${OUTPUT_PATH_HOST}":${OUTPUT_PATH_CONTAINER} \
+  --bind /gpfs:/gpfs \
   --bind "${PWD}":/run/user \
   "${SIMAGE_FILENAME}" \
       "python3 ${MAKE_DATA_SCRIPT} \\

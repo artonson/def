@@ -70,7 +70,7 @@ def main(options):
             data_dir=options.hdf5_input_dir,
             io=DepthIO,
             labels=options.keys or '*',
-            max_loaded_files=10),
+            max_loaded_files=options.max_loaded_files),
         num_workers=options.n_jobs,
         batch_size=batch_size,
         shuffle=options.random_shuffle,
@@ -120,6 +120,8 @@ def parse_options():
                              '(can me multiple; empty means ALL encountered keys).')
     parser.add_argument('-j', '--jobs', dest='n_jobs',
                         type=int, default=4, help='CPU jobs to use in parallel [default: 4].')
+    parser.add_argument('-x', '--max-loaded-files', dest='max_loaded_files',
+                        type=int, default=10, help='max loaded sourcec HDF5 files.')
 
     parser.add_argument('-v', '--verbose', dest='verbose', action='store_true',
                         default=False, help='overwrite existing files.')
