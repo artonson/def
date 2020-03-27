@@ -11,16 +11,17 @@ __dir__ = os.path.normpath(
 sys.path[1:1] = [__dir__]
 
 from sharpf.data.datasets.hdf5_datasets import Hdf5File, LotsOfHdf5Files
+from sharpf.data.datasets.sharpf_io import DepthIO
 
 
 def main(options):
 
     if None is not options.h5_input:
-        h5_file = Hdf5File(options.h5_input, None, None, preload=False)
+        h5_file = Hdf5File(options.h5_input, DepthIO, labels='*', preload=False)
         print('{} items in {}'.format(len(h5_file), h5_file.filename))
     else:
         assert None is not options.h5_input_dir
-        lots = LotsOfHdf5Files(options.h5_input_dir, None, None)
+        lots = LotsOfHdf5Files(options.h5_input_dir, DepthIO, labels='*')
         if not options.total_only:
             for h5_file in lots.files:
                 print('{} items in {}'.format(len(h5_file), h5_file.filename))

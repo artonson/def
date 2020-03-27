@@ -4,7 +4,7 @@
 #SBATCH --output=make_canonical_datasets_%A.out
 #SBATCH --error=make_canonical_datasets_%A.err
 #SBATCH --time=2:00:00
-#SBATCH --partition=cpu_big
+#SBATCH --partition=mem_small
 #SBATCH --cpus-per-task=16
 #SBATCH --ntasks=1
 #SBATCH --mem=80000
@@ -74,11 +74,12 @@ echo "  input path:           ${INPUT_PATH_CONTAINER}"
 echo "  output path:          ${OUTPUT_PATH_CONTAINER}"
 echo "  "
 
-N_TASKS=16
+N_TASKS=${SLURM_CPUS_PER_TASK}
 MAKE_DATA_SCRIPT="${CODE_PATH_CONTAINER}/sharpf/utils/scripts/defrag_shuffle_split_hdf5.py"
 CHUNK_SIZE=16000
 TRAIN_FRACTION=0.8
 RANDOM_SEED=9675
+MAX_LOADED_FILES=10
 
 singularity exec \
   --bind ${CODE_PATH_HOST}:${CODE_PATH_CONTAINER} \
@@ -87,7 +88,8 @@ singularity exec \
   --bind /gpfs:/gpfs \
   --bind "${PWD}":/run/user \
   "${SIMAGE_FILENAME}" \
-      "python3 ${MAKE_DATA_SCRIPT} \\
+      bash -c 'export OMP_NUM_THREADS='"${SLURM_CPUS_PER_TASK}; \\
+      python3 ${MAKE_DATA_SCRIPT} \\
         --input-dir ${INPUT_PATH_CONTAINER} \\
         --output-dir ${OUTPUT_PATH_CONTAINER} \\
         --num-items-per-file ${CHUNK_SIZE} \\
@@ -95,4 +97,5 @@ singularity exec \
         --random-shuffle \\
         --random-seed ${RANDOM_SEED} \\
         --jobs ${N_TASKS} \\
+        --max-loaded-files ${MAX_LOADED_FILES} \\
          ${VERBOSE_ARG}"

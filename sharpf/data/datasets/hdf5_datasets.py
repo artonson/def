@@ -9,6 +9,7 @@ from torch.utils.data import Dataset
 
 from sharpf.utils.common import eprint
 from sharpf.utils.matrix_torch import random_3d_rotation_and_scale
+from sharpf.utils.parallel import threaded_parallel
 
 
 class Random3DRotationAndScale(Callable):
@@ -112,15 +113,16 @@ class Hdf5File(Dataset):
         self.items = None
 
 
+
 class LotsOfHdf5Files(Dataset):
     def __init__(self, data_dir, io, data_label=None, target_label=None, labels=None, partition=None,
                  transform=None, target_transform=None, max_loaded_files=0):
         if None is not partition:
             data_dir = os.path.join(data_dir, partition)
         filenames = glob.glob(os.path.join(data_dir, '*.hdf5'))
-        self.files = [Hdf5File(filename, io, data_label, target_label, labels=labels,
-                               transform=transform, target_transform=target_transform, preload=False)
-                      for filename in filenames]
+        _hdf5_creator = lambda filename: Hdf5File(filename, io, data_label, target_label, labels=labels,
+                                                  transform=transform, target_transform=target_transform, preload=False)
+        self.files = [hdf5_file for hdf5_file in threaded_parallel(_hdf5_creator, filenames)]
         self.cum_num_items = np.cumsum([len(f) for f in self.files])
         self.current_file_idx = 0
         self.max_loaded_files = max_loaded_files
