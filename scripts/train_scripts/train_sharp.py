@@ -21,6 +21,7 @@ __dir__ = os.path.normpath(
 sys.path[1:1] = [__dir__]
 
 from sharpf.data.datasets.hdf5_datasets import LotsOfHdf5Files
+from sharpf.data.datasets.sharpf_io import DepthIO
 from sharpf.models import load_model
 from sharpf.modules.losses import bce_loss, smooth_l1_loss, smooth_l1_reg_loss
 from sharpf.utils.logging import create_logger
@@ -41,10 +42,11 @@ def make_loaders_fn(options):
         DataLoader(
             LotsOfHdf5Files(
                 data_dir=options.data_root,
+                io=DepthIO,
                 partition='train',
                 data_label=options.data_label,
                 target_label=options.target_label,
-                max_loaded_files=10),
+                max_loaded_files=1),
             num_workers=num_workers,
             batch_size=options.train_batch_size,
             shuffle=False,
@@ -53,10 +55,11 @@ def make_loaders_fn(options):
         DataLoader(
             LotsOfHdf5Files(
                 data_dir=options.data_root,
+                io=DepthIO,
                 partition='val',
                 data_label=options.data_label,
                 target_label=options.target_label,
-                max_loaded_files=10,
+                max_loaded_files=1,
             ),
             batch_size=options.val_batch_size,
             shuffle=False,
@@ -64,8 +67,8 @@ def make_loaders_fn(options):
         None  # add mini val
 
 
-def prepare_batch_on_device(batch_data, device):
-    data, label = batch_data
+def prepare_batch_on_device(batch_data, device, data_label, target_label):
+    data, label = batch_data[data_label], batch_data[target_label]
     data = data.float().to(device, non_blocking=True)
     label = label.float().to(device, non_blocking=True).squeeze()
     return data, label
@@ -165,7 +168,7 @@ def main(options):
             # Run through validation dataset
 
             with logger.print_duration('    preparing batch on device'):
-                data, label = prepare_batch_on_device(batch_data_val, device)
+                data, label = prepare_batch_on_device(batch_data_val, device, options.data_label, options.target_label)
 
             with torch.no_grad():
                 with logger.print_duration('    forward pass'):
@@ -187,7 +190,7 @@ def main(options):
         class _Loader:
             def __iter__(self):
                 for batch_data_val in loader:
-                    yield prepare_batch_on_device(batch_data_val, device)
+                    yield prepare_batch_on_device(batch_data_val, device, options.data_label, options.target_label)
 
         _loader = _Loader()
 
@@ -214,7 +217,7 @@ def main(options):
             # Train for one batch
             logger.info('Training batch {}'.format(batch_i))
             with logger.print_duration('    preparing batch on device'):
-                data, label = prepare_batch_on_device(batch_data, device)
+                data, label = prepare_batch_on_device(batch_data, device, options.data_label, options.target_label)
             with logger.print_duration('    forward pass'):
                 preds = model.forward(data)  # model returns x, (f1, f2, f3), saving only x
             loss = criterion(preds, label)
