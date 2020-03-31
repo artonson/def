@@ -10,7 +10,6 @@ import re
 import os
 from operator import attrgetter
 
-import py7zlib
 
 from sharpf.utils.namedtuple import namedtuple_with_defaults as namedtuple
 
@@ -105,6 +104,16 @@ class AbstractABCDataHolder(Mapping, Iterable, AbstractContextManager, ABC):
     @abstractmethod
     def __contains__(self, key): pass
 
+    @abstractmethod
+    def keys(self): pass
+
+    @abstractmethod
+    def values(self): pass
+
+    @abstractmethod
+    def items(self): pass
+
+
 # ABCItem is the primary data instance in ABC, containing
 # all the modalities in the form of bitstreams, supporting
 # file-like interfacing e.g. `.read()`.
@@ -124,40 +133,38 @@ def values_attrgetter(d, attr):
     return {key: attrgetter(attr)(value) for key, value in d.items()}
 
 
-class ABC7ZFile(AbstractABCDataHolder):
-    """A helper class for reading 7z files."""
-
-    def __init__(self, filename):
-        self._unset_handles()
-        self.filename = filename
-        try:
-            self.modality = _extract_modality(filename)
-        except:
-            raise ValueError('cannot understand data modality for file "{}"'.format(self.filename))
-        if self.modality not in ALL_ABC_MODALITIES:
-            raise ValueError('unknown modality: "{}"'.format(self.modality))
-        self._open()
-
-    def _unset_handles(self):
-        self.filename = None
-        self.modality = None
-        self.file_handle = None
-        self.archive_handle = None
-        self._names_list = None
-        self._names_set = None
-
-    def _open(self):
-        self.file_handle = open(self.filename, 'rb')
-        self.archive_handle = py7zlib.Archive7z(self.file_handle)
-        self._names_list = self.archive_handle.getnames()
-        self._names_set = set(self._names_list)
+class StringIndexHolder(Mapping, Iterable):
+    """ Helper class providing fast lookups in a list of strings.
+    """
+    def __init__(self, string_list):
+        self._string_list = string_list
+        self._string_set = set(self._string_list)
         self._name_by_id = OrderedDict([
             (_extract_inar_id(name), name) for name in self._names_list
         ])
-        self.format = self._names_list[0].split('.')[-1]
+
+    def __contains__(self, key):
+        return key in self._string_set
+
+
+
+class ABC7ZFile(AbstractABCDataHolder):
+    """A helper class for reading 7z files."""
+
+    def __init__(self, data_provider):
+        self._unset_handles()
+        self._data_provider = data_provider
+        self._open()
+
+    def _unset_handles(self):
+        self.modality = None
+        self._index_holder = None
+
+    def _open(self):
+        self._index_holder = StringIndexHolder(self._data_provider.get_names_list())
 
     def close(self):
-        self.file_handle.close()
+        self._data_provider.close()
         self._unset_handles()
 
     def _check_open(self):
@@ -165,7 +172,7 @@ class ABC7ZFile(AbstractABCDataHolder):
             raise ValueError('I/O operation on closed file.')
 
     def __contains__(self, key):
-        return key in self._names_set or key in self._name_by_id
+        return key in self._index_holder
 
     @property
     def ids(self):
@@ -190,7 +197,7 @@ class ABC7ZFile(AbstractABCDataHolder):
         else:
             raise KeyError('Archive does not contain requested object "{}"'.format(key))
 
-        bytes_io = BytesIO(self.archive_handle.getmember(archive_pathname).read())
+        bytes_io = self._data_provider.get_item_by_name(archive_pathname)
         return ABCItem(self.filename, archive_pathname, item_id, **{self.modality: bytes_io})
 
     def __iter__(self):
@@ -200,7 +207,7 @@ class ABC7ZFile(AbstractABCDataHolder):
 
     def _isopen(self):
         return all(obj is not None for obj in
-                   [self.filename, self.modality, self.file_handle,
+                   [self._data_provider, self.modality,
                     self.archive_handle, self._names_list, self._names_set])
 
     def __len__(self):
