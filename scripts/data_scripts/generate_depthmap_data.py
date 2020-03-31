@@ -83,10 +83,11 @@ def get_annotated_patches(item, config):
     # generate camera poses
     scanning_sequence.prepare(scanning_radius=np.max(mesh.bounding_box.extents) + 1.0)
 
-    for image_idx in range(scanning_sequence.n_images):
+    for mesh, camera_pose in scanning_sequence.iterate_camera_poses(mesh):
+        # for image_idx in range(scanning_sequence.n_perspectives * scanning_sequence.n_images_per_perspective):
         # prepare the mesh for rendering: rotate according to a certain
-        mesh, camera_pose = scanning_sequence.next_camera_pose(mesh)
-        
+        # mesh, camera_pose = scanning_sequence.next_camera_pose(mesh)
+
         # extract neighbourhood
         try:
             ray_indexes, points, normals, nbhood, mesh_vertex_indexes, mesh_face_indexes = \
@@ -156,7 +157,7 @@ def save_point_patches(point_patches, output_file):
         vert_dataset = hdf5file.create_dataset('orig_vert_indices',
                                                shape=mesh_vertex_indexes.shape,
                                                dtype=h5py.special_dtype(vlen=np.int32))
-        
+
         for i, vert_indices in enumerate(mesh_vertex_indexes):
             vert_dataset[i] = vert_indices.flatten()
 

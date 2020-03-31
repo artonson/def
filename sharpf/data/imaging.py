@@ -45,6 +45,8 @@ class RaycastingImaging(ImagingFunc):
         if any(value is None for value in [self.rays_screen_coords, self.rays_origins, self.rays_directions]):
             raise DataGenerationException('Raycasting was not prepared')
 
+        mesh.apply_translation([0, 0, z_shift])
+
         # get a point cloud with corresponding indexes
         mesh_face_indexes, ray_indexes, points = ray_cast_mesh(
             mesh, self.rays_origins, self.rays_directions)
@@ -76,14 +78,14 @@ class RaycastingImaging(ImagingFunc):
         return image.squeeze()
 
     # TODO implement `image_to_points`
-    # def image_to_points(self, image):
-    #     points = np.zeros((self.resolution_image * self.resolution_image, 3))
-    #     points[:, 0] = self.rays_origins[:, 0]
-    #     points[:, 1] = self.rays_origins[:, 1]
-    #
-    #     xy_to_ij = self.rays_screen_coords[ray_indexes]
-    #     points[:, 2] = image[xy_to_ij[:, 0], xy_to_ij[:, 1]]
-    #     return points
+    def image_to_points(self, image):
+        points = np.zeros((self.resolution_image * self.resolution_image, 3))
+        points[:, 0] = self.rays_origins[:, 0]
+        points[:, 1] = self.rays_origins[:, 1]
+
+        xy_to_ij = self.rays_screen_coords[ray_indexes]
+        points[:, 2] = image[xy_to_ij[:, 0], xy_to_ij[:, 1]]
+        return points
 
 
 IMAGING_BY_TYPE = {
@@ -92,8 +94,9 @@ IMAGING_BY_TYPE = {
 
 class ScanningSequence(ABC):
     """Implements obtaining camera poses."""
-    def __init__(self, n_images):
-        self.n_images = n_images
+    def __init__(self, n_perspectives, n_images_per_perspective):
+        self.n_images = n_perspectives
+        self.n_images_per_perspective = n_images_per_perspective
 
     @classmethod
     def from_config(cls, config):
@@ -112,36 +115,69 @@ class ScanningSequence(ABC):
         """
         pass
 
+    def next_image(self, mesh):
+        """Translate mesh to capture next object part.
+
+            :param mesh: mesh in the camera pose
+            :type
+
+            :returns: (mesh, point): translated mesh, mesh point moved to origin
+            :rtype:
+
+        """
+
 
 class FibonacciSamplingScanningSequence(ScanningSequence):
-    def __init__(self, n_images):
-        super().__init__(n_images)
-        self.camera_poses = None
+    def __init__(self, n_perspectives, n_images_per_perspective):
+        super().__init__(n_perspectives, n_images_per_perspective)
+        self.camera_poses, self.transforms = None, None
         self.current_pose_index = 0
 
     def prepare(self, scanning_radius):
         # scanning radius is determined from the mesh extent
         self.camera_poses = fibonacci_sphere_sampling(
-            self.n_images, radius=scanning_radius)
+            self.n_perspectives, radius=scanning_radius)
+        #creating transforms matrices
+        self.transforms = [] # replace with numpy array
+        for pose in self.camera_poses:
+            angles = euclid_to_sphere(pose)  # [0, theta, phi]
+            self.transforms = from_pose(angles, [0, 0, 0])  # rotation + translation
+
         self.current_pose_index = 0
 
-    def next_camera_pose(self, mesh):
+    def next_camera_pose(self, mesh, images_sampling):
         if None is self.camera_poses:
             raise DataGenerationException('Raycasting was not prepared')
 
-        pose = self.camera_poses[self.current_pose_index]
-        angles = euclid_to_sphere(pose)  # [0, theta, phi]
-        transform = from_pose(angles, [0, 0, 0])  # rotation + translation
+        transform = self.transforms[self.current_pose_index]
 
         # z_shift = -3
         mesh_transformed = mesh.copy()
         mesh_transformed.apply_transform(transform)
         # mesh_transformed.apply_translation([0, 0, z_shift])
 
-        self.current_pose_index += 1
+        top_left, bottom_right = mesh.bounding_box.bounds
+        # sample images origins on the mesh surface
+
+        if self.current_image_index == 0.0:
+            self.images = images_sampling.prepare(top_left, bottom_right)
+            self.current_image_index = len(images)
+            self.current_pose_index += 1
+
+        # translate mesh to image
+        x, y  = self.images[self.current_image_index]
+        mesh_transformed.apply_transform([-x, -y, 0])
+
         return mesh_transformed, pose
+
+    def iterate_camera_poses(self, mesh):
+        mesh_transformed, camera_pose = self.next_camera_pose(mesh)
+
 
 
 SCANNING_SEQ_BY_TYPE = {
     'fibonacci_sampling': FibonacciSamplingScanningSequence
+}
+IMAGES_SAMPLING_BY_TYPE = {
+    'poisson_disc_sampling': PoissonDiscSamplingImages
 }

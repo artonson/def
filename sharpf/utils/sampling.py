@@ -35,3 +35,14 @@ def fibonacci_sphere_sampling(number_of_views=1, seed=None, radius=1.0, positive
             points.append([radius * x, radius * y, radius * z])
 
     return points
+
+def poisson_disc_sampling(number_of_views, seed=None):
+    # Returns [x, y] tuples of a Two Dimensional Poisson Disc Sampling
+    # source https://www.cs.ubc.ca/~rbridson/docs/bridson-siggraph07-poissondisk.pdf
+    # implementation https://github.com/emulbreh/bridson
+    #
+
+    from bridson import poisson_disc_samples
+    points = poisson_disc_samples(width, height, r, k=5, distance=euclidean_distance, random=random)
+
+    return points
