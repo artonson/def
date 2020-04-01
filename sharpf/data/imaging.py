@@ -92,6 +92,27 @@ IMAGING_BY_TYPE = {
     'raycasting': RaycastingImaging,
 }
 
+class PoissonDiscSamplingImages():
+    def __init__(self, radius, K, random_seed=42):
+        self.K = K
+        self.radius = radius
+        self.points = None
+        self.seed = random_seed
+
+    def prepare(self, width, height):
+        ''''''
+        self.points = poisson_disc_sampling(width, height, r=self.radius, k=self.K, seed=self.seed)
+
+    def __len__(self):
+        if self.points is not None:
+            return len(self.points)
+        else:
+            return 0
+
+    def __getitem__(self, item):
+        return self.points[item]
+
+
 class ScanningSequence(ABC):
     """Implements obtaining camera poses."""
     def __init__(self, n_perspectives, n_images_per_perspective):
@@ -133,10 +154,14 @@ class FibonacciSamplingScanningSequence(ScanningSequence):
         self.camera_poses, self.transforms = None, None
         self.current_pose_index = 0
 
-    def prepare(self, scanning_radius):
+    def prepare(self, scanning_radius, image_sampling_method, image_sampling_params):
         # scanning radius is determined from the mesh extent
         self.camera_poses = fibonacci_sphere_sampling(
             self.n_perspectives, radius=scanning_radius)
+
+        # prepare image-points sampling method
+        self.image_sampling = IMAGES_SAMPLING_BY_TYPE[image_sampling_method](image_sampling_params)
+
         #creating transforms matrices
         self.transforms = [] # replace with numpy array
         for pose in self.camera_poses:
@@ -145,11 +170,11 @@ class FibonacciSamplingScanningSequence(ScanningSequence):
 
         self.current_pose_index = 0
 
-    def next_camera_pose(self, mesh, images_sampling):
+    def next_camera_pose(self, mesh):
         if None is self.camera_poses:
             raise DataGenerationException('Raycasting was not prepared')
 
-        transform = self.transforms[self.current_pose_index]
+        transform = self.transforms[self.current_pose_index+int(self.current_image_index == 0.0)]
 
         # z_shift = -3
         mesh_transformed = mesh.copy()
@@ -160,19 +185,23 @@ class FibonacciSamplingScanningSequence(ScanningSequence):
         # sample images origins on the mesh surface
 
         if self.current_image_index == 0.0:
-            self.images = images_sampling.prepare(top_left, bottom_right)
-            self.current_image_index = len(images)
+            width, height = bottom_right[0] - top_left[0], top_left[1] - bottom_right[1]
+            self.image_sampling.prepare(width, height)
+            self.current_image_index = len(self.image_sampling)
             self.current_pose_index += 1
 
         # translate mesh to image
-        x, y  = self.images[self.current_image_index]
-        mesh_transformed.apply_transform([-x, -y, 0])
+        self.current_image_index -= 1
+        x, y = self.image_sampling[self.current_image_index]
+        mesh_transformed.apply_translation([-x, -y, 0])
 
         return mesh_transformed, pose
 
     def iterate_camera_poses(self, mesh):
-        mesh_transformed, camera_pose = self.next_camera_pose(mesh)
-
+        i = 0
+        while i < self.n_images * self.n_images_per_perspective:
+            yield self.next_camera_pose(mesh)
+            i += 1
 
 
 SCANNING_SEQ_BY_TYPE = {
