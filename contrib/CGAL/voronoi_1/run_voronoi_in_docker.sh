@@ -89,7 +89,4 @@ docker run \
     -v ${HOST_DATA_DIR}:${CONT_DATA_DIR} \
     -v ${HOST_LOG_DIR}:${CONT_LOG_DIR} \
     --workdir ${CONT_CODE_DIR} \
-    ${CONTAINER} /bin/bash -c "echo \"compiling /home/user/code/voronoi_1.cpp\" && \\
-                g++ -o voronoi /home/user/code/voronoi_1.cpp -lCGAL -I/CGAL-4.14.1/include -lgmp >${CONT_LOG_DIR}/out.out 2>${CONT_LOG_DIR}/err.err && \\ 
-                python src/read_data_voronoi.py -d ${CONT_DATA_DIR} -o ${CONT_DATA_DIR} -R ${RR} -r ${Rr} -t ${THRESH} && \\
-                rm -rf ${CONT_DATA_DIR}/voronoi_tmp" 
+    ${CONTAINER} /bin/bash -c "sudo chown 1000 ${CONT_LOG_DIR};echo \"compiling /home/usr/code/src/voronoi_1.cpp\"; g++ -o voronoi /home/usr/code/src/voronoi_1.cpp -lCGAL -I/CGAL-4.14.1/include -lgmp; python src/read_data_voronoi.py -d ${CONT_DATA_DIR} -o ${CONT_LOG_DIR} -R ${RR} -r ${Rr} -t ${THRESH};" 
