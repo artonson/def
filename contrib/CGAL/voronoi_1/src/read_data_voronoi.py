@@ -26,9 +26,9 @@ if __name__ == '__main__':
             threshold = sys.argv[i+1]
     print('Voronoi Method 1, parameters R={}, r={}, t={}'.format(R, r, threshold))
    
-    tmp_directory = os.path.join(out_directory, 'voronoi_tmp')
-    os.makedirs(os.path.join(out_directory, tmp_directory), exist_ok=True)
-       
+    tmp_directory = out_directory#os.path.join(out_directory, 'voronoi_tmp')
+    #os.makedirs(os.path.join(out_directory, tmp_directory), exist_ok=True)
+    
     metric_results = []
     files = os.listdir(directory)
     
@@ -66,7 +66,6 @@ if __name__ == '__main__':
                 ]
                 print('Running {}'.format(' '.join(exec_cmd)))
                 subprocess.run(exec_cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                
                 tmp_filename_classification = os.path.join(tmp_directory, 'points_classification_tmp_{}.txt'.format(i))
                 with open(tmp_filename_classification) as tmp_f:
                     classification[i] = np.array(list(map(int, tmp_f.readline().split(' ')[:-1])))[:, np.newaxis]

@@ -64,7 +64,7 @@ int main (int argc, char** argv) {
     // Find the points on the edges.
     // Note that this step is not expensive and can be done several time to get better results
     std::ofstream output(output_directory+"/points_on_edges" + name + ".xyz", std::ofstream::out);
-    std::ofstream classification(output_directory+"/" + name + ".txt",std::ofstream::out);
+    std::ofstream classification(output_directory+"/points_classification_" + name + ".txt",std::ofstream::out);
     int i = 0;
     std::cout << "Saving classification to " << output_directory + "/" + name + ".txt" << "\n";
     BOOST_FOREACH(const PointVectorPair& p, points)
