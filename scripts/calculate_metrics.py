@@ -13,12 +13,17 @@ def main(options):
     filenames = glob.glob(os.path.join(options.true_path, '*.hdf5'))
     mse_loss = []
     sl1_loss = []
-    for filename in filenames:
+    for true_pathname in filenames:
 
-        print('=== Reading file %s ===' % filename.split('/')[-1])
+        true_filename = os.path.basename(true_pathname)
+        print('=== Reading file %s ===' % true_filename)
 
-        true = torch.from_numpy(h5py.File(filename, 'r')[options.target_label][:])
-        pred = torch.from_numpy(h5py.File(options.pred_path + '/' + filename.split('/')[-1], 'r')[options.target_label][:])
+        with h5py.File(true_pathname, 'r') as f:
+            true = torch.from_numpy(f[options.target_label][:])
+
+        pred_pathname = os.path.join(options.pred_path, true_filename)
+        with h5py.File(pred_pathname, 'r') as f:
+            pred = torch.from_numpy(f[options.target_label][:])
 
         mse_loss_function = torch.nn.SmoothL1Loss(reduction='none')
         sl1_loss_function = torch.nn.MSELoss(reduction='none')
