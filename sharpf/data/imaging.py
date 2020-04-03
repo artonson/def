@@ -5,8 +5,9 @@ import numpy as np
 from sharpf.data import DataGenerationException
 from sharpf.utils.mesh_utils.indexing import reindex_zerobased
 from sharpf.utils.raycasting import generate_rays, ray_cast_mesh
-from sharpf.utils.sampling import fibonacci_sphere_sampling
+from sharpf.utils.sampling import fibonacci_sphere_sampling, poisson_disc_sampling
 from sharpf.utils.view import from_pose, euclid_to_sphere
+
 
 
 class ImagingFunc(ABC):
@@ -45,7 +46,7 @@ class RaycastingImaging(ImagingFunc):
         if any(value is None for value in [self.rays_screen_coords, self.rays_origins, self.rays_directions]):
             raise DataGenerationException('Raycasting was not prepared')
 
-        mesh.apply_translation([0, 0, z_shift])
+        #mesh.apply_translation([0, 0, z_shift])
 
         # get a point cloud with corresponding indexes
         mesh_face_indexes, ray_indexes, points = ray_cast_mesh(
@@ -99,9 +100,23 @@ class PoissonDiscSamplingImages():
         self.points = None
         self.seed = random_seed
 
+    @classmethod
+    def from_config(cls, config):
+        if 'random_seed' in config.keys():
+            return cls(config['radius'], config['K'], config['random_seed'])
+        else:
+            return cls(config['radius'], config['K'])
+
     def prepare(self, width, height):
         ''''''
         self.points = poisson_disc_sampling(width, height, r=self.radius, k=self.K, seed=self.seed)
+
+    def choose_n_points(self, n):
+        self.points = np.random.choice(self.points, size=n, replace=False)
+
+    # def _get_3d_points(self):
+    #
+    #     return points_3d
 
     def __len__(self):
         if self.points is not None:
@@ -116,12 +131,12 @@ class PoissonDiscSamplingImages():
 class ScanningSequence(ABC):
     """Implements obtaining camera poses."""
     def __init__(self, n_perspectives, n_images_per_perspective):
-        self.n_images = n_perspectives
+        self.n_perspectives = n_perspectives
         self.n_images_per_perspective = n_images_per_perspective
 
     @classmethod
     def from_config(cls, config):
-        return cls(config['n_images'])
+        return cls(config['n_images'], config['n_images_per_perspective'])
 
     @abstractmethod
     def next_camera_pose(self, mesh):
@@ -149,57 +164,76 @@ class ScanningSequence(ABC):
 
 
 class FibonacciSamplingScanningSequence(ScanningSequence):
-    def __init__(self, n_perspectives, n_images_per_perspective):
+    def __init__(self, n_perspectives, n_images_per_perspective, random_seed=None):
         super().__init__(n_perspectives, n_images_per_perspective)
         self.camera_poses, self.transforms = None, None
         self.current_pose_index = 0
+        self.seed = random_seed
 
-    def prepare(self, scanning_radius, image_sampling_method, image_sampling_params):
+    @classmethod
+    def from_config(cls, config):
+        if 'seed' in config.keys():
+            return cls(config['n_images'], config['n_images_per_perspective'], config['seed'])
+        else:
+            return cls(config['n_images'], config['n_images_per_perspective'])
+
+
+    def prepare(self, scanning_radius, image_sampling_method):#, image_sampling_params):
         # scanning radius is determined from the mesh extent
         self.camera_poses = fibonacci_sphere_sampling(
-            self.n_perspectives, radius=scanning_radius)
+            self.n_perspectives, radius=scanning_radius, seed=self.seed)
 
         # prepare image-points sampling method
-        self.image_sampling = IMAGES_SAMPLING_BY_TYPE[image_sampling_method](image_sampling_params)
+        self.image_sampling = IMAGES_SAMPLING_BY_TYPE[image_sampling_method]#.from_config(image_sampling_params)
 
         #creating transforms matrices
-        self.transforms = [] # replace with numpy array
-        for pose in self.camera_poses:
-            angles = euclid_to_sphere(pose)  # [0, theta, phi]
-            self.transforms = from_pose(angles, [0, 0, 0])  # rotation + translation
+        self.angles = np.zeros((len(self.camera_poses), 3))
+        self.transforms = np.zeros((self.n_perspectives*self.n_images_per_perspective, 4, 4))
+        for i, pose in enumerate(self.camera_poses):
+            self.angles[i] = np.array(euclid_to_sphere(pose))  # [0, theta, phi]
 
         self.current_pose_index = 0
+        self.current_image_index = 0
+        self.iteration_index = 0
 
     def next_camera_pose(self, mesh):
         if None is self.camera_poses:
             raise DataGenerationException('Raycasting was not prepared')
 
-        transform = self.transforms[self.current_pose_index+int(self.current_image_index == 0.0)]
+        angle = self.angles[self.current_pose_index+int(self.current_image_index == 0.0)]
+        if self.current_image_index > 0:
+            x, y = self.image_sampling_function[self.current_image_index]
+            translation = [-x, -y, 0]
+        else:
+            translation = [0, 0, 0]
 
-        # z_shift = -3
+        self.transforms[self.iteration_index] = from_pose(angle, translation)  # rotation
+        transform = self.transforms[self.iteration_index]
+
         mesh_transformed = mesh.copy()
         mesh_transformed.apply_transform(transform)
-        # mesh_transformed.apply_translation([0, 0, z_shift])
+        mesh_transformed.apply_translation(translation)
 
-        top_left, bottom_right = mesh.bounding_box.bounds
         # sample images origins on the mesh surface
-
         if self.current_image_index == 0.0:
-            width, height = bottom_right[0] - top_left[0], top_left[1] - bottom_right[1]
-            self.image_sampling.prepare(width, height)
-            self.current_image_index = len(self.image_sampling)
+            bottom_right, top_left = mesh.bounding_box.bounds
+            width, height = top_left[0] - bottom_right[0], top_left[1] - bottom_right[1]
+            image_sampling_params = {'radius': 2, 'K': 30}
+            self.image_sampling_function = self.image_sampling.from_config(image_sampling_params)
+            self.image_sampling_function.prepare(width//2, height//2)
+            self.image_sampling.choose_n_points(self.n_images_per_perspective)
+            self.current_image_index = len(self.image_sampling_function)
             self.current_pose_index += 1
 
         # translate mesh to image
         self.current_image_index -= 1
-        x, y = self.image_sampling[self.current_image_index]
-        mesh_transformed.apply_translation([-x, -y, 0])
+        self.iteration_index += 1
 
-        return mesh_transformed, pose
+        return mesh_transformed, transform
 
     def iterate_camera_poses(self, mesh):
         i = 0
-        while i < self.n_images * self.n_images_per_perspective:
+        while i < self.n_perspectives * self.n_images_per_perspective:
             yield self.next_camera_pose(mesh)
             i += 1
 

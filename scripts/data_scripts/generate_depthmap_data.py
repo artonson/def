@@ -67,23 +67,23 @@ def get_annotated_patches(item, config):
     annotator = load_func_from_config(ANNOTATOR_BY_TYPE, config['annotation'])
 
     # load the mesh and the feature curves annotations
-    mesh = trimesh_load(item.obj)
+    mesh_orig = trimesh_load(item.obj)
     features = yaml.load(item.feat, Loader=yaml.Loader)
 
     # fix mesh fabrication size in physical mm
-    mesh = scale_mesh(mesh, features, shape_fabrication_extent, base_resolution_3d,
+    mesh_orig = scale_mesh(mesh_orig, features, shape_fabrication_extent, base_resolution_3d,
                       short_curve_quantile=short_curve_quantile,
                       n_points_per_short_curve=base_n_points_per_short_curve)
 
-    mesh = mesh.apply_translation(-mesh.vertices.mean(axis=0))
+    mesh_orig = mesh_orig.apply_translation(-mesh_orig.vertices.mean(axis=0))
 
     # generate rays
-    imaging.prepare(scanning_radius=np.max(mesh.bounding_box.extents) + 1.0)
+    imaging.prepare(scanning_radius=np.max(mesh_orig.bounding_box.extents) + 1.0)
 
     # generate camera poses
-    scanning_sequence.prepare(scanning_radius=np.max(mesh.bounding_box.extents) + 1.0)
+    scanning_sequence.prepare(scanning_radius=np.max(mesh_orig.bounding_box.extents) + 1.0)
 
-    for mesh, camera_pose in scanning_sequence.iterate_camera_poses(mesh):
+    for mesh, camera_pose in scanning_sequence.iterate_camera_poses(mesh_orig):
         # for image_idx in range(scanning_sequence.n_perspectives * scanning_sequence.n_images_per_perspective):
         # prepare the mesh for rendering: rotate according to a certain
         # mesh, camera_pose = scanning_sequence.next_camera_pose(mesh)

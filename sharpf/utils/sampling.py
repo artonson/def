@@ -1,5 +1,10 @@
 import numpy as np
+import random
 
+def euclidean_distance(a, b):
+    dx = a[0] - b[0]
+    dy = a[1] - b[1]
+    return np.sqrt(dx * dx + dy * dy)
 
 def fibonacci_sphere_sampling(number_of_views=1, seed=None, radius=1.0, positive_z=False):
     # Returns [x,y,z] tuples of a fibonacci sphere sampling
@@ -42,8 +47,14 @@ def poisson_disc_sampling(width, height, r, k,  seed=None):
     # implementation https://github.com/emulbreh/bridson
     #
 
+    if seed is not None:
+        random.seed(seed)
+
     from bridson import poisson_disc_samples
+    points = poisson_disc_samples(width, height, r, k=k, distance=euclidean_distance, random=random.random)
+    new_points = [np.array(p) for p in points]
 
-    points = poisson_disc_samples(width, height, r, k=k, distance=euclidean_distance, random=random)
+    for p in points:
+        new_points.append(np.array(p)*-1)
 
-    return points
+    return new_points
