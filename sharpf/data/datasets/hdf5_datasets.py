@@ -97,7 +97,7 @@ class Hdf5File(Dataset):
 
 class LotsOfHdf5Files(Dataset):
     def __init__(self, data_dir, io, data_label=None, target_label=None, labels=None, partition=None,
-                 transform=None, target_transform=None, max_loaded_files=0):
+                 transform=None, max_loaded_files=0):
         if None is not partition:
             data_dir = os.path.join(data_dir, partition)
         filenames = glob.glob(os.path.join(data_dir, '*.hdf5'))
@@ -105,7 +105,7 @@ class LotsOfHdf5Files(Dataset):
         def _hdf5_creator(filename):
             try:
                 return Hdf5File(filename, io, data_label, target_label, labels=labels,
-                                transform=transform, target_transform=target_transform, preload=False)
+                                transform=transform, preload=False)
             except (OSError, KeyError) as e:
                 eprint('Unable to open {}: {}'.format(filename, str(e)))
                 return None
