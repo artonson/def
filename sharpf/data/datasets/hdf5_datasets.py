@@ -1,6 +1,5 @@
 import os
 import glob
-from collections import Callable
 
 import h5py
 import numpy as np
@@ -8,24 +7,12 @@ import torch
 from torch.utils.data import Dataset
 
 from sharpf.utils.common import eprint
-from sharpf.utils.matrix_torch import random_3d_rotation_and_scale
 from sharpf.utils.parallel import threaded_parallel
-
-
-class Random3DRotationAndScale(Callable):
-    def __init__(self, scale_range):
-        self.scale_range = scale_range
-
-    def __call__(self, data):
-        data = torch.cat((data, torch.ones(len(data), 1)), dim=1)
-        transform = random_3d_rotation_and_scale(self.scale_range)
-        data = torch.mm(data, transform)
-        return data[:, :-1]
 
 
 class Hdf5File(Dataset):
     def __init__(self, filename, io, data_label=None, target_label=None, labels=None, preload=True,
-                 transform=None, target_transform=None):
+                 transform=None):
         """Represents HDF5 dataset contained in a single HDF5 file.
 
         :param filename: name of the file
@@ -34,8 +21,7 @@ class Hdf5File(Dataset):
         :param target_label: string label in HDF5 dataset corresponding to targets
         :param labels: a list of HDF5 dataset labels to read off the file ('*' for ALL keys)
         :param preload: if True, data is read off disk in constructor; otherwise load lazily
-        :param transform: callable implementing data transform (e.g., adding noise)
-        :param target_transform: callable implementing target transform
+        :param transform: callable implementing data + target transform (e.g., adding noise)
         """
         self.filename = os.path.normpath(os.path.realpath(filename))
         assert not all([value is None for value in [data_label, target_label, labels]]), \
@@ -44,7 +30,6 @@ class Hdf5File(Dataset):
         self.data_label = data_label
         self.target_label = target_label
         self.transform = transform
-        self.target_transform = target_transform
         self.items = None  # this is where the data internally is read to
         self.io = io
 
@@ -82,21 +67,18 @@ class Hdf5File(Dataset):
         item = {label: self.items[label][index]
                 for label in self.labels}
 
+        data = None
         if None is not self.data_label:
             data = torch.from_numpy(self.items[self.data_label][index])
 
-            if self.transform is not None:
-                data = self.transform(data)
-
-            item.update({self.data_label: data})
-
+        target = None
         if None is not self.target_label:
             target = torch.from_numpy(self.items[self.target_label][index])
 
-            if self.target_transform is not None:
-                target = self.target_transform(target)
-
-            item.update({self.target_label: target})
+        if self.transform is not None:
+            data, target = self.transform(data, target)
+            item.update({self.data_label: data,
+                         self.target_label: target})
 
         return item
 
