@@ -1,6 +1,7 @@
 from abc import ABC, abstractmethod
 from collections import Callable
 
+import numpy as np
 import torch
 
 from sharpf.utils.matrix_torch import random_3d_rotation_matrix, random_scale_matrix
@@ -13,9 +14,6 @@ class AbstractSharpnessTransform(ABC, Callable):
 
 
 class Random3DRotation(AbstractSharpnessTransform):
-    def __init__(self, scale_range):
-        self.scale_range = scale_range
-
     def __call__(self, data, target):
         data = torch.cat((data, torch.ones(len(data), 1)), dim=1)
         transform = random_3d_rotation_matrix()
@@ -69,3 +67,17 @@ class TypeCast(AbstractSharpnessTransform):
     def __call__(self, data, target):
         return data.type(self.data_type), \
                target.type(self.target_type)
+
+
+class RandomSubsamplePoints(AbstractSharpnessTransform):
+    def __init__(self, n_points, theta=1.0):
+        self.n_points = n_points
+        self.theta = theta
+
+    def __call__(self, data, target):
+        n_points = len(data)
+        p = torch.exp(-target * self.theta)
+        p /= torch.sum(p)
+        i_subset = np.random.choice(
+            np.arange(n_points), size=self.n_points, replace=False, p=p)
+        return data[i_subset], target[i_subset]
