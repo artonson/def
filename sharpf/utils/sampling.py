@@ -55,6 +55,11 @@ def poisson_disc_sampling(width, height, r, k,  seed=None):
     new_points = [np.array(p) for p in points]
 
     for p in points:
-        new_points.append(np.array(p)*-1)
+        p1 = np.array([p[0], p[1]*-1])
+        p2 = np.array([p[0]*-1, p[1]])
+        p3 = np.array(p)*-1
+        new_points.append(p1)
+        new_points.append(p2)
+        new_points.append(p3)
 
-    return new_points
+    return np.array(new_points)

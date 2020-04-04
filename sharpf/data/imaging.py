@@ -112,7 +112,9 @@ class PoissonDiscSamplingImages():
         self.points = poisson_disc_sampling(width, height, r=self.radius, k=self.K, seed=self.seed)
 
     def choose_n_points(self, n):
-        self.points = np.random.choice(self.points, size=n, replace=False)
+        indices = np.random.choice(len(self.points), size=n, replace=False)
+        return self.points[indices]
+
 
     # def _get_3d_points(self):
     #
@@ -221,7 +223,7 @@ class FibonacciSamplingScanningSequence(ScanningSequence):
             image_sampling_params = {'radius': 2, 'K': 30}
             self.image_sampling_function = self.image_sampling.from_config(image_sampling_params)
             self.image_sampling_function.prepare(width//2, height//2)
-            self.image_sampling.choose_n_points(self.n_images_per_perspective)
+            self.image_sampling_function.choose_n_points(n=self.n_images_per_perspective)
             self.current_image_index = len(self.image_sampling_function)
             self.current_pose_index += 1
 
