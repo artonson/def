@@ -157,7 +157,7 @@ def parse_args():
     compute_parser = subparsers.add_parser('compute', help='compute command help')
     compute_parser.add_argument('-t', '--true-dir', dest='true_dir',
                                 required=True, help='Path to GT')
-    compute_parser.add_argument('-p', '--pred-path', dest='true_dir',
+    compute_parser.add_argument('-p', '--pred-dir', dest='pred_dir',
                                 required=True, help='Path to prediction')
     compute_parser.add_argument('-l', '--target-label', dest='target_label',
                                 required=True, help='Target label to look for in both datafiles.')
