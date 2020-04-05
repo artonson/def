@@ -35,6 +35,12 @@ import torch
 import torch.nn
 import h5py
 
+__dir__ = os.path.normpath(
+    os.path.join(
+        os.path.dirname(os.path.realpath(__file__)), '..', '..')
+)
+sys.path[1:1] = [__dir__]
+
 from sharpf.modules.losses import LOSSES, get_loss_function
 
 
