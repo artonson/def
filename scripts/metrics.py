@@ -47,7 +47,7 @@ from sharpf.modules.losses import LOSSES, get_loss_function
 def compute_metrics(options):
     filenames = sorted(glob.glob(os.path.join(options.true_dir, '*.hdf5')))
 
-    split_by = None
+    split_by_values = None
     metrics_by_name = defaultdict(dict)  # metric_name -> filename -> {values, split_values}
     for true_pathname in filenames:
 
