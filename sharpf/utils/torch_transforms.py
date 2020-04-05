@@ -79,5 +79,5 @@ class RandomSubsamplePoints(AbstractSharpnessTransform):
         p = torch.exp(-target * self.theta)
         p /= torch.sum(p)
         i_subset = np.random.choice(
-            np.arange(n_points), size=self.n_points, replace=False, p=p)
+            np.arange(n_points), size=self.n_points, replace=False, p=p.numpy())
         return data[i_subset], target[i_subset]
