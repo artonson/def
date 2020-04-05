@@ -165,9 +165,9 @@ def parse_args():
                                 required=True, help='Path to save to (JSON file).')
     compute_parser.add_argument('-m', '--metric', required=True, dest='metrics', action='append',
                                 choices=LOSSES, help='Choose loss function.')
-    compute_parser.add_argument('-s', '--split-by', default='split_by',
-                                required=False, help='If set, specifies a variable in GT file '
-                                                     'where statistics is computed separately for each unique value.')
+    compute_parser.add_argument('-s', '--split-by', dest='split_by',
+                                help='If set, specifies a variable in GT file '
+                                     'where statistics is computed separately for each unique value.')
     compute_parser.add_argument('-b', '--best', dest='n_best_instances', type=int, default=None,
                                 help='Number of instances with the lowest value of each metric to save.')
     compute_parser.add_argument('-a', '--average', dest='n_avg_instances', type=int, default=None,
