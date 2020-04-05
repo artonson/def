@@ -37,7 +37,7 @@ import h5py
 
 __dir__ = os.path.normpath(
     os.path.join(
-        os.path.dirname(os.path.realpath(__file__)), '..', '..')
+        os.path.dirname(os.path.realpath(__file__)), '..')
 )
 sys.path[1:1] = [__dir__]
 
