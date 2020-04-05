@@ -80,7 +80,8 @@ def compute_metrics(options):
                 'split_by': split_by_values
             }
 
-    print('=== Creating dictionary ===')
+    if options.verbose:
+        print('=== Creating dictionary ===')
 
     def compute_statistics(loss_values, indexes=None):
         n_instances = len(loss_values)
@@ -135,12 +136,14 @@ def compute_metrics(options):
                     key: compute_statistics(loss_values[selector], indexes=selector.nonzero().reshape((-1)))
                 })
 
-    print('=== Dumping to JSON ===')
+    if options.verbose:
+        print('=== Dumping to JSON ===')
 
     with open(options.save_filename, 'w') as write_file:
         json.dump(statistics_by_metric, write_file)
 
-    print('=== Finished ===')
+    if options.verbose:
+        print('=== Finished ===')
 
 
 def generate_report(options):
