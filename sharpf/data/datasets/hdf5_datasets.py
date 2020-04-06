@@ -77,8 +77,9 @@ class Hdf5File(Dataset):
 
         if self.transform is not None:
             data, target = self.transform(data, target)
-            item.update({self.data_label: data,
-                         self.target_label: target})
+
+        item.update({self.data_label: data,
+                     self.target_label: target})
 
         return item
 
