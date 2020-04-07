@@ -95,7 +95,7 @@ def parse_args():
     parser.add_argument('-c', '--chunk', required=True, help='ABC chunk id to process.')
     parser.add_argument('-o', '--output-dir', dest='output_dir',
                         required=True, help='output dir.')
-    parser.add_argument('-m', '--max-surfaces', dest='max_surfaces',
+    parser.add_argument('-m', '--max-surfaces', dest='max_surfaces', type=int,
                         required=True, help='select only files with surfaces not exceeding this value.')
     parser.add_argument('-n1', dest='slice_start', type=int,
                         required=False, help='min index of data to process')

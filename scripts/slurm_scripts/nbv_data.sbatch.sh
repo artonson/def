@@ -110,6 +110,6 @@ singularity exec \
         --jobs ${N_TASKS} \\
         --max-surfaces ${MAX_SURFACES} \\
          ${VERBOSE_ARG} \\
-           1> >(tee ${LOGS_PATH_CONTAINER}/${CHUNK}_${SLURM_ARRAY_TASK_ID}.out) \\
-           2> >(tee ${LOGS_PATH_CONTAINER}/${CHUNK}_${SLURM_ARRAY_TASK_ID}.err)"
+           1> >(tee ${LOGS_PATH_CONTAINER}/${SLURM_ARRAY_TASK_ID}_${SLURM_ARRAY_TASK_ID}.out) \\
+           2> >(tee ${LOGS_PATH_CONTAINER}/${SLURM_ARRAY_TASK_ID}_${SLURM_ARRAY_TASK_ID}.err)"
 
