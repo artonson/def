@@ -105,7 +105,7 @@ singularity exec \
       bash -c 'export OMP_NUM_THREADS='"${OMP_NUM_THREADS}; \\
       python3 ${MAKE_DATA_SCRIPT} \\
         --input-dir ${DATA_PATH_CONTAINER} \\
-        --chunk ${CHUNK} \\
+        --chunk ${SLURM_ARRAY_TASK_ID} \\
         --output-dir ${OUTPUT_PATH_CONTAINER} \\
         --jobs ${N_TASKS} \\
         --max-surfaces ${MAX_SURFACES} \\
