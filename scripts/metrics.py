@@ -18,7 +18,8 @@
 # 2. Form an HTML report to show to people.
 # ----------------------------------------
 # Usage example:
-# ./metrics.py report -i metrics.json -o report.html
+# ./metrics.py report -i voronoi.json -i ours.json \
+#                     -o report.html
 #
 #
 
@@ -29,7 +30,7 @@ import glob
 import json
 import os
 import sys
-from collections import defaultdict
+from collections import defaultdict, OrderedDict
 
 import torch
 import torch.nn
@@ -80,16 +81,13 @@ def compute_metrics(options):
                 'split_by': split_by_values
             }
 
-    if options.verbose:
-        print('=== Creating dictionary ===')
-
     def compute_statistics(loss_values, indexes=None):
         n_instances = len(loss_values)
         if None is indexes:
             indexes = torch.arange(n_instances)
         ascending_idx = torch.argsort(loss_values)
         mean_value = loss_values.mean()
-        median_value = loss_values.median()
+        std_value = loss_values.std()
         values_hist = torch.histc(loss_values, bins=options.n_histogram_bins)
         bins_hist = torch.linspace(torch.min(loss_values),
                                    torch.max(loss_values),
@@ -98,7 +96,7 @@ def compute_metrics(options):
         statistics = {
             'values_by_instance': loss_values.tolist(),
             'mean_value': mean_value.item(),
-            'median_value': median_value.item(),
+            'std_value': std_value.item(),
             'values_hist': values_hist.tolist(),
             'bins_hist': bins_hist.tolist(),
         }
@@ -116,25 +114,48 @@ def compute_metrics(options):
 
         return statistics
 
+    if options.verbose:
+        print('=== Creating dictionary ===')
 
-    statistics_by_metric = defaultdict(dict)
+    statistics_by_metric = defaultdict(OrderedDict)
     for metric_name in options.metrics:
-        loss_values = torch.cat([value['values_by_instance']
-                                 for value in metrics_by_name[metric_name].values()])
-        statistics_by_metric[metric_name] = {
+        metric_by_filename = metrics_by_name[metric_name].values()
+
+        if options.verbose:
+            print('    computing default metrics')
+
+        loss_values = torch.cat([value['values_by_instance'] for value in metric_by_filename])
+        statistics_by_metric[metric_name].update({
             'default': compute_statistics(loss_values)
-        }
+        })
 
         if None is not options.split_by:
-            split_by_values = torch.cat([value['split_by']
-                                         for value in metrics_by_name[metric_name].values()])
+            split_by_values = torch.cat([value['split_by'] for value in metric_by_filename])
             unique_split_by_values = sorted(torch.unique(split_by_values).tolist())
             for value in unique_split_by_values:
                 key = '{}={}'.format(options.split_by, value)
+
+                if options.verbose:
+                    print('    computing metrics for {}'.format(key))
+
                 selector = (split_by_values == value)
                 statistics_by_metric[metric_name].update({
                     key: compute_statistics(loss_values[selector], indexes=selector.nonzero().reshape((-1)))
                 })
+
+    metric_names = sorted(statistics_by_metric.keys())
+    method_slices = []
+    for slice_name in statistics_by_metric[metric_names[0]].keys():
+        slice_metrics = [
+            {
+                'metric_name': metric_name,
+                'metric_data': statistics_by_metric[metric_name][slice_name]
+            } for metric_name in metric_names
+        ]
+        method_slices.append({
+            'slice_name': slice_name,
+            'slice_metrics': slice_metrics,
+        })
 
     if options.verbose:
         print('=== Dumping to JSON ===')
@@ -147,7 +168,35 @@ def compute_metrics(options):
 
 
 def generate_report(options):
-    pass
+    from jinja2 import Environment, FileSystemLoader
+
+    metric_names = []
+    methods_metrics = []
+    for filename in options.input_filename:
+        method_name = os.path.splitext(os.path.basename(filename))[0],
+        with open(filename) as input_file:
+            method_info = json.load(input_file)
+            if not metric_names:
+                metric_names = method_info['metric_names']
+            else:
+                if metric_names != method_info['metric_names']:
+                    raise ValueError('Inconsistent sets of metrics defined in files.')
+
+            methods_metrics.append({
+                'method_name': method_name,
+                'method_slices': method_info['method_slices'],
+            })
+
+    templates_dir = os.path.join(__dir__, 'scripts')
+    env = Environment(loader=FileSystemLoader(templates_dir))
+    template = env.get_template('metrics_template.html')
+
+    with open(options.output_filename, 'w') as fh:
+        fh.write(template.render(
+            metric_names=metric_names,
+            methods_metrics=methods_metrics,
+            display_slices=options.display_slices,
+        ))
 
 
 def parse_args():
@@ -182,14 +231,16 @@ def parse_args():
     compute_parser.set_defaults(func=compute_metrics)
 
     report_parser = subparsers.add_parser('report', help='report command help')
-    report_parser.add_argument('-i', '--input-file', default='input_filename',
+    report_parser.add_argument('-i', '--input-file', default='input_filename', action='append',
                                required=True, help='Path to read from (JSON file).')
-    report_parser.add_argument('-o', '--output-path', default='output_path',
+    report_parser.add_argument('-o', '--output-file', default='output_filename',
                                required=True, help='Path to save to (HTML file).')
     report_parser.add_argument('-t', '--true-dir', dest='true_dir',
                                required=True, help='Path to GT')
-    report_parser.add_argument('-p', '--pred-path', dest='true_dir',
+    report_parser.add_argument('-p', '--pred-path', dest='pred_dir',
                                required=True, help='Path to prediction')
+    report_parser.add_argument('-ns', '--no-slices', dest='display_slices', action='store_false',
+                               detault=True, help='If set, slices will be turned off.')
     report_parser.set_defaults(func=generate_report)
 
     return parser.parse_args()
