@@ -1,0 +1,8 @@
+Filter: Smoothing, Fairing and Deformation --> MLS Projection (APSS)
+
+MLS - Filter scale = 3
+Projection - Max iterations (adv) = 5
+MLS - Spherical parameter = 0
+Accurate normals = False
+Default values for other parameters
+
