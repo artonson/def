@@ -92,6 +92,8 @@ def get_annotated_patches(item, config):
         try:
             ray_indexes, points, normals, nbhood, mesh_vertex_indexes, mesh_face_indexes = \
                 imaging.get_image(mesh, features)
+            if ray_indexes is None:
+                continue
         except DataGenerationException as e:
             eprint_t(str(e))
             continue

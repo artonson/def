@@ -63,3 +63,9 @@ def poisson_disc_sampling(width, height, r, k,  seed=None):
         new_points.append(p3)
 
     return np.array(new_points)
+
+def uniform_sampling(xy_min, xy_max, n):
+
+    points = np.random.uniform(low=xy_min, high=xy_max, size=(n,2))
+
+    return points
