@@ -8,6 +8,7 @@
 """
 
 import torch
+import torch.nn
 import torch.nn.functional as F
 
 
@@ -89,3 +90,33 @@ class IOStream:
 
     def close(self):
         self.f.close()
+
+
+LOSSES_BY_NAME = {
+    'has_sharp': bce_loss,
+    'segment_sharp': bce_loss,
+    'regress_sharpdf': smooth_l1_loss,
+    'regress_sharpdirf': smooth_l1_reg_loss
+}
+
+
+# an ugly hack to extract available losses from torch
+TORCH_NN_LOSSES = list(filter(lambda f: f.endswith('Loss'), dir(torch.nn)))
+LOSSES = list(LOSSES_BY_NAME.keys()) + TORCH_NN_LOSSES
+
+
+def get_loss_function(metric_name, reduction='none'):
+    """The metric should be either importable from torch.nn, or in LOSSES_BY_NAME."""
+
+    if metric_name in LOSSES_BY_NAME:
+        loss_class = LOSSES_BY_NAME[metric_name]
+
+    elif metric_name in TORCH_NN_LOSSES:
+        loss_class = getattr(torch.nn, metric_name)
+
+    else:
+        raise ValueError('Metric {} cannot be instantiated, skipping'.format(metric_name))
+
+    loss_function = loss_class(reduction=reduction)
+    return loss_function
+

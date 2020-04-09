@@ -22,17 +22,9 @@ sys.path[1:1] = [__dir__]
 
 from sharpf.data.datasets.hdf5_datasets import LotsOfHdf5Files
 from sharpf.models import load_model
-from sharpf.modules.losses import bce_loss, smooth_l1_loss, smooth_l1_reg_loss
+from sharpf.modules.losses import LOSSES, get_loss_function
 from sharpf.utils.logging import create_logger
 from sharpf.utils.os import require_empty
-
-
-LOSS = {
-    'has_sharp': bce_loss,
-    'segment_sharp': bce_loss,
-    'regress_sharpdf': smooth_l1_loss,
-    'regress_sharpdirf': smooth_l1_reg_loss
-}
 
 
 def make_loaders_fn(options):
@@ -148,7 +140,7 @@ def main(options):
         end_batch_train = batches_completed_in_epoch + 1
 
     # loss function choose
-    criterion = LOSS[options.loss_funct]
+    criterion = get_loss_function(options.loss_funct, reduction='mean')
 
     # def set_grad(var):
     #    def hook(grad):
@@ -295,8 +287,7 @@ def parse_args():
     parser.add_argument('--data-root', dest='data_root', help='root of the data tree (directory).')
     parser.add_argument('--num-points', type=int, default=1024, dest='num_points')
 
-    parser.add_argument('--loss-funct', required=False, dest='loss_funct',
-                        choices=list(LOSS.keys()),
+    parser.add_argument('--loss-funct', required=False, dest='loss_funct', choices=LOSSES,
                         help='Choose loss function. Default cross_entropy_loss',
                         default='cross_entropy_loss')
     parser.add_argument('--data-label', dest='data_label', help='data label')
