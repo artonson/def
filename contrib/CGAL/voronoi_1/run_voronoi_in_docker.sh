@@ -3,90 +3,85 @@
 set -e
 
 # example launch string:
-# ./run_voronoi_in_docker.sh -R <offset_radius> -r <convolution_radius> -t <threshold> -d <server_data_dir> -l <server_logs_dir> -g gpu
-#   R, r, threshold:        Voronoi method parameters
-#   server_data_dir:        the data directory where the training sample resides
-#   server_logs_dir:        the directory where the output logs are supposed to be written
-#   gpu:                    comma-separated list of gpus
+# ./run_voronoi_in_docker.sh -R 0.2 -r 0.05 -t 0.15 -i /home/artonson/data -o /home/artonson/output -v
+#   R, r, t:                    Voronoi method parameters
+#   /home/artonson/data:        the data directory where the training sample resides
+#   /home/artonson/output:      the directory where the output files are to be written
+#   v:                          be verbose
 
-if [[ $# -lt 2 ]]
-then
-    echo "run_docker.sh -R <offset_radius> -r <convolution_radius> -t <threshold> -d <server_data_dir> -l <server_logs_dir> -g <gpu-indexes>"
-    exit 1
-fi
+usage() { echo "Usage: ${0} -i input_file -o output_file [-R offset_radius] [-r conv_radius] [-t threshold] [-j num_jobs]" >&2; }
 
-while getopts "d:l:g:" opt
+V_OFFSET_RADIUS=0.2
+V_CONV_RADIUS=0.1
+V_THRESHOLD=0.16
+NUM_JOBS=1
+while getopts "i:o:R:r:t:j:" opt
 do
     case ${opt} in
-        R) RR=$OPTARG;;
-        r) Rr=$OPTARG;;
-        t) THRESH=$OPTARG;;
-        d) HOST_DATA_DIR=$OPTARG;;
-        l) HOST_LOG_DIR=$OPTARG;;
-        g) GPU_ENV=$OPTARG;;
-        *) echo "No reasonable options found!";;
+        i) INPUT_HDF5_FILENAME=${OPTARG} ;;
+        o) OUTPUT_HDF5_FILENAME=${OPTARG} ;;
+        R) V_OFFSET_RADIUS=${OPTARG} ;;
+        r) V_CONV_RADIUS=${OPTARG} ;;
+        t) V_THRESHOLD=${OPTARG} ;;
+        j) NUM_JOBS=${OPTARG} ;;
+        *) usage; exit 1 ;;
     esac
 done
 
-if [[ ! -d ${HOST_DATA_DIR} ]]; then
-    echo "server_data_dir is not set or not a directory";
-    exit 1
-fi
-if [[ ! -d ${HOST_LOG_DIR} ]]; then
-    echo "server_logs_dir is not set or not a directory";
-    exit 1
-fi
-
-
 # HOST_<anything> refers to paths OUTSIDE container, i.e. on host machine
 # CONT_<anything> refers to paths INSIDE container
-SHARED_MEM="25g"        # amount of shared memory to reserve for the prefetchers
 
-CONTAINER="gbobrovskih/cgal_4-14:latest"
-docker inspect --type=image ${CONTAINER} >/dev/null || docker pull ${CONTAINER}
+[[ -f ${INPUT_HDF5_FILENAME} ]] || { echo "input_file not set or empty"; usage; exit 1; }
+HOST_INPUT_DIR="$( cd "$( dirname "${INPUT_HDF5_FILENAME}" )" >/dev/null 2>&1 && pwd )"
+CONT_INPUT_DIR="/input"
 
-HOST_CODE_DIR=$(realpath $(dirname `realpath $0`))     # dirname of THIS file
-CONT_CODE_DIR="/home/usr/code/"
-CONT_DATA_DIR="/home/usr/data/"
-CONT_LOG_DIR="/home/usr/logs/"
+[[ -f ${OUTPUT_HDF5_FILENAME} ]] || { echo "output_file not set or empty"; usage; exit 1; }
+HOST_OUTPUT_DIR="$( cd "$( dirname "${OUTPUT_HDF5_FILENAME}" )" >/dev/null 2>&1 && pwd )"
+CONT_OUTPUT_DIR="/output"
 
-if [[ -z "${RR}" ]] ; then
-    # set offset_radius to default
-    RR=0.2
-fi
-if [[ -z "${Rr}" ]] ; then
-    # set convolution_radius to default
-    Rr=0.1
-fi
-if [[ -z "${THRESH}" ]] ; then
-    # set convolution_radius to default
-    THRESH=0.16
-fi
-if [[ -z "${GPU_ENV}" ]] ; then
-    # set all GPUs as visible in the docker
-    num_gpus=`nvidia-smi -L | wc -l`
-    GPU_ENV=`seq -s, 0 $((num_gpus-1))`
-fi
+CONT_CODE_DIR="/home/user/code"
 
-echo "******* LAUNCHING CONTAINER ${CONTAINER} *******"
-echo "      Pushing ${HOST_CODE_DIR} to ${CONT_CODE_DIR} directory"
-echo "      Data is at ${CONT_DATA_DIR}"
-echo "      Writable logs are at ${CONT_LOG_DIR}"
-echo "      Environment: PYTHONPATH=${CONT_CODE_DIR}"
-echo "      Environment: CUDA_VISIBLE_DEVICES=${GPU_ENV}"
-echo ""
-NAME="3ddl.`whoami`.`uuidgen`.`echo ${GPU_ENV} | tr , .`.voronoi_R${RR}_r${Rr}_thresh${THRESH}.sharp_features"
+HOST_PY_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )../../hdf5_utils" >/dev/null 2>&1 && pwd )"
+CONT_PY_DIR="/code/hdf5_utils"
+
+
+IMAGE_NAME="gbobrovskih/cgal_4-14:latest"
+docker inspect --type=image ${IMAGE_NAME} >/dev/null || docker pull ${IMAGE_NAME}
+
+CONTAINER_NAME="3ddl.$(whoami).$(uuidgen).voronoi_R${V_OFFSET_RADIUS}_r${V_CONV_RADIUS}_thresh${V_THRESHOLD}.sharp_features"
+
+echo "******* LAUNCHING IMAGE ${IMAGE_NAME} IN CONTAINER ${CONTAINER_NAME} *******"
+echo "  "
+echo "  HOST OPTIONS:"
+echo "  input path:           ${HOST_INPUT_DIR}"
+echo "  output path:          ${HOST_OUTPUT_DIR}"
+#echo "  code path:            ${HOST_CODE_DIR}"
+echo "  py code path:         ${HOST_PY_DIR}"
+echo "  "
+echo "  CONTAINER OPTIONS:"
+echo "  input path:           ${CONT_INPUT_DIR}"
+echo "  output path:          ${CONT_OUTPUT_DIR}"
+echo "  code path:            ${CONT_CODE_DIR}"
+echo "  py code path:         ${CONT_PY_DIR}"
+echo "  logs path:            ${CONT_OUTPUT_DIR}"
+
+
 docker run \
-    --name ${NAME} \
-    --interactive=true \
-    --runtime=nvidia \
+    --name ${CONTAINER_NAME} \
     --rm \
-    --tty=true \
-    --env CUDA_VISIBLE_DEVICES=${GPU_ENV} \
     --env PYTHONPATH=${CONT_CODE_DIR} \
-    --shm-size=${SHARED_MEM} \
-    --mount type=bind,source=${HOST_CODE_DIR},target=${CONT_CODE_DIR} \
-    --mount type=bind,source=${HOST_DATA_DIR},target=${CONT_DATA_DIR} \
-    --mount type=bind,source=${HOST_LOG_DIR},target=${CONT_LOG_DIR} \
-    --workdir ${CONT_CODE_DIR} \
-    ${CONTAINER} /bin/bash -c "sudo chown 1000 ${CONT_LOG_DIR};echo \"compiling voronoi_1.cpp\"; g++ -o ${CONT_CODE_DIR}/voronoi ${CONT_CODE_DIR}/voronoi_1.cpp -lCGAL -I/CGAL-4.14.1/include -lgmp; python src/read_data_voronoi.py -d ${CONT_DATA_DIR} -o ${CONT_LOG_DIR} -R ${RR} -r ${Rr} -t ${THRESH};" 
+    -v ${HOST_PY_DIR}:${CONT_PY_DIR} \
+    -v ${HOST_INPUT_DIR}:${CONT_INPUT_DIR} \
+    -v ${CONT_OUTPUT_DIR}:${CONT_OUTPUT_DIR} \
+    ${IMAGE_NAME} \
+    /bin/bash \
+        -c "${CONT_CODE_DIR}/run_voronoi.sh \\
+            -i input_file \\
+            -o output_file \\
+            -R ${V_OFFSET_RADIUS} \\
+            -r ${V_CONV_RADIUS} \\
+            -t ${V_THRESHOLD} \\
+            -j ${NUM_JOBS}
+        1>${CONT_OUTPUT_DIR}/out.out \\
+        2>${CONT_OUTPUT_DIR}/err.err"
+

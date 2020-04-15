@@ -8,7 +8,8 @@ RUN apt-get update \
      apt-utils \
      xz-utils \
      vim \
-     sudo
+     sudo \
+     parallel
 
 RUN wget https://github.com/CGAL/cgal/releases/download/releases/CGAL-4.14.1/CGAL-4.14.1.tar.xz \
     && tar -xf /CGAL-4.14.1.tar.xz \
@@ -44,7 +45,8 @@ ENV CONDA_PREFIX=/home/user/miniconda/envs/$CONDA_DEFAULT_ENV
 ENV PATH=$CONDA_PREFIX/bin:$PATH
 
 RUN pip install --upgrade pip
-RUN pip install --verbose --no-cache-dir h5py
+RUN pip install --verbose --no-cache-dir \
+    h5py numpy tqdm jupyter
 
 # Add copyning of our custom code to container and making it
 RUN mkdir /home/user/code
@@ -55,3 +57,4 @@ RUN cd /home/user/code/ear && make
 COPY --chown=user voronoi_1/src /home/user/code/voronoi_1
 RUN cd /home/user/code/voronoi_1 && make
 
+COPY --chown=user voronoi_1/run_voronoi.sh /home/user/code/

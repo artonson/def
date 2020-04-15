@@ -11,6 +11,7 @@ def parse_args():
     parser.add_argument('-i', '--input_dir', help='input directory with splitted files')
     parser.add_argument('-o', '--output_file', help='hdf5 file to merge files to')
     parser.add_argument('--input_format', help='input files format')
+    parser.add_argument('--label', help='label in hdf5 file to put data to (default: pred)')
     args = parser.parse_args()
     return args
 
@@ -45,6 +46,7 @@ if __name__=='__main__':
 
     data = np.array(data)
 
+    label = args.label if None is not args.label else 'pred'
     with h5py.File(args.output_file, 'w') as out_file:
-        out_file.create_dataset('pred', shape=data.shape, data=data, dtype=np.float32)
+        out_file.create_dataset(label, shape=data.shape, data=data, dtype=np.float32)
 
