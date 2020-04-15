@@ -24,7 +24,8 @@ done
 
 # check input variables
 [[ -f ${INPUT_HDF5_FILENAME} ]] || { echo "input_file not set or empty"; usage; exit 1; }
-[[ -f ${OUTPUT_HDF5_FILENAME} ]] || { echo "output_file not set or empty"; usage; exit 1; }
+OUTPUT_DIR="$( cd "$( dirname "${OUTPUT_HDF5_FILENAME}" )" >/dev/null 2>&1 && pwd )"
+[[ -d ${OUTPUT_DIR} ]] || { echo "output directory ${HOST_OUTPUT_DIR} needs to be created first"; usage; exit 1; }
 
 # prepate directories and needed environment
 INPUT_XYZ_DIR=$( mktemp -d )

@@ -1,6 +1,7 @@
 #!/bin/bash
 
 set -e
+set -x
 
 # example launch string:
 # ./run_voronoi_in_docker.sh -R 0.2 -r 0.05 -t 0.15 -i /home/artonson/data -o /home/artonson/output -v
@@ -33,19 +34,21 @@ done
 
 [[ -f ${INPUT_HDF5_FILENAME} ]] || { echo "input_file not set or empty"; usage; exit 1; }
 HOST_INPUT_DIR="$( cd "$( dirname "${INPUT_HDF5_FILENAME}" )" >/dev/null 2>&1 && pwd )"
+INPUT_FILENAME="$( basename "${INPUT_HDF5_FILENAME}" )"
 CONT_INPUT_DIR="/input"
 
-[[ -f ${OUTPUT_HDF5_FILENAME} ]] || { echo "output_file not set or empty"; usage; exit 1; }
 HOST_OUTPUT_DIR="$( cd "$( dirname "${OUTPUT_HDF5_FILENAME}" )" >/dev/null 2>&1 && pwd )"
+[[ -d ${HOST_OUTPUT_DIR} ]] || { echo "output directory ${HOST_OUTPUT_DIR} needs to be created first"; usage; exit 1; }
+OUTPUT_FILENAME="$( basename "${OUTPUT_HDF5_FILENAME}" )"
 CONT_OUTPUT_DIR="/output"
 
 CONT_CODE_DIR="/home/user/code"
 
-HOST_PY_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )../../hdf5_utils" >/dev/null 2>&1 && pwd )"
+HOST_PY_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )/../../hdf5_utils" >/dev/null 2>&1 && pwd )"
 CONT_PY_DIR="/code/hdf5_utils"
 
 
-IMAGE_NAME="gbobrovskih/cgal_4-14:latest"
+IMAGE_NAME="artonson/cgal_4-14:latest"
 docker inspect --type=image ${IMAGE_NAME} >/dev/null || docker pull ${IMAGE_NAME}
 
 CONTAINER_NAME="3ddl.$(whoami).$(uuidgen).voronoi_R${V_OFFSET_RADIUS}_r${V_CONV_RADIUS}_thresh${V_THRESHOLD}.sharp_features"
@@ -72,12 +75,12 @@ docker run \
     --env PYTHONPATH=${CONT_CODE_DIR} \
     -v ${HOST_PY_DIR}:${CONT_PY_DIR} \
     -v ${HOST_INPUT_DIR}:${CONT_INPUT_DIR} \
-    -v ${CONT_OUTPUT_DIR}:${CONT_OUTPUT_DIR} \
+    -v ${HOST_OUTPUT_DIR}:${CONT_OUTPUT_DIR} \
     ${IMAGE_NAME} \
     /bin/bash \
         -c "${CONT_CODE_DIR}/run_voronoi.sh \\
-            -i input_file \\
-            -o output_file \\
+            -i ${CONT_INPUT_DIR}/${INPUT_FILENAME} \\
+            -o ${CONT_OUTPUT_DIR}/${OUTPUT_FILENAME} \\
             -R ${V_OFFSET_RADIUS} \\
             -r ${V_CONV_RADIUS} \\
             -t ${V_THRESHOLD} \\
