@@ -11,7 +11,8 @@ from sharpf.utils.raycasting import generate_rays, ray_cast_mesh
 
 class ImagingFunc(ABC):
     """Implements obtaining depth maps from meshes."""
-    def prepare(self, mesh):
+    @abstractmethod
+    def prepare(self):
         pass
 
     @abstractmethod
@@ -21,8 +22,8 @@ class ImagingFunc(ABC):
         :param mesh: an input mesh
         :type mesh: MeshType (must be present attributes `vertices`, `faces`, and `edges`)
 
-        :returns: depthmap: the depth image
-        :rtype: np.ndarray
+        :param pose: camera pose to shoot from
+        :type pose: CameraPose
         """
         pass
 
@@ -40,18 +41,17 @@ class RaycastingImaging(ImagingFunc):
                    config['resolution_3d'],
                    config['projection'])
 
-    def prepare(self, mesh):
-        scanning_radius = np.max(mesh.bounding_box.extents) + 1.0
+    def prepare(self):
         # scanning radius is determined from the mesh extent
         self.rays_screen_coords, self.rays_origins, self.rays_directions = generate_rays(
-            self.resolution_image, self.resolution_3d, radius=scanning_radius)
+            self.resolution_image, self.resolution_3d)
 
     def get_image_from_pose(self,
                             mesh: trimesh.base.Trimesh,
                             pose: CameraPose,
                             features: Mapping = None,
                             return_hit_face_indexes=False):
-        """
+        """Get an image.
 
         :param mesh: the triangular mesh
         :param pose: object defining camera orientation
@@ -76,7 +76,7 @@ class RaycastingImaging(ImagingFunc):
         mesh_face_indexes, ray_indexes, points = ray_cast_mesh(
             mesh,
             pose.camera_to_world(self.rays_origins),
-            pose.camera_to_world(-self.rays_directions, translate=0)
+            pose.camera_to_world(self.rays_directions, translate=0)
         )
 
         # extract normals

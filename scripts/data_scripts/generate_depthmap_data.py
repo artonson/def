@@ -79,7 +79,7 @@ def get_annotated_patches(item, config):
     mesh = mesh.apply_translation(-mesh.vertices.mean(axis=0))
 
     # generate rays
-    imaging.prepare(mesh)
+    imaging.prepare()
 
     # generate camera poses
     pose_manager.prepare(mesh)
