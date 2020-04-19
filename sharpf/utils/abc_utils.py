@@ -3,7 +3,7 @@ from copy import deepcopy
 
 import numpy as np
 
-from sharpf.utils.mesh_utils.indexing import reindex_array, in2d
+from sharpf.utils.mesh_utils.indexing import reindex_array, in2d, reindex_zerobased
 
 
 def get_adjacent_features_by_bfs_with_depth1(surface_idx, adjacent_sharp_features, adjacent_surfaces):
@@ -165,3 +165,19 @@ def get_curves_lengths_edges(mesh, features):
         np.sum(np.linalg.norm(curve_vertices[:-1] - curve_vertices[1:]))
         for curve_vertices in sharp_verts
     ])
+
+
+def submesh_from_hit_surfaces(mesh, features, mesh_face_indexes):
+    # compute indexes of faces and vertices in the original mesh
+    hit_surfaces_face_indexes = []
+    for idx, surface in enumerate(features['surfaces']):
+        surface_face_indexes = np.array(surface['face_indices'])
+        if np.any(np.isin(surface_face_indexes, mesh_face_indexes, assume_unique=True)):
+            hit_surfaces_face_indexes.extend(surface_face_indexes)
+    mesh_face_indexes = np.unique(hit_surfaces_face_indexes)
+    mesh_vertex_indexes = np.unique(mesh.faces[mesh_face_indexes])
+
+    # assemble mesh fragment into a submesh
+    nbhood = reindex_zerobased(mesh, mesh_vertex_indexes, mesh_face_indexes)
+
+    return nbhood, mesh_vertex_indexes, mesh_face_indexes
