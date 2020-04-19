@@ -3,9 +3,22 @@
   "short_curve_quantile": 0.25,
   "base_n_points_per_short_curve": 8,
   "base_resolution_3d": 0.125,
-  "scanning_sequence": {
-    "type": "fibonacci_sampling",
-    "n_images": 10
+  "camera_pose": {
+    "type": "composite",
+    "sequences": [
+      {
+        "type": "sphere_to_origin",
+        "n_images": 10
+      },
+      {
+        "type": "xy_translation",
+        "n_images": 16
+      },
+      {
+        "type": "z_rotation",
+        "n_images": 8
+      }
+    ]
   },
   "imaging": {
     "type": "raycasting",
