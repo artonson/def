@@ -85,7 +85,9 @@ def get_annotated_patches(item, config):
     # generate camera poses
     pose_manager.prepare(mesh)
 
-    for camera_pose in pose_manager:
+    for pose_idx, camera_pose in enumerate(pose_manager):
+        eprint_t("Computing images from pose {pose_idx}".format(pose_idx=pose_idx))
+
         # extract neighbourhood
         try:
             image, points, normals, mesh_face_indexes = \
