@@ -94,7 +94,7 @@ def get_annotated_patches(item, config):
             eprint_t(str(e))
             continue
 
-        if not points:  # we hit nothing; discard this attempt
+        if len(points) == 0:  # we hit nothing; discard this attempt
             continue
 
         nbhood, mesh_vertex_indexes, mesh_face_indexes = \
