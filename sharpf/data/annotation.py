@@ -140,7 +140,10 @@ class SharpnessResamplingAnnotator(AnnotatorFunc):
         return sharp_points[vert_indices], distances
 
 
-def parallel_nearest_point(aabb_solver, points, distance_func):
+def parallel_nearest_point(aabboxes, sharp_edges, points):
+    aabb_solver = pyaabb.AABB()
+    aabb_solver.build(aabboxes)
+    distance_func = partial(dist_vector_proj, lines=sharp_edges)
     return [aabb_solver.nearest_point(p, distance_func)
             for p in points.astype(np.float32)]
 
@@ -188,13 +191,10 @@ class AABBAnnotator(AnnotatorFunc, ABC):
 
     def compute_aabb_nearest_points(self, mesh_patch, features_patch, points):
         aabboxes, sharp_edges = self._prepare_aabb(mesh_patch, features_patch)
-        aabb_solver = pyaabb.AABB()
-        aabb_solver.build(aabboxes)
-        distance_func = partial(dist_vector_proj, lines=sharp_edges)
 
         n_omp_threads = int(os.environ.get('OMP_NUM_THREADS', 1))
         parallel = Parallel(n_jobs=n_omp_threads, backend='multiprocessing')
-        delayed_iterable = (delayed(parallel_nearest_point)(aabb_solver, points_to_thread, distance_func)
+        delayed_iterable = (delayed(parallel_nearest_point)(aabboxes, sharp_edges, points_to_thread)
                             for points_to_thread in np.array_split(points.astype(np.float32), n_omp_threads))
         query_results = list(chain(parallel(delayed_iterable)))
 
