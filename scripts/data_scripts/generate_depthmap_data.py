@@ -22,9 +22,10 @@ sys.path[1:1] = [__dir__]
 from sharpf.data import DataGenerationException
 from sharpf.data.abc.abc_data import ABCModality, ABCChunk, ABC_7Z_FILEMASK
 from sharpf.data.annotation import ANNOTATOR_BY_TYPE
-from sharpf.data.imaging import IMAGING_BY_TYPE, SCANNING_SEQ_BY_TYPE
+from sharpf.data.camera_pose_manager import POSE_MANAGER_BY_TYPE
+from sharpf.data.imaging import IMAGING_BY_TYPE
 from sharpf.data.noisers import NOISE_BY_TYPE
-from sharpf.utils.abc_utils import compute_features_nbhood, remove_boundary_features, get_curves_extents
+from sharpf.utils import abc_utils
 from sharpf.utils.common import eprint_t, add_suffix
 from sharpf.utils.config import load_func_from_config
 from sharpf.utils.mesh_utils.io import trimesh_load
@@ -37,7 +38,7 @@ def scale_mesh(mesh, features, shape_fabrication_extent, resolution_3d,
     mesh = mesh.apply_scale(shape_fabrication_extent / mesh_extent)
 
     # compute lengths of curves
-    sharp_curves_lengths = get_curves_extents(mesh, features)
+    sharp_curves_lengths = abc_utils.get_curves_extents(mesh, features)
 
     least_len = np.quantile(sharp_curves_lengths, short_curve_quantile)
     least_len_mm = resolution_3d * n_points_per_short_curve
@@ -61,7 +62,7 @@ def get_annotated_patches(item, config):
 
     short_curve_quantile = config.get('short_curve_quantile', 0.05)
 
-    scanning_sequence = load_func_from_config(SCANNING_SEQ_BY_TYPE, config['scanning_sequence'])
+    pose_manager = load_func_from_config(POSE_MANAGER_BY_TYPE, config['scanning_sequence'])
     imaging = load_func_from_config(IMAGING_BY_TYPE, config['imaging'])
     noiser = load_func_from_config(NOISE_BY_TYPE, config['noise'])
     annotator = load_func_from_config(ANNOTATOR_BY_TYPE, config['annotation'])
@@ -78,31 +79,37 @@ def get_annotated_patches(item, config):
     mesh = mesh.apply_translation(-mesh.vertices.mean(axis=0))
 
     # generate rays
-    imaging.prepare(scanning_radius=np.max(mesh.bounding_box.extents) + 1.0)
+    imaging.prepare(mesh)
 
     # generate camera poses
-    scanning_sequence.prepare(scanning_radius=np.max(mesh.bounding_box.extents) + 1.0)
+    pose_manager.prepare(mesh)
 
-    for image_idx in range(scanning_sequence.n_images):
-        # prepare the mesh for rendering: rotate according to a certain
-        mesh, camera_pose = scanning_sequence.next_camera_pose(mesh)
-        
+    for camera_pose in pose_manager:
         # extract neighbourhood
         try:
-            ray_indexes, points, normals, nbhood, mesh_vertex_indexes, mesh_face_indexes = \
-                imaging.get_image(mesh, features)
+            image, points, normals, mesh_face_indexes = \
+                imaging.get_image_from_pose(mesh, camera_pose, return_hit_face_indexes=True)
         except DataGenerationException as e:
             eprint_t(str(e))
             continue
 
+        nbhood, mesh_vertex_indexes, mesh_face_indexes = \
+            abc_utils.submesh_from_hit_surfaces(mesh, features, mesh_face_indexes)
+
         # create annotations: condition the features onto the nbhood
-        nbhood_features = compute_features_nbhood(mesh, features, mesh_vertex_indexes, mesh_face_indexes)
+        nbhood_features = abc_utils.compute_features_nbhood(mesh, features, mesh_vertex_indexes, mesh_face_indexes)
 
         # remove vertices lying on the boundary (sharp edges found in 1 face only)
-        nbhood_features = remove_boundary_features(nbhood, nbhood_features, how='edges')
+        nbhood_features = abc_utils.remove_boundary_features(nbhood, nbhood_features, how='edges')
+
         # create a noisy sample
         for configuration, noisy_points in noiser.make_noise(
-                points, normals, z_direction=np.array([0., 0., -1.])):
+                camera_pose.world_to_camera(points),
+                normals,
+                z_direction=np.array([0., 0., -1.])):
+
+            noisy_points = camera_pose.camera_to_world(noisy_points)
+
             # compute the TSharpDF
             try:
                 distances, directions, has_sharp = annotator.annotate(nbhood, nbhood_features, noisy_points)
@@ -111,6 +118,7 @@ def get_annotated_patches(item, config):
                 continue
 
             # convert everything to images
+            ray_indexes = np.where(image.ravel() != 0)
             noisy_image = imaging.points_to_image(noisy_points, ray_indexes)
             normals = imaging.points_to_image(normals, ray_indexes, assign_channels=[0, 1, 2])
             distances = imaging.points_to_image(distances.reshape(-1, 1), ray_indexes, assign_channels=[0])
@@ -119,6 +127,7 @@ def get_annotated_patches(item, config):
             # compute statistics
             num_sharp_curves = len([curve for curve in nbhood_features['curves'] if curve['sharp']])
             num_surfaces = len(nbhood_features['surfaces'])
+
             patch_info = {
                 'image': noisy_image,
                 'normals': normals,
@@ -130,7 +139,7 @@ def get_annotated_patches(item, config):
                 'has_sharp': has_sharp,
                 'num_sharp_curves': num_sharp_curves,
                 'num_surfaces': num_surfaces,
-                'camera_pose': camera_pose
+                'camera_pose': camera_pose.camera_to_world_4x4
             }
             yield configuration, patch_info
 
