@@ -93,6 +93,9 @@ def get_annotated_patches(item, config):
             eprint_t(str(e))
             continue
 
+        if not points:  # we hit nothing; discard this attempt
+            continue
+
         nbhood, mesh_vertex_indexes, mesh_face_indexes = \
             abc_utils.submesh_from_hit_surfaces(mesh, features, mesh_face_indexes)
 

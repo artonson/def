@@ -44,7 +44,7 @@ class SphereOrientedToWorldOrigin(AbstractCameraPoseManager):
         # for all specified camera origins
 
         # scanning radius is determined from the mesh extent
-        scanning_radius = np.max(mesh.bounding_box.extents) + 1.0
+        scanning_radius = np.max(mesh.bounding_box.extents) / 2.0 + 1
 
         # XYZ coordinates of camera frame origin in world frame
         camera_origins = fibonacci_sphere_sampling(
@@ -84,7 +84,7 @@ class XYTranslationInCameraFrame(AbstractCameraPoseManager):
         n_images_y = int(np.sqrt(self.n_images))
 
         # scanning radius is determined from the mesh extent
-        scanning_radius = np.max(mesh.bounding_box.extents)
+        scanning_radius = np.max(mesh.bounding_box.extents) / 2.0 + 1
 
         # XYZ coordinates of camera frame origin in world frame
         centers = np.mgrid[0:n_images_y, 0:n_images_x].reshape(
