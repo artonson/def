@@ -100,15 +100,13 @@ class RaycastingImaging(ImagingFunc):
         image[xy_to_ij[:, 0], xy_to_ij[:, 1]] = points[:, assign_channels]
         return image.squeeze()
 
-    # TODO implement `image_to_points`
-    # def image_to_points(self, image):
-    #     points = np.zeros((self.resolution_image * self.resolution_image, 3))
-    #     points[:, 0] = self.rays_origins[:, 0]
-    #     points[:, 1] = self.rays_origins[:, 1]
-    #
-    #     xy_to_ij = self.rays_screen_coords[ray_indexes]
-    #     points[:, 2] = image[xy_to_ij[:, 0], xy_to_ij[:, 1]]
-    #     return points
+    def image_to_points(self, image):
+        i = np.where(image.ravel() != 0)[0]
+        points = np.zeros((len(i), 3))
+        points[:, 0] = self.rays_origins[i, 0]
+        points[:, 1] = self.rays_origins[i, 1]
+        points[:, 2] = image.ravel()[i]
+        return points
 
 
 IMAGING_BY_TYPE = {
