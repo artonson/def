@@ -43,9 +43,10 @@ def scale_mesh(mesh, features, shape_fabrication_extent, resolution_3d,
     least_len = np.quantile(sharp_curves_lengths, short_curve_quantile)
     least_len_mm = resolution_3d * n_points_per_short_curve
 
-    mesh = mesh.apply_scale(least_len_mm / least_len)
+    scale = least_len_mm / least_len
+    mesh = mesh.apply_scale(scale)
 
-    return mesh
+    return mesh, scale
 
 
 # mm/pixel
@@ -72,9 +73,9 @@ def get_annotated_patches(item, config):
     features = yaml.load(item.feat, Loader=yaml.Loader)
 
     # fix mesh fabrication size in physical mm
-    mesh = scale_mesh(mesh, features, shape_fabrication_extent, base_resolution_3d,
-                      short_curve_quantile=short_curve_quantile,
-                      n_points_per_short_curve=base_n_points_per_short_curve)
+    mesh, mesh_scale = scale_mesh(mesh, features, shape_fabrication_extent, base_resolution_3d,
+                                  short_curve_quantile=short_curve_quantile,
+                                  n_points_per_short_curve=base_n_points_per_short_curve)
 
     mesh = mesh.apply_translation(-mesh.vertices.mean(axis=0))
 
@@ -111,17 +112,16 @@ def get_annotated_patches(item, config):
                 normals,
                 z_direction=np.array([0., 0., -1.])):
 
-            noisy_points = camera_pose.camera_to_world(noisy_points)
-
             # compute the TSharpDF
             try:
-                distances, directions, has_sharp = annotator.annotate(nbhood, nbhood_features, noisy_points)
+                distances, directions, has_sharp = annotator.annotate(
+                    nbhood, nbhood_features, camera_pose.camera_to_world(noisy_points))
             except DataGenerationException as e:
                 eprint_t(str(e))
                 continue
 
             # convert everything to images
-            ray_indexes = np.where(image.ravel() != 0)
+            ray_indexes = np.where(image.ravel() != 0)[0]
             noisy_image = imaging.points_to_image(noisy_points, ray_indexes)
             normals = imaging.points_to_image(normals, ray_indexes, assign_channels=[0, 1, 2])
             distances = imaging.points_to_image(distances.reshape(-1, 1), ray_indexes, assign_channels=[0])
@@ -142,7 +142,8 @@ def get_annotated_patches(item, config):
                 'has_sharp': has_sharp,
                 'num_sharp_curves': num_sharp_curves,
                 'num_surfaces': num_surfaces,
-                'camera_pose': camera_pose.camera_to_world_4x4
+                'camera_pose': camera_pose.camera_to_world_4x4,
+                'mesh_scale': mesh_scale
             }
             yield configuration, patch_info
 
@@ -187,6 +188,13 @@ def save_point_patches(point_patches, output_file):
 
         num_surfaces = np.stack([patch['num_surfaces'] for patch in point_patches])
         hdf5file.create_dataset('num_surfaces', data=num_surfaces, dtype=np.int8)
+
+        camera_pose = np.stack([patch['camera_pose'] for patch in point_patches])
+        hdf5file.create_dataset('camera_pose', data=camera_pose, dtype=np.float64)
+
+        mesh_scale = np.stack([patch['mesh_scale'] for patch in point_patches])
+        hdf5file.create_dataset('mesh_scale', data=mesh_scale, dtype=np.float64)
+
 
 
 def generate_patches(meshes_filename, feats_filename, data_slice, config, output_file):
