@@ -194,7 +194,7 @@ class AABBAnnotator(AnnotatorFunc, ABC):
         n_omp_threads = int(os.environ.get('OMP_NUM_THREADS', 1))
         parallel = Parallel(n_jobs=n_omp_threads, backend='multiprocessing')
         delayed_iterable = (delayed(parallel_nearest_point)(aabb_solver, points_to_thread, distance_func)
-                            for points_to_thread in np.split(points.astype(np.float32), n_omp_threads))
+                            for points_to_thread in np.array_split(points.astype(np.float32), n_omp_threads))
         query_results = list(chain(parallel(delayed_iterable)))
 
         # query_results = [aabb_solver.nearest_point(p, distance_func) for p in points.astype('float32')]
