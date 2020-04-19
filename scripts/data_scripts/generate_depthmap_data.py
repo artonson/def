@@ -62,7 +62,7 @@ def get_annotated_patches(item, config):
 
     short_curve_quantile = config.get('short_curve_quantile', 0.05)
 
-    pose_manager = load_func_from_config(POSE_MANAGER_BY_TYPE, config['scanning_sequence'])
+    pose_manager = load_func_from_config(POSE_MANAGER_BY_TYPE, config['camera_pose'])
     imaging = load_func_from_config(IMAGING_BY_TYPE, config['imaging'])
     noiser = load_func_from_config(NOISE_BY_TYPE, config['noise'])
     annotator = load_func_from_config(ANNOTATOR_BY_TYPE, config['annotation'])
