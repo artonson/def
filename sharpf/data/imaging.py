@@ -99,7 +99,7 @@ class RaycastingImaging(ImagingFunc):
         image = np.zeros((self.resolution_image, self.resolution_image, data_channels))
         # rays origins (h, w, 3), z is the same for all points of matrix
         # distance is absolute value
-        image[xy_to_ij[:, 0], xy_to_ij[:, 1]] = abs(points[:, assign_channels] - self.rays_origins[0, 0, assign_channels]) #points[:, assign_channels]
+        image[xy_to_ij[:, 0], xy_to_ij[:, 1]] = points[:, assign_channels]
         return image.squeeze()
 
     def image_to_points(self, image):
