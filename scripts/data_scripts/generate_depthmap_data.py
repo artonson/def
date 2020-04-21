@@ -20,15 +20,17 @@ __dir__ = os.path.normpath(
 sys.path[1:1] = [__dir__]
 
 from sharpf.data import DataGenerationException
-from sharpf.data.abc.abc_data import ABCModality, ABCChunk, ABC_7Z_FILEMASK
+from sharpf.utils.abc_utils.abc.abc_data import ABCModality, ABCChunk, ABC_7Z_FILEMASK
 from sharpf.data.annotation import ANNOTATOR_BY_TYPE
 from sharpf.data.camera_pose_manager import POSE_MANAGER_BY_TYPE
+from sharpf.data.datasets.sharpf_io import save_depth_maps
 from sharpf.data.imaging import IMAGING_BY_TYPE
 from sharpf.data.noisers import NOISE_BY_TYPE
-from sharpf.utils import abc_utils
-from sharpf.utils.common import eprint_t, add_suffix
-from sharpf.utils.config import load_func_from_config
-from sharpf.utils.mesh_utils.io import trimesh_load
+from sharpf.utils.abc_utils.abc import feature_utils
+from sharpf.utils.py_utils.console import eprint_t
+from sharpf.utils.py_utils.os import add_suffix
+from sharpf.utils.py_utils.config import load_func_from_config
+from sharpf.utils.abc_utils.mesh.io import trimesh_load
 
 
 def scale_mesh(mesh, features, shape_fabrication_extent, resolution_3d,
@@ -38,7 +40,7 @@ def scale_mesh(mesh, features, shape_fabrication_extent, resolution_3d,
     mesh = mesh.apply_scale(shape_fabrication_extent / mesh_extent)
 
     # compute lengths of curves
-    sharp_curves_lengths = abc_utils.get_curves_extents(mesh, features)
+    sharp_curves_lengths = feature_utils.get_curves_extents(mesh, features)
 
     least_len = np.quantile(sharp_curves_lengths, short_curve_quantile)
     least_len_mm = resolution_3d * n_points_per_short_curve
@@ -79,9 +81,6 @@ def get_annotated_patches(item, config):
 
     mesh = mesh.apply_translation(-mesh.vertices.mean(axis=0))
 
-    # generate rays
-    imaging.prepare()
-
     # generate camera poses
     pose_manager.prepare(mesh)
 
@@ -100,13 +99,13 @@ def get_annotated_patches(item, config):
             continue
 
         nbhood, mesh_vertex_indexes, mesh_face_indexes = \
-            abc_utils.submesh_from_hit_surfaces(mesh, features, mesh_face_indexes)
+            feature_utils.submesh_from_hit_surfaces(mesh, features, mesh_face_indexes)
 
         # create annotations: condition the features onto the nbhood
-        nbhood_features = abc_utils.compute_features_nbhood(mesh, features, mesh_vertex_indexes, mesh_face_indexes)
+        nbhood_features = feature_utils.compute_features_nbhood(mesh, features, mesh_vertex_indexes, mesh_face_indexes)
 
         # remove vertices lying on the boundary (sharp edges found in 1 face only)
-        nbhood_features = abc_utils.remove_boundary_features(nbhood, nbhood_features, how='edges')
+        nbhood_features = feature_utils.remove_boundary_features(nbhood, nbhood_features, how='edges')
 
         # create a noisy sample
         for configuration, noisy_points in noiser.make_noise(
@@ -150,55 +149,6 @@ def get_annotated_patches(item, config):
             yield configuration, patch_info
 
 
-def save_point_patches(point_patches, output_file):
-    with h5py.File(output_file, 'w') as hdf5file:
-        images = np.stack([patch['image'] for patch in point_patches])
-        hdf5file.create_dataset('image', data=images, dtype=np.float64)
-
-        normals = np.stack([patch['normals'] for patch in point_patches])
-        hdf5file.create_dataset('normals', data=normals, dtype=np.float64)
-
-        distances = np.stack([patch['distances'] for patch in point_patches])
-        hdf5file.create_dataset('distances', data=distances, dtype=np.float64)
-
-        directions = np.stack([patch['directions'] for patch in point_patches])
-        hdf5file.create_dataset('directions', data=directions, dtype=np.float64)
-
-        item_ids = [patch['item_id'] for patch in point_patches]
-        hdf5file.create_dataset('item_id', data=np.string_(item_ids), dtype=h5py.string_dtype(encoding='ascii'))
-
-        mesh_vertex_indexes = np.array([patch['orig_vert_indices'].astype('int32') for patch in point_patches])
-        vert_dataset = hdf5file.create_dataset('orig_vert_indices',
-                                               shape=mesh_vertex_indexes.shape,
-                                               dtype=h5py.special_dtype(vlen=np.int32))
-        
-        for i, vert_indices in enumerate(mesh_vertex_indexes):
-            vert_dataset[i] = vert_indices.flatten()
-
-        mesh_face_indexes = [patch['orig_face_indexes'].astype('int32') for patch in point_patches]
-        face_dataset = hdf5file.create_dataset('orig_face_indexes',
-                                               shape=(len(mesh_face_indexes),),
-                                               dtype=h5py.special_dtype(vlen=np.int32))
-        for i, face_indices in enumerate(mesh_face_indexes):
-            face_dataset[i] = face_indices.flatten()
-
-        has_sharp = np.stack([patch['has_sharp'] for patch in point_patches]).astype(bool)
-        hdf5file.create_dataset('has_sharp', data=has_sharp, dtype=np.bool)
-
-        num_sharp_curves = np.stack([patch['num_sharp_curves'] for patch in point_patches])
-        hdf5file.create_dataset('num_sharp_curves', data=num_sharp_curves, dtype=np.int8)
-
-        num_surfaces = np.stack([patch['num_surfaces'] for patch in point_patches])
-        hdf5file.create_dataset('num_surfaces', data=num_surfaces, dtype=np.int8)
-
-        camera_pose = np.stack([patch['camera_pose'] for patch in point_patches])
-        hdf5file.create_dataset('camera_pose', data=camera_pose, dtype=np.float64)
-
-        mesh_scale = np.stack([patch['mesh_scale'] for patch in point_patches])
-        hdf5file.create_dataset('mesh_scale', data=mesh_scale, dtype=np.float64)
-
-
-
 def generate_patches(meshes_filename, feats_filename, data_slice, config, output_file):
     slice_start, slice_end = data_slice
     with ABCChunk([meshes_filename, feats_filename]) as data_holder:
@@ -226,7 +176,7 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
 
         output_file_config = add_suffix(output_file, config_name) if config_name else output_file
         try:
-            save_point_patches(point_patches, output_file_config)
+            save_depth_maps(point_patches, output_file_config)
         except Exception as e:
             eprint_t('Error writing patches to disk at {output_file}: {what}'.format(
                 output_file=output_file_config, what=e))

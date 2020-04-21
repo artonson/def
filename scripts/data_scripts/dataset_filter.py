@@ -15,8 +15,8 @@ __dir__ = os.path.normpath(
 )
 sys.path[1:1] = [__dir__]
 
-from sharpf.utils.mesh_utils.filters import load_from_options
-from sharpf.data.abc.abc_data import ABCModality, ABCChunk, ABC_7Z_FILEMASK, MergedABCItem
+from sharpf.utils.abc_utils.mesh.filters import load_from_options
+from sharpf.utils.abc_utils.abc import ABCModality, ABCChunk, ABC_7Z_FILEMASK, MergedABCItem
 
 
 @delayed

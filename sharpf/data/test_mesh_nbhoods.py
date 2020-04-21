@@ -1,9 +1,9 @@
 import numpy as np
 
-from sharpf.data.abc.abc_data import ABC7ZFile
+from sharpf.utils.abc_utils.abc import ABC7ZFile
 from sharpf.data.mesh_nbhoods import RandomEuclideanSphere
-from sharpf.utils.mesh_utils.io import trimesh_load
-from sharpf.utils.unittest import ABCDownloadableTestCase, OBJ_FILENAME
+from sharpf.utils.abc_utils.mesh.io import trimesh_load
+from sharpf.utils.abc_utils.unittest import ABCDownloadableTestCase, OBJ_FILENAME
 
 
 class NeighbourhoodTestCase(ABCDownloadableTestCase):

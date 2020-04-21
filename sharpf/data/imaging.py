@@ -5,16 +5,12 @@ import numpy as np
 import trimesh
 
 from sharpf.data import DataGenerationException
-from sharpf.utils.camera_pose import CameraPose
-from sharpf.utils.raycasting import generate_rays, ray_cast_mesh
+from sharpf.utils.camera_utils.camera_pose import CameraPose
+from sharpf.utils.camera_utils.raycasting import generate_rays, ray_cast_mesh
 
 
 class ImagingFunc(ABC):
     """Implements obtaining depth maps from meshes."""
-    @abstractmethod
-    def prepare(self):
-        pass
-
     @abstractmethod
     def get_image_from_pose(self, mesh, pose, *args, **kwargs):
         """Extracts a point cloud.
@@ -33,18 +29,14 @@ class RaycastingImaging(ImagingFunc):
         self.resolution_image = resolution_image
         self.resolution_3d = resolution_3d
         self.projection = projection
-        self.rays_screen_coords, self.rays_origins, self.rays_directions = [None] * 3
+        self.rays_screen_coords, self.rays_origins, self.rays_directions = generate_rays(
+            self.resolution_image, self.resolution_3d)
 
     @classmethod
     def from_config(cls, config):
         return cls(config['resolution_image'],
                    config['resolution_3d'],
                    config['projection'])
-
-    def prepare(self):
-        # scanning radius is determined from the mesh extent
-        self.rays_screen_coords, self.rays_origins, self.rays_directions = generate_rays(
-            self.resolution_image, self.resolution_3d)
 
     def get_image_from_pose(self,
                             mesh: trimesh.base.Trimesh,

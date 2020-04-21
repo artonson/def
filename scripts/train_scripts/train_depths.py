@@ -1,4 +1,5 @@
-import os
+#!/usr/bin/env python3
+
 import torch
 import random
 import argparse
@@ -10,18 +11,16 @@ from PIL import Image
 from tensorboardX import SummaryWriter
 
 from torch.nn import functional as F
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 import torchvision.transforms as torch_transforms
 import torchvision.transforms.functional as TF
-import torch.nn as nn
-import torchvision
 
-from seg_models_lib.segmentation_models_pytorch.unet import Classifier, Unet
+from seg_models_lib.segmentation_models_pytorch.unet import Unet
 from seg_models_lib.segmentation_models_pytorch.utils.losses import BCEDiceLoss
 from seg_models_lib.segmentation_models_pytorch.utils.train import PredictEpoch, ValidEpoch, TrainEpoch
 from seg_models_lib.raster_metrics import precision_recall_fscore_iou_support
 
-from sharpf.data.datasets.hdf5_datasets import LotsOfHdf5Files 
+from sharpf.utils.abc_utils.hdf5.dataset import LotsOfHdf5Files
 
 class Transform():
     def __init__(self):

@@ -19,16 +19,17 @@ __dir__ = os.path.normpath(
 sys.path[1:1] = [__dir__]
 
 from sharpf.data import DataGenerationException
-from sharpf.data.abc.abc_data import ABCModality, ABCChunk, ABC_7Z_FILEMASK
+from sharpf.utils.abc_utils.abc.abc_data import ABCModality, ABCChunk, ABC_7Z_FILEMASK
 from sharpf.data.annotation import ANNOTATOR_BY_TYPE
 from sharpf.data.datasets.sharpf_io import save_point_patches
 from sharpf.data.mesh_nbhoods import NBHOOD_BY_TYPE
 from sharpf.data.noisers import NOISE_BY_TYPE
 from sharpf.data.point_samplers import SAMPLER_BY_TYPE
-from sharpf.utils.abc_utils import compute_features_nbhood, remove_boundary_features, get_curves_extents
-from sharpf.utils.common import eprint_t, add_suffix
-from sharpf.utils.config import load_func_from_config
-from sharpf.utils.mesh_utils.io import trimesh_load
+from sharpf.utils.abc_utils.abc.feature_utils import compute_features_nbhood, remove_boundary_features, get_curves_extents
+from sharpf.utils.py_utils.console import eprint_t
+from sharpf.utils.py_utils.os import add_suffix
+from sharpf.utils.py_utils.config import load_func_from_config
+from sharpf.utils.abc_utils.mesh.io import trimesh_load
 
 
 LARGEST_PROCESSABLE_MESH_VERTICES = 20000

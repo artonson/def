@@ -1,16 +1,10 @@
 import os
-import types
-from abc import ABC
-from io import BytesIO
-import re
-import subprocess
 import sys
-from typing import Mapping
 from unittest import TestCase
 
 import urllib.request
 
-from sharpf.data.abc.abc_data import ABC7ZFile, ABCChunk, ABCModality, ABCItem, _extract_inar_id, MergedABCItem, ALL_ABC_MODALITIES
+from sharpf.utils.abc_utils.abc import ABCChunk, ABCModality
 
 OBJ_URL = 'https://box.skoltech.ru/index.php/s/r17FSLbWI9NRmme/download'
 FEAT_URL = 'https://box.skoltech.ru/index.php/s/JapYt3PAn50gq8u/download'

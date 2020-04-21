@@ -4,16 +4,16 @@ from itertools import chain
 from operator import itemgetter
 import os
 
-from joblib import Parallel, delayed
 import numpy as np
 from scipy.spatial import cKDTree
 import igl
 from pyaabb import pyaabb
 
 from sharpf.data import DataGenerationException
-from sharpf.utils.abc_utils import get_adjacent_features_by_bfs_with_depth1, build_surface_patch_graph
+from sharpf.utils.abc_utils.abc.feature_utils import get_adjacent_features_by_bfs_with_depth1, build_surface_patch_graph
 from sharpf.utils.geometry import dist_vector_proj
-from sharpf.utils.mesh_utils.indexing import in2d
+from sharpf.utils.abc_utils.mesh.indexing import in2d
+from sharpf.utils.py_utils.parallel import multiproc_parallel
 
 
 def compute_bounded_labels(points, projections, distances=None, max_distance=np.inf, distance_scaler=1.0):
@@ -135,7 +135,7 @@ class SharpnessResamplingAnnotator(AnnotatorFunc):
         # model a dense sample of points lying on sharp edges
         sharp_points = self._resample_sharp_edges(mesh_patch, features_patch)
         # compute distances from each input point to the sharp points
-        tree = KDTree(sharp_points, leafsize=100)
+        tree = cKDTree(sharp_points, leafsize=100)
         distances, vert_indices = tree.query(points, distance_upper_bound=self.distance_upper_bound)
         return sharp_points[vert_indices], distances
 
@@ -193,10 +193,9 @@ class AABBAnnotator(AnnotatorFunc, ABC):
         aabboxes, sharp_edges = self._prepare_aabb(mesh_patch, features_patch)
 
         n_omp_threads = int(os.environ.get('OMP_NUM_THREADS', 1))
-        parallel = Parallel(n_jobs=n_omp_threads, backend='multiprocessing')
-        delayed_iterable = (delayed(parallel_nearest_point)(aabboxes, sharp_edges, points_to_thread)
-                            for points_to_thread in np.array_split(points.astype(np.float32), n_omp_threads))
-        query_results = list(chain(*parallel(delayed_iterable)))
+        iterable = ((aabboxes, sharp_edges, points_to_thread)
+                    for points_to_thread in np.array_split(points.astype(np.float32), n_omp_threads))
+        query_results = list(chain(*multiproc_parallel(parallel_nearest_point, iterable)))
 
         # query_results = [aabb_solver.nearest_point(p, distance_func) for p in points.astype('float32')]
         matching_edges, projections, distances = [np.array(list(map(itemgetter(i), query_results))) for i in [0, 1, 2]]

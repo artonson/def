@@ -6,7 +6,7 @@ from scipy.spatial import cKDTree
 import point_cloud_utils as pcu
 
 from sharpf.data import DataGenerationException
-from sharpf.utils.mesh_utils.indexing import reindex_zerobased, compute_relative_indexes
+from sharpf.utils.abc_utils.mesh import reindex_zerobased, compute_relative_indexes
 
 
 class NeighbourhoodFunc(ABC):

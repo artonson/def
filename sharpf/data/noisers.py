@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 
-from sharpf.utils.config import load_func_from_config
+from sharpf.utils.py_utils.config import load_func_from_config
 
 
 class NoiserFunc(ABC):

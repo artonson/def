@@ -20,12 +20,12 @@ __dir__ = os.path.normpath(
 )
 sys.path[1:1] = [__dir__]
 
-from sharpf.data.datasets.hdf5_datasets import LotsOfHdf5Files
-from sharpf.data.datasets.sharpf_io import DepthIO
+from sharpf.utils.abc_utils.hdf5.dataset import LotsOfHdf5Files
+from sharpf.data.datasets.sharpf_io import PointCloudIO
 from sharpf.models import load_model
 from sharpf.modules.losses import LOSSES, get_loss_function
-from sharpf.utils.logging import create_logger
-from sharpf.utils.os import require_empty
+from sharpf.utils.py_utils.logging import create_logger
+from sharpf.utils.py_utils.os import require_empty
 
 
 def make_loaders_fn(options):
@@ -34,7 +34,7 @@ def make_loaders_fn(options):
         DataLoader(
             LotsOfHdf5Files(
                 data_dir=options.data_root,
-                io=DepthIO,
+                io=PointCloudIO,
                 partition='train',
                 data_label=options.data_label,
                 target_label=options.target_label,
@@ -47,7 +47,7 @@ def make_loaders_fn(options):
         DataLoader(
             LotsOfHdf5Files(
                 data_dir=options.data_root,
-                io=DepthIO,
+                io=PointCloudIO,
                 partition='val',
                 data_label=options.data_label,
                 target_label=options.target_label,

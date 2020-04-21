@@ -4,9 +4,9 @@ from itertools import product
 import numpy as np
 
 from sharpf.data import DataGenerationException
-from sharpf.utils.camera_pose import CameraPose, create_rotation_matrix_z, rotate_to_world_origin
-from sharpf.utils.config import load_func_from_config
-from sharpf.utils.sampling import fibonacci_sphere_sampling
+from sharpf.utils.camera_utils.camera_pose import CameraPose, create_rotation_matrix_z, rotate_to_world_origin
+from sharpf.utils.py_utils.config import load_func_from_config
+from sharpf.utils.camera_utils.fibonacci_sphere_sampling import fibonacci_sphere_sampling
 
 
 class AbstractCameraPoseManager(ABC):
