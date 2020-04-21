@@ -1,6 +1,5 @@
 import os
 import glob
-from collections import Callable
 
 import h5py
 import numpy as np
@@ -8,38 +7,55 @@ import torch
 from torch.utils.data import Dataset
 
 from sharpf.utils.common import eprint
-from sharpf.utils.matrix_torch import random_3d_rotation_and_scale
-
-
-class Random3DRotationAndScale(Callable):
-    def __init__(self, scale_range):
-        self.scale_range = scale_range
-
-    def __call__(self, data):
-        data = torch.cat((data, torch.ones(len(data), 1)), dim=1)
-        transform = random_3d_rotation_and_scale(self.scale_range)
-        data = torch.mm(data, transform)
-        return data[:, :-1]
+from sharpf.utils.parallel import threaded_parallel
 
 
 class Hdf5File(Dataset):
-    def __init__(self, filename, data_label, target_label, preload=True,
-                 transform=None, target_transform=None):
+    def __init__(self, filename, io, data_label=None, target_label=None, labels=None, preload=True,
+                 transform=None):
+        """Represents HDF5 dataset contained in a single HDF5 file.
+
+        :param filename: name of the file
+        :param io: HDF5IO object serving as a I/O interface to the HDF5 data files
+        :param data_label: string label in HDF5 dataset corresponding to data to train from
+        :param target_label: string label in HDF5 dataset corresponding to targets
+        :param labels: a list of HDF5 dataset labels to read off the file ('*' for ALL keys)
+        :param preload: if True, data is read off disk in constructor; otherwise load lazily
+        :param transform: callable implementing data + target transform (e.g., adding noise)
+        """
         self.filename = os.path.normpath(os.path.realpath(filename))
+        assert not all([value is None for value in [data_label, target_label, labels]]), \
+            'Specify value for at least data_label, target_label, or labels'
+
         self.data_label = data_label
         self.target_label = target_label
         self.transform = transform
-        self.target_transform = target_transform
-        self.data, self.target = None, None
+        self.items = None  # this is where the data internally is read to
+        self.io = io
+
+        with h5py.File(self.filename, 'r') as f:
+            self.num_items = self._get_length(f)
+            if labels == '*':
+                labels = set(f.keys())
+            elif None is labels:
+                labels = set()
+            else:
+                labels = set(labels)
+
+        default_labels = set([label for label in [data_label, target_label] if label is not None])
+        self.labels = list(default_labels.union(labels))
+
         if preload:
             self.reload()
-        else:
-            with h5py.File(self.filename, 'r') as f:
-                try:
-                    self.num_items = len(f['has_sharp'])
-                except KeyError:
-                    eprint('File {} is not compatible with Hdf5File interface'.format(self.filename))
-                    self.num_items = 0
+
+    def _get_length(self, hdf5_file):
+        try:
+            num_items = self.io.length(hdf5_file)
+        except KeyError:
+            eprint('File {} is not compatible with Hdf5File I/O interface {}'.format(
+                self.filename, str(self.io.__class__)))
+            num_items = 0
+        return num_items
 
     def __len__(self):
         return self.num_items
@@ -48,41 +64,55 @@ class Hdf5File(Dataset):
         if not self.is_loaded():
             self.reload()
 
-        data, target = torch.from_numpy(self.data[index]), \
-                       torch.from_numpy(self.target[index])
+        item = {label: self.items[label][index]
+                for label in self.labels}
+
+        data = None
+        if None is not self.data_label:
+            data = torch.from_numpy(self.items[self.data_label][index])
+
+        target = None
+        if None is not self.target_label:
+            target = torch.from_numpy(self.items[self.target_label][index])
 
         if self.transform is not None:
-            data, target = self.transform.forward(data, target)
+            data, target = self.transform(data, target)
 
-        # if self.target_transform is not None:
-        #     target = self.target_transform(target)
+        item.update({self.data_label: data,
+                     self.target_label: target})
 
-        return data, target
+        return item
 
     def reload(self):
         with h5py.File(self.filename, 'r') as f:
-            self.data = np.array(f[self.data_label]).astype('float32')
-            self.target = np.array(f[self.target_label]).astype('float32')
-            self.num_items = len(f)
+            self.items = {label: self.io.read(f, label)
+                          for label in self.labels}
+            self.num_items = self._get_length(f)
 
     def is_loaded(self):
-        return None is not self.data and None is not self.target
+        return None is not self.items
 
     def unload(self):
-        self.data, self.target = None, None
+        self.items = None
 
 
 class LotsOfHdf5Files(Dataset):
-    def __init__(self, data_dir, data_label, target_label, partition=None,
-                 transform=None, target_transform=None, max_loaded_files=0):
-        self.data_label = data_label
-        self.target_label = target_label
+    def __init__(self, data_dir, io, data_label=None, target_label=None, labels=None, partition=None,
+                 transform=None, max_loaded_files=0):
         if None is not partition:
             data_dir = os.path.join(data_dir, partition)
         filenames = glob.glob(os.path.join(data_dir, '*.hdf5'))
-        self.files = [Hdf5File(filename, data_label, target_label,
-                               transform=transform, target_transform=target_transform, preload=False)
-                      for filename in filenames]
+
+        def _hdf5_creator(filename):
+            try:
+                return Hdf5File(filename, io, data_label, target_label, labels=labels,
+                                transform=transform, preload=False)
+            except (OSError, KeyError) as e:
+                eprint('Unable to open {}: {}'.format(filename, str(e)))
+                return None
+
+        self.files = [hdf5_file for hdf5_file in filter(lambda obj: obj is not None,
+                                                        threaded_parallel(_hdf5_creator, filenames))]
         self.cum_num_items = np.cumsum([len(f) for f in self.files])
         self.current_file_idx = 0
         self.max_loaded_files = max_loaded_files
@@ -92,33 +122,12 @@ class LotsOfHdf5Files(Dataset):
             return self.cum_num_items[-1]
         return 0
 
-    def normalize(self, data):
-        norm_data = np.copy(data)
-        norm_data -= np.mean(norm_data)
-        std = np.linalg.norm(norm_data, axis=1).max()
-        if std > 0:
-            norm_data /= std
-        return norm_data
-
     def __getitem__(self, index):
         file_index = np.searchsorted(self.cum_num_items, index, side='right')
         relative_index = index - self.cum_num_items[file_index] if file_index > 0 else index
-        data, target = self.files[file_index][relative_index]
+        item = self.files[file_index][relative_index]
         loaded_file_indexes = [i for i, f in enumerate(self.files) if f.is_loaded()]
         if len(loaded_file_indexes) > self.max_loaded_files:
             file_index_to_unload = np.random.choice(loaded_file_indexes)
             self.files[file_index_to_unload].unload()
-        if self.data_label == 'image':
-            dist_new = np.copy(data)
-            mask = ((data.numpy() != 0.0)).astype(float)
-            mask[mask == 0.0] = np.nan
-
-            dist_new *= mask
-            dist1 = np.array((dist_new != np.nan) & (dist_new < 0.25)).astype(float)
-            dist2 = np.array((dist_new != np.nan) & (dist_new > 0.25)).astype(float)
-            target = torch.cat([torch.FloatTensor(dist1).unsqueeze(0), torch.FloatTensor(dist2).unsqueeze(0)], dim=1)[0]
-            mask[np.isnan(mask)] = 0.0
-            data = torch.FloatTensor(self.normalize(data))
-            data = torch.cat([data, data, data, torch.FloatTensor(mask)], dim=0)
-        
-        return data, target
+        return item

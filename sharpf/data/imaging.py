@@ -114,3 +114,4 @@ class RaycastingImaging(ImagingFunc):
 IMAGING_BY_TYPE = {
     'raycasting': RaycastingImaging,
 }
+
