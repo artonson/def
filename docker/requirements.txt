@@ -4,7 +4,7 @@ matplotlib
 scikit-image>=0.14
 jupyter==1.0.0
 tqdm
-Pillow
+Pillow<7
 ipyparallel
 trimesh
 glob2
