@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from functools import partial
+from itertools import chain
 from operator import itemgetter
 import os
 
@@ -139,6 +140,14 @@ class SharpnessResamplingAnnotator(AnnotatorFunc):
         return sharp_points[vert_indices], distances
 
 
+def parallel_nearest_point(aabboxes, sharp_edges, points):
+    aabb_solver = pyaabb.AABB()
+    aabb_solver.build(aabboxes)
+    distance_func = partial(dist_vector_proj, lines=sharp_edges)
+    return [aabb_solver.nearest_point(p, distance_func)
+            for p in points.astype(np.float32)]
+
+
 class AABBAnnotator(AnnotatorFunc, ABC):
     """Use axis-aligned bounding box representation sharp edges and compute
     distances from the input point cloud to the closest sharp edges."""
@@ -182,18 +191,12 @@ class AABBAnnotator(AnnotatorFunc, ABC):
 
     def compute_aabb_nearest_points(self, mesh_patch, features_patch, points):
         aabboxes, sharp_edges = self._prepare_aabb(mesh_patch, features_patch)
-        aabb_solver = pyaabb.AABB()
-        aabb_solver.build(aabboxes)
-        distance_func = partial(dist_vector_proj, lines=sharp_edges)
-
-        def threaded_nearest_point(aabb_solver, p, distance_func):
-            return aabb_solver.nearest_point(p, distance_func)
 
         n_omp_threads = int(os.environ.get('OMP_NUM_THREADS', 1))
-        parallel = Parallel(n_jobs=n_omp_threads, backend='threading')
-        delayed_iterable = (delayed(threaded_nearest_point)(aabb_solver, p, distance_func)
-                            for p in points.astype('float32'))
-        query_results = parallel(delayed_iterable)
+        parallel = Parallel(n_jobs=n_omp_threads, backend='multiprocessing')
+        delayed_iterable = (delayed(parallel_nearest_point)(aabboxes, sharp_edges, points_to_thread)
+                            for points_to_thread in np.array_split(points.astype(np.float32), n_omp_threads))
+        query_results = list(chain(*parallel(delayed_iterable)))
 
         # query_results = [aabb_solver.nearest_point(p, distance_func) for p in points.astype('float32')]
         matching_edges, projections, distances = [np.array(list(map(itemgetter(i), query_results))) for i in [0, 1, 2]]

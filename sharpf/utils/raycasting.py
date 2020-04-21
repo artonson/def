@@ -40,11 +40,11 @@ def generate_rays(image_resolution, resolution_3d, radius=1.0):
     rays_origins[:, 1] = (-2 * rays_origins[:, 1] + 1) * factor * screen_aspect_ratio
     rays_origins = np.concatenate([
         rays_origins,
-        radius + np.zeros_like(rays_origins[:, [0]])
+        np.zeros_like(rays_origins[:, [0]])
     ], axis=1)  # [h, w, 3]
 
     # ray directions are always facing towards Z axis
-    ray_directions = np.tile(np.array([0, 0, -1]), (rays_origins.shape[0], 1))
+    ray_directions = np.tile(np.array([0, 0, 1]), (rays_origins.shape[0], 1))
 
     return rays_screen_coords, rays_origins, ray_directions
 
