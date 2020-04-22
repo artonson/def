@@ -16,13 +16,13 @@ class AnnotationTestCase(ABCDownloadableTestCase):
             "distance_upper_bound": 1.0,
             "validate_annotation": True,
             "closest_matching_distance_q": 0.95,
+            "max_empty_envelope_radius": 0.1,
         })
         _ = load_func_from_config(ANNOTATOR_BY_TYPE, {
             "type": "resampling",
             "distance_upper_bound": 1.0,
             "validate_annotation": True,
             "sharp_discretization": 0.1,
-            "max_empty_envelope_radius": 0.1,
         })
 
     def test_resampling_aabb_annotation_coincide(self):

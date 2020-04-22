@@ -96,7 +96,7 @@ class PoissonDiskSampler(SamplerFunc):
 
         # ensure that we are returning exactly n_points
         if self.crop_center:
-            centroid = np.mean(points, axis=1) if centroid is None else centroid
+            centroid = np.mean(points, axis=1, keepdims=True) if centroid is None else centroid
             return_idx = np.argsort(np.linalg.norm(points - centroid, axis=1))[:self.n_points]
         else:
             return_idx = np.random.choice(np.arange(len(points)), size=self.n_points, replace=False)
