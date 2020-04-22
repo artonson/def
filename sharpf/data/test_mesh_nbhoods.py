@@ -10,8 +10,11 @@ class NeighbourhoodTestCase(ABCDownloadableTestCase):
     def test_orig_indices_map_to_correct_verts_faces(self):
         def _run_test(geodesic=False):
             config = {
+                "type": "random_euclidean_sphere",
+                "max_patches_per_mesh": 4,
                 "n_vertices": None,
                 "centroid": None,
+                "centroid_mode": "poisson_disk",
                 "radius_base": 10.0,
                 "radius_delta": 0.0,
                 "geodesic_patches": geodesic,
@@ -35,8 +38,11 @@ class NeighbourhoodTestCase(ABCDownloadableTestCase):
 
     def test_geodesic_returns_single_cc(self):
         config = {
+            "type": "random_euclidean_sphere",
+            "max_patches_per_mesh": 4,
             "n_vertices": None,
             "centroid": None,
+            "centroid_mode": "poisson_disk",
             "radius_base": 10.0,
             "radius_delta": 0.0,
             "geodesic_patches": True,
