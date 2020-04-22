@@ -15,3 +15,4 @@ tensorboardX
 pylzma
 k3d==2.7
 randomcolor
+nose==1.3
