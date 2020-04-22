@@ -1,6 +1,6 @@
 import numpy as np
 
-from sharpf.utils.abc_utils.abc import ABC7ZFile
+from sharpf.utils.abc_utils.abc.abc_data import ABC7ZFile
 from sharpf.data.mesh_nbhoods import RandomEuclideanSphere
 from sharpf.utils.abc_utils.mesh.io import trimesh_load
 from sharpf.utils.abc_utils.unittest import ABCDownloadableTestCase, OBJ_FILENAME

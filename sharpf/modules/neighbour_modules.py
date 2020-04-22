@@ -1,11 +1,6 @@
-from abc import abstractmethod
-
-import numpy as np
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 
-from sharpf.modules.base import ParameterizedModule, load_with_spec
+from sharpf.modules.base import ParameterizedModule
 from contrib.pointweb.lib.pointops.functions import pointops
 
 

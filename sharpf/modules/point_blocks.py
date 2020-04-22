@@ -1,7 +1,5 @@
-import numpy as np
 import torch
 import torch.nn
-import torch.nn.functional as F
 
 from sharpf.modules import (
     neighbour_module_by_kind,

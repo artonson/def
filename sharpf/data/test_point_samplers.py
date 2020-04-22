@@ -1,6 +1,4 @@
-import unittest
-
-from sharpf.utils.abc_utils.abc import ABC7ZFile
+from sharpf.utils.abc_utils.abc.abc_data import ABC7ZFile
 from sharpf.data.mesh_nbhoods import RandomEuclideanSphere
 from sharpf.data.point_samplers import PoissonDiskSampler
 from sharpf.utils.abc_utils.mesh.io import trimesh_load
@@ -52,6 +50,3 @@ class PoissonDiskSamplerTestCase(ABCDownloadableTestCase):
                     points, normals = sampler.sample(submesh)
                     self.assertEquals(sampler.n_points, len(points))
 
-
-if __name__ == '__main__':
-    unittest.main()
