@@ -23,7 +23,8 @@ RUN apt-get clean \
     graphviz \
     tmux \
     screen \
-    htop
+    htop \
+    p7zip-full
 
 
 # Create a non-root user and switch to it.
