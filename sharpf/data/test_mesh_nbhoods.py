@@ -11,7 +11,7 @@ class NeighbourhoodTestCase(ABCDownloadableTestCase):
         def _run_test(geodesic=False):
             config = {
                 "type": "random_euclidean_sphere",
-                "max_patches_per_mesh": 4,
+                "max_patches_per_mesh": 10,
                 "n_vertices": None,
                 "centroid": None,
                 "centroid_mode": "poisson_disk",
@@ -39,7 +39,7 @@ class NeighbourhoodTestCase(ABCDownloadableTestCase):
     def test_geodesic_returns_single_cc(self):
         config = {
             "type": "random_euclidean_sphere",
-            "max_patches_per_mesh": 4,
+            "max_patches_per_mesh": 10,
             "n_vertices": None,
             "centroid": None,
             "centroid_mode": "poisson_disk",
