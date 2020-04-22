@@ -105,7 +105,9 @@ class SharpnessResamplingAnnotator(AnnotatorFunc):
 
     @classmethod
     def from_config(cls, config):
-        return cls(config['distance_upper_bound'], config['sharp_discretization'])
+        return cls(config['distance_upper_bound'],
+                   config['validate_annotation'],
+                   config['sharp_discretization'])
 
     def _resample_sharp_edges(self, mesh_patch, features):
         sharp_points = []
@@ -206,14 +208,16 @@ class AABBGlobalAnnotator(AABBAnnotator):
     """Use axis-aligned bounding box representation sharp edges and compute
     distances from the input point cloud to the closest sharp edges."""
 
-    def __init__(self, distance_upper_bound, closest_matching_distance_q, max_empty_envelope_radius):
-        super(AABBGlobalAnnotator, self).__init__(distance_upper_bound)
+    def __init__(self, distance_upper_bound, validate_annotation, closest_matching_distance_q, max_empty_envelope_radius):
+        super(AABBGlobalAnnotator, self).__init__(distance_upper_bound, validate_annotation)
         self.closest_matching_distance_q = closest_matching_distance_q
         self.max_empty_envelope_radius = max_empty_envelope_radius
 
     @classmethod
     def from_config(cls, config):
-        return cls(config['distance_upper_bound'], config['closest_matching_distance_q'],
+        return cls(config['distance_upper_bound'],
+                   config['validate_annotation'],
+                   config['closest_matching_distance_q'],
                    config['max_empty_envelope_radius'])
 
     def reset_distances(self, distances, matching_edges):

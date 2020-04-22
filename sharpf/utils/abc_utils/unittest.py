@@ -23,8 +23,12 @@ class ABCDownloadableTestCase(unittest.TestCase):
     def setUpClass(cls):
         print('Downloading test data {}'.format(OBJ_FILENAME), file=sys.stderr)
         urllib.request.urlretrieve(OBJ_URL, OBJ_FILENAME)
+        print('Downloading test data {}'.format(FEAT_FILENAME), file=sys.stderr)
+        urllib.request.urlretrieve(FEAT_URL, FEAT_FILENAME)
 
     @classmethod
     def tearDownClass(cls):
         print('Cleaning test data {}'.format(OBJ_FILENAME), file=sys.stderr)
         os.remove(OBJ_FILENAME)
+        print('Cleaning test data {}'.format(FEAT_FILENAME), file=sys.stderr)
+        os.remove(FEAT_FILENAME)

@@ -17,8 +17,9 @@ class AnnotationTestCase(ABCDownloadableTestCase):
             "validate_annotation": True
         })
         _ = load_func_from_config(ANNOTATOR_BY_TYPE, {
-            "type": "global_aabb",
+            "type": "resampling",
             "distance_upper_bound": 1.0,
+            "closest_matching_distance_q": 0.95,
             "validate_annotation": True,
             "sharp_discretization": 0.1
         })
