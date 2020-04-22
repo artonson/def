@@ -21,13 +21,12 @@ class NeighbourhoodTestCase(ABCDownloadableTestCase):
                 "radius_scale_mode": "no_scale"
             }
             nbhood_extractor = RandomEuclideanSphere.from_config(config)
-            n_patches_per_mesh = 10
 
             with ABC7ZFile(OBJ_FILENAME) as f:
                 for item in f:
                     mesh = trimesh_load(item.obj)
                     nbhood_extractor.index(mesh)
-                    for patch_idx in range(n_patches_per_mesh):
+                    for patch_idx in range(nbhood_extractor.n_patches_per_mesh):
                         nbhood, mesh_vertex_indexes, mesh_face_indexes, _ = nbhood_extractor.get_nbhood()
                         self.assertTrue(np.all(mesh.vertices[mesh_vertex_indexes] == nbhood.vertices))
                         self.assertTrue(
@@ -49,13 +48,12 @@ class NeighbourhoodTestCase(ABCDownloadableTestCase):
             "radius_scale_mode": "no_scale"
         }
         nbhood_extractor = RandomEuclideanSphere.from_config(config)
-        n_patches_per_mesh = 10
 
         with ABC7ZFile(OBJ_FILENAME) as f:
             for item in f:
                 mesh = trimesh_load(item.obj)
                 nbhood_extractor.index(mesh)
-                for patch_idx in range(n_patches_per_mesh):
+                for patch_idx in range(nbhood_extractor.n_patches_per_mesh):
                     nbhood, orig_vert_indices, orig_face_indexes, _ = nbhood_extractor.get_nbhood()
                     self.assertEquals(len(nbhood.split(only_watertight=False)), 1)
 
