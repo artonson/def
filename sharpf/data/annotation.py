@@ -99,8 +99,8 @@ class SharpnessResamplingAnnotator(AnnotatorFunc):
     compute distances from the input point clouds
     to the closest sharp points."""
 
-    def __init__(self, distance_upper_bound, sharp_discretization):
-        super(SharpnessResamplingAnnotator, self).__init__(distance_upper_bound)
+    def __init__(self, distance_upper_bound, validate_annotation, sharp_discretization):
+        super(SharpnessResamplingAnnotator, self).__init__(distance_upper_bound, validate_annotation)
         self.sharp_discretization = sharp_discretization
 
     @classmethod

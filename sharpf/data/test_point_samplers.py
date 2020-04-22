@@ -7,12 +7,16 @@ from sharpf.utils.abc_utils.unittest import ABCDownloadableTestCase, OBJ_FILENAM
 SAMPLER_CONFIG = {
     "type": "poisson_disk",
     "n_points": 4096,
-    "upsampling_factor": 3,
-    "poisson_disk_radius": 0.1
+    "resolution_3d": 0.02,
+    "crop_center": True,
+    "resolution_deviation_tolerance": 0.01
 }
 NBHOOD_CONFIG = {
+    "type": "random_euclidean_sphere",
+    "max_patches_per_mesh": 48,
     "n_vertices": None,
     "centroid": None,
+    "centroid_mode": "poisson_disk",
     "radius_base": 10.0,
     "radius_delta": 0.0,
     "geodesic_patches": True,

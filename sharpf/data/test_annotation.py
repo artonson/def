@@ -1,20 +1,28 @@
-import os
-
-from sharpf.utils.abc_utils.abc.abc_data import ABCChunk, ABCModality
-from sharpf.utils.abc_utils.unittest import ABCDownloadableTestCase
-
-OBJ_URL = 'https://box.skoltech.ru/index.php/s/r17FSLbWI9NRmme/download'
-FEAT_URL = 'https://box.skoltech.ru/index.php/s/JapYt3PAn50gq8u/download'
-CHUNK_URLS = [OBJ_URL, FEAT_URL]
-
-OBJ_FILENAME = os.path.expanduser('~/abc_0000_obj_v00.7z')
-FEAT_FILENAME = os.path.expanduser('~/abc_0000_feat_v00.7z')
-CHUNK_FILENAMES = [OBJ_FILENAME, FEAT_FILENAME]
-CHUNK_MODALITIES = [ABCModality.OBJ.value, ABCModality.FEAT.value]
-
+from sharpf.data.annotation import ANNOTATOR_BY_TYPE
+from sharpf.utils.abc_utils.abc.abc_data import ABCChunk
+from sharpf.utils.abc_utils.unittest import ABCDownloadableTestCase, CHUNK_FILENAMES
+from sharpf.utils.py_utils.config import load_func_from_config
 
 class AnnotationTestCase(ABCDownloadableTestCase):
     # TODO implement this test
+    def test_instantiate_annotation(self):
+        _ = load_func_from_config(ANNOTATOR_BY_TYPE, {
+            "type": "surface_based_aabb",
+            "distance_upper_bound": 1.0,
+            "validate_annotation": True
+        })
+        _ = load_func_from_config(ANNOTATOR_BY_TYPE, {
+            "type": "global_aabb",
+            "distance_upper_bound": 1.0,
+            "validate_annotation": True
+        })
+        _ = load_func_from_config(ANNOTATOR_BY_TYPE, {
+            "type": "global_aabb",
+            "distance_upper_bound": 1.0,
+            "validate_annotation": True,
+            "sharp_discretization": 0.1
+        })
+
     def test_resampling_aabb_annotation_coincide(self):
         with ABCChunk(CHUNK_FILENAMES) as chunk:
             pass
