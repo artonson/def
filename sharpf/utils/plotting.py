@@ -157,6 +157,7 @@ def display_depth_sharpness(depth_image=None, sharpness_image=None, axes_size=(8
         depth_cmap = matplotlib.cm.get_cmap('viridis')
         depth_cmap.set_bad(color='black')
 
+        depth_image = depth_image.copy()
         background_idx = depth_image == 0
         depth_image[background_idx] = np.nan
 
@@ -170,6 +171,7 @@ def display_depth_sharpness(depth_image=None, sharpness_image=None, axes_size=(8
         sharpness_cmap = matplotlib.cm.get_cmap('coolwarm_r')
         sharpness_cmap.set_bad(color='black')
 
+        sharpness_image = sharpness_image.copy()
         background_idx = sharpness_image == 0
         sharpness_image[background_idx] = np.nan
 
