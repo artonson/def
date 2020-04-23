@@ -51,7 +51,7 @@ def compute_curves_nbhood(features, vert_indices, face_indexes):
     return nbhood_features
 
 
-def generate_patches(meshes_filename, feats_filename, data_slice, config, output_file):
+def generate_patches(meshes_filename, feats_filename, data_slice, config, noisy_output_file, remesh_output_file):
     n_patches_per_mesh = config['n_patches_per_mesh']
     nbhood_extractor = load_func_from_config(NBHOOD_BY_TYPE, config['neighbourhood'])
     sampler = load_func_from_config(SAMPLER_BY_TYPE, config['sampling'])
@@ -61,7 +61,8 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
 
     slice_start, slice_end = data_slice
     with ABCChunk([meshes_filename, feats_filename]) as data_holder:
-        point_patches = []
+        noisy_patches = []
+        remesh_patches = []
         for item in data_holder[slice_start:slice_end]:
             eprint("Processing chunk file {chunk}, item {item}".format(
                 chunk=meshes_filename, item=item.item_id))
@@ -82,6 +83,7 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
                     # create noisy mesh
                     # noisy_nbhood = mesh_noiser.make_noise(nbhood)
                     noisy_nbhood_list = mesh_noiser.make_noise(nbhood)
+                    remesh_copies_nbhood_list = mesh_noiser.make_copies(nbhood)
 
                     # # sample the neighbourhood to form a point patch
                     # points, normals = sampler.sample(nbhood)
@@ -130,8 +132,19 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
                                 'orig_face_indexes': orig_face_indexes,
                                 'has_sharp': has_sharp
                             }
-                            point_patches.append(patch_info)
-                            eprint("# of created patches: {}".format(len(point_patches)))
+                            noisy_patches.append(patch_info)
+
+                        for remesh_nbhood in remesh_copies_nbhood_list:
+                            patch_info = {
+                                'nbhood': nbhood,
+                                'remesh_patch': remesh_nbhood,
+                                'item_id': item.item_id,
+                                'orig_vert_indices': orig_vert_indices,
+                                'orig_face_indexes': orig_face_indexes,
+                                'has_sharp': has_sharp
+                            }
+                            remesh_patches.append(patch_info)
+                            # eprint("# of created patches: {}".format(len(point_patches)))
                     else:
                         eprint("Patch with {} vertices is discarded.".format(nbhood.vertices.shape[0]))
             except Exception as e:
@@ -139,45 +152,88 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
                     item_id=item.item_id, chunk='[{},{}]'.format(meshes_filename, feats_filename), what=e
                 ))
 
-    with h5py.File(output_file, 'w') as hdf5file:
-        nbhood_verts = np.stack([np.asarray(patch['nbhood'].vertices, dtype=np.float64) for patch in point_patches])
+    # Save noisy patches
+    with h5py.File(noisy_output_file, 'w') as hdf5file:
+        nbhood_verts = np.stack([np.asarray(patch['nbhood'].vertices, dtype=np.float64) for patch in noisy_patches])
         hdf5file.create_dataset('nbhood_verts', data=nbhood_verts, dtype=np.float64)
 
         nbhood_face_dataset = hdf5file.create_dataset('nbhood_face_indices',
-                                            shape=(len(point_patches),),
+                                            shape=(len(noisy_patches),),
                                             dtype=h5py.special_dtype(vlen=np.int32))
-        nbhood_faces = [np.asarray(patch['nbhood'].faces, dtype=np.int32) for patch in point_patches]
+        nbhood_faces = [np.asarray(patch['nbhood'].faces, dtype=np.int32) for patch in noisy_patches]
         for i, face_indices in enumerate(nbhood_faces):
             nbhood_face_dataset[i] = face_indices.flatten()
 
-        noisy_patch_verts = np.stack([np.asarray(patch['noisy_patch'].vertices, dtype=np.float64) for patch in point_patches])
+        noisy_patch_verts = np.stack([np.asarray(patch['noisy_patch'].vertices, dtype=np.float64) for patch in noisy_patches])
         hdf5file.create_dataset('noisy_patch_verts', data=noisy_patch_verts, dtype=np.float64)
 
         noisy_face_dataset = hdf5file.create_dataset('noisy_face_indices',
-                                            shape=(len(point_patches),),
+                                            shape=(len(noisy_patches),),
                                             dtype=h5py.special_dtype(vlen=np.int32))
-        noisy_faces = [np.asarray(patch['noisy_patch'].faces, dtype=np.int32) for patch in point_patches]
+        noisy_faces = [np.asarray(patch['noisy_patch'].faces, dtype=np.int32) for patch in noisy_patches]
         for i, face_indices in enumerate(noisy_faces):
             noisy_face_dataset[i] = face_indices.flatten()
 
-        item_ids = [patch['item_id'] for patch in point_patches]
+        item_ids = [patch['item_id'] for patch in noisy_patches]
         hdf5file.create_dataset('item_id', data=np.string_(item_ids), dtype=h5py.string_dtype(encoding='ascii'))
 
-        orig_vert_indices = [patch['orig_vert_indices'].astype('int32') for patch in point_patches]
+        orig_vert_indices = [patch['orig_vert_indices'].astype('int32') for patch in noisy_patches]
         vert_dataset = hdf5file.create_dataset('orig_vert_indices',
                                                shape=(len(orig_vert_indices),),
                                                dtype=h5py.special_dtype(vlen=np.int32))
         for i, vert_indices in enumerate(orig_vert_indices):
             vert_dataset[i] = vert_indices
 
-        orig_face_indexes = [patch['orig_face_indexes'].astype('int32') for patch in point_patches]
+        orig_face_indexes = [patch['orig_face_indexes'].astype('int32') for patch in noisy_patches]
         face_dataset = hdf5file.create_dataset('orig_face_indexes',
                                                shape=(len(orig_face_indexes),),
                                                dtype=h5py.special_dtype(vlen=np.int32))
         for i, face_indices in enumerate(orig_face_indexes):
             face_dataset[i] = face_indices.flatten()
 
-        has_sharp = np.stack([patch['has_sharp'] for patch in point_patches]).astype(bool)
+        has_sharp = np.stack([patch['has_sharp'] for patch in noisy_patches]).astype(bool)
+        hdf5file.create_dataset('has_sharp', data=has_sharp, dtype=np.bool)
+
+    # Save remesh patches
+    with h5py.File(remesh_output_file, 'w') as hdf5file:
+        nbhood_verts = np.stack([np.asarray(patch['nbhood'].vertices, dtype=np.float64) for patch in remesh_patches])
+        hdf5file.create_dataset('nbhood_verts', data=nbhood_verts, dtype=np.float64)
+
+        nbhood_face_dataset = hdf5file.create_dataset('nbhood_face_indices',
+                                            shape=(len(remesh_patches),),
+                                            dtype=h5py.special_dtype(vlen=np.int32))
+        nbhood_faces = [np.asarray(patch['nbhood'].faces, dtype=np.int32) for patch in remesh_patches]
+        for i, face_indices in enumerate(nbhood_faces):
+            nbhood_face_dataset[i] = face_indices.flatten()
+
+        remesh_patch_verts = np.stack([np.asarray(patch['remesh_patch'].vertices, dtype=np.float64) for patch in remesh_patches])
+        hdf5file.create_dataset('remesh_patch_verts', data=remesh_patch_verts, dtype=np.float64)
+
+        remesh_face_dataset = hdf5file.create_dataset('remesh_face_indices',
+                                            shape=(len(remesh_patches),),
+                                            dtype=h5py.special_dtype(vlen=np.int32))
+        remesh_faces = [np.asarray(patch['remesh_patch'].faces, dtype=np.int32) for patch in remesh_patches]
+        for i, face_indices in enumerate(remesh_faces):
+            remesh_face_dataset[i] = face_indices.flatten()
+
+        item_ids = [patch['item_id'] for patch in remesh_patches]
+        hdf5file.create_dataset('item_id', data=np.string_(item_ids), dtype=h5py.string_dtype(encoding='ascii'))
+
+        orig_vert_indices = [patch['orig_vert_indices'].astype('int32') for patch in remesh_patches]
+        vert_dataset = hdf5file.create_dataset('orig_vert_indices',
+                                               shape=(len(orig_vert_indices),),
+                                               dtype=h5py.special_dtype(vlen=np.int32))
+        for i, vert_indices in enumerate(orig_vert_indices):
+            vert_dataset[i] = vert_indices
+
+        orig_face_indexes = [patch['orig_face_indexes'].astype('int32') for patch in remesh_patches]
+        face_dataset = hdf5file.create_dataset('orig_face_indexes',
+                                               shape=(len(orig_face_indexes),),
+                                               dtype=h5py.special_dtype(vlen=np.int32))
+        for i, face_indices in enumerate(orig_face_indexes):
+            face_dataset[i] = face_indices.flatten()
+
+        has_sharp = np.stack([patch['has_sharp'] for patch in remesh_patches]).astype(bool)
         hdf5file.create_dataset('has_sharp', data=has_sharp, dtype=np.bool)
 
     # with h5py.File(output_file, 'w') as hdf5file:
@@ -248,18 +304,26 @@ def make_patches(options):
     chunk_size = len(abc_data) // processes_to_spawn
     abc_data_slices = [(start, start + chunk_size)
                        for start in range(0, len(abc_data), chunk_size)]
-    output_files = [
+    output_noisy_files = [
         os.path.join(
             options.output_dir,
-            'abc_{chunk}_{slice_start}_{slice_end}.hdf5'.format(
+            'noisy_abc_{chunk}_{slice_start}_{slice_end}.hdf5'.format(
+                chunk=options.chunk.zfill(4), slice_start=slice_start, slice_end=slice_end)
+        )
+        for slice_start, slice_end in abc_data_slices]
+
+    output_remesh_files = [
+        os.path.join(
+            options.output_dir,
+            'remesh_abc_{chunk}_{slice_start}_{slice_end}.hdf5'.format(
                 chunk=options.chunk.zfill(4), slice_start=slice_start, slice_end=slice_end)
         )
         for slice_start, slice_end in abc_data_slices]
 
     # run the filtering job in parallel
     parallel = Parallel(n_jobs=options.n_jobs, backend='multiprocessing')
-    delayed_iterable = (delayed(generate_patches)(obj_filename, feat_filename, data_slice, config, out_filename)
-                        for data_slice, out_filename in zip(abc_data_slices, output_files))
+    delayed_iterable = (delayed(generate_patches)(obj_filename, feat_filename, data_slice, config, noisy_out_filename, remesh_out_filename)
+                        for data_slice, noisy_out_filename, remesh_out_filename in zip(abc_data_slices, output_noisy_files, output_remesh_files))
     parallel(delayed_iterable)
 
 

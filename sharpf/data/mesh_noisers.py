@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-import trimesh
+import trimesh as trm
 import numpy as np
 import copy
 
@@ -33,110 +33,119 @@ class NoiserFunc(ABC):
 
 class AddEdgesNoise(NoiserFunc):
     """Add and Remove edges"""
-    def __init__(self, face_angle, n_sample_faces, nondegen_tri_height, n_noisy_patches):
+    def __init__(self, face_angle, n_sample_adj_faces, nondegen_tri_height, n_noisy_patches):
         super(AddEdgesNoise, self).__init__()
         self.face_angle = face_angle
-        self.n_sample_faces = n_sample_faces
+        self.n_sample_adj_faces = n_sample_adj_faces
         self.nondegen_tri_height = nondegen_tri_height
         self.n_noisy_patches = n_noisy_patches
         self.mesh = None
+        self._idx = None
+
+    def _flip_edges(self):
+        # Get pairs of adjacent faces, shared edges, and unshared vertices
+        adj_faces = self.mesh.face_adjacency[self._idx]
+        adj_unshared_verts = self.mesh.face_adjacency_unshared[self._idx]
+        adj_edges = self.mesh.face_adjacency_edges[self._idx]
+        
+        new_patches_list = []
+        num_iter=5
+        it = 0
+        num_rej = 0
+        num_added = 0
+        
+        if len(adj_faces) >= n_sample_adj_faces:
+            # Loop for num_iter OR when required n_noisy_patches reaches
+            while it < num_iter and len(new_patches_list) < n_noisy_patches:
+                it += 1
+                for i in range(n_noisy_patches):
+                    if len(new_patches_list) < n_noisy_patches:
+                        # Randomly choose 'N' pairs of adj. faces 
+                        sample_idx = np.random.choice(len(adj_faces), \
+                                                    size=n_sample_adj_faces, replace=False)
+                        sample_adj_faces = adj_faces[sample_idx]
+                        sample_unshared_verts = adj_unshared_verts[sample_idx]
+                        sample_edges = adj_edges[sample_idx]
+
+                        old_faces = self.mesh.copy().faces
+
+                        # Add and remove edges
+                        new_adding_faces = []
+                        processed_faces = []
+                        # f_count = 0
+
+                        for f_count, adj in enumerate(sample_adj_faces):
+                            # Check if any of faces in adj. pair is already processed
+                            if not np.isin(processed_faces,adj).any():
+                                dif = sample_unshared_verts[f_count]
+                                same = sample_edges[f_count]
+
+                                # Create two new triangles
+                                # Remove their old shared edge and add a new edge b/w unshare vertices
+                                new_face_1 = np.array([self.mesh.vertices[dif[0]], \
+                                                    self.mesh.vertices[dif[1]], \
+                                                    self.mesh.vertices[same[0]]]).reshape((1,3,3))
+                                new_face_2 = np.array([self.mesh.vertices[dif[0]], \
+                                                    self.mesh.vertices[dif[1]], \
+                                                    self.mesh.vertices[same[1]]]).reshape((1,3,3))
+                                
+                                # Check if the new triangles are degenerated
+                                if trm.triangles.nondegenerate(new_face_1, height=self.nondegen_tri_height).all() and \
+                                    trm.triangles.nondegenerate(new_face_2, height=self.nondegen_tri_height).all():
+                                    new_adding_faces.append(np.append(dif,same[0])) # add new face
+                                    new_adding_faces.append(np.append(dif,same[1])) # add new face
+                                    processed_faces.append(adj)
+    #                                 print("new faces with verts: {}".format(new_adding_faces))
+                                else:
+                                    print("REJECTED!! Degenerate Triangles")
+
+                            # f_count = f_count + 1
+
+                        old_faces = np.asarray(old_faces)
+                        mask = np.ones(len(old_faces), dtype=bool)
+                        mask[np.asarray(processed_faces).reshape(-1)] = False
+                        masked_faces = old_faces[mask,...]
+                        new_faces = np.append(masked_faces,np.asarray(new_adding_faces),axis=0)
+                        # Construct noisy mesh
+                        noisy_mesh = trm.base.Trimesh(vertices = self.mesh.vertices, \
+                                                        faces = new_faces, \
+                                                        process = False)
+
+                        # Fix faces flip
+                        trm.repair.fix_winding(noisy_mesh)
+                        if trm.triangles.nondegenerate(noisy_mesh.triangles, height=self.nondegen_tri_height).all():
+                            # Add only patches with 50 % new adding faces
+                            if len(new_adding_faces) > (n_sample_adj_faces*1.2):
+                                print("patch {}/{} is ADDED with {}/{} new added faces.".format(i+1, n_noisy_patches, len(new_adding_faces), \
+                                                                                                n_sample_adj_faces*2))
+                                new_patches_list.append(noisy_mesh)
+                                num_added += 1
+                        else:
+            #                 print("Mesh contains degenerate triangle(s) and REJECTED")
+                            print("patch {}/{} is REJECTED".format(i+1, n_noisy_patches))
+                            num_rej += 1
+                        print("-----------------------------------")
+            print("After {} tries: {} ADDED and {} REJECTED.".format(it, num_added, num_rej))
+        
+        return new_patches_list
+
+    def make_copies(self, mesh):
+        self.mesh = mesh
+        # Select only pairs that the angle b/w faces < face_angle radius
+        self._idx = (self.mesh.face_adjacency_angles < self.face_angle) # 5 degree = 0.087 rad.
+        # new_patches_list = self._flip_edges()
+        return self._flip_edges()
 
     def make_noise(self, mesh):
         self.mesh = mesh
-        print("---------Input-----------")
-        print("# of input vertices: {}".format(self.mesh.vertices.shape))
-        print("# of input faces: {}".format(self.mesh.faces.shape))
-        print("face angle: {}".format(self.face_angle))
-
-        # Get pairs of adjacent faces, shared edges, and unshared vertices
-        adj_faces = self.mesh.face_adjacency
-        adj_unshared_verts = self.mesh.face_adjacency_unshared
-        adj_edges = self.mesh.face_adjacency_edges
-
         # Select only pairs that the angle b/w faces > 0.17 radius
-        idx = (self.mesh.face_adjacency_angles > self.face_angle) # 10 degree
-        sample_faces = adj_faces[idx]
-        sample_unshared_verts = adj_unshared_verts[idx]
-        sample_edges = adj_edges[idx]
-
-        noisy_mesh_list = []
-
-        for i in range(self.n_noisy_patches):
-            # From those selected pairs, we only take 10 of them for editing
-            if len(sample_faces) >= self.n_sample_faces:
-                sample_idx = np.random.choice(len(sample_faces), \
-                                            size=self.n_sample_faces, replace=False)
-                sample_faces = sample_faces[sample_idx]
-                sample_unshared_verts = sample_unshared_verts[sample_idx]
-                sample_edges = sample_edges[sample_idx]
-                
-            if len(sample_faces) == 0:
-                sample_idx = np.random.choice(len(adj_faces), \
-                                            size=self.n_sample_faces, replace=False)
-                sample_faces = adj_faces[sample_idx]
-                sample_edges = adj_edges[sample_idx]
-                sample_unshared_verts = adj_unshared_verts[sample_idx]
-
-            old_faces = self.mesh.copy().faces
-
-            # Add and remove edges
-            added_face = []
-            processed_faces = []
-            f_count = 0
-            for adj in sample_faces:
-            #    print("processing face with verts: {}".format(ptch.faces[adj]))
-                if not np.isin(processed_faces,adj).any():
-                    dif = sample_unshared_verts[f_count]
-                    same = sample_edges[f_count]
-
-                    # Check if the new triangle is degenerated 
-                    # (Degenerate angles will be returned as zero)
-                    new_face_1 = np.array([self.mesh.vertices[dif[0]], \
-                                        self.mesh.vertices[dif[1]], \
-                                        self.mesh.vertices[same[0]]]).reshape((1,3,3))
-                    new_face_2 = np.array([self.mesh.vertices[dif[0]], \
-                                        self.mesh.vertices[dif[1]], \
-                                        self.mesh.vertices[same[1]]]).reshape((1,3,3))
-
-                    if np.any(trimesh.triangles.angles(new_face_1)) and \
-                    np.any(trimesh.triangles.angles(new_face_2)):
-                        added_face.append(np.append(dif,same[0])) # add new face
-                        added_face.append(np.append(dif,same[1])) # add new face
-                        # print("new faces with verts: {}".format(added_face))
-                    else:
-                        print("REJECTED!! Degenerate Triangles")
-
-                    processed_faces.append(adj)
-                    print("processed_faces {}".format(processed_faces))
-                else:
-                    print("One of faces is already processed and {} is skipped.".format(f_count))
-                f_count = f_count + 1
-
-            old_faces = np.asarray(old_faces)
-            mask = np.ones(len(old_faces), dtype=bool)
-            mask[np.asarray(processed_faces).reshape(-1)] = False
-            masked_faces = old_faces[mask,...]
-            new_faces = np.append(masked_faces,np.asarray(added_face),axis=0)
-            # Construct noisy mesh
-            noisy_mesh = trimesh.base.Trimesh(vertices = self.mesh.vertices, \
-                                            faces = new_faces, \
-                                            process = False)
-            print("Construct patch {}/{}".format(i, self.n_noisy_patches))
-            # Fix faces flip
-            trimesh.repair.fix_winding(noisy_mesh)
-            assert (trimesh.triangles.nondegenerate(noisy_mesh.triangles, height=self.nondegen_tri_height).all()), \
-                "Mesh contains degenerate triangle(s)"
-            print("---------Output-----------") 
-            print("Sample faces: {}".format(len(sample_faces)))
-            print("# of vertics: {}".format(noisy_mesh.vertices.shape))
-            print("# of faces: {}".format(noisy_mesh.faces.shape))
-            noisy_mesh_list.append(noisy_mesh)
-
-        return noisy_mesh_list
+        self._idx = (self.mesh.face_adjacency_angles > self.face_angle) # 10 degree
+        # new_patches_list = self._flip_edges()
+        return self._flip_edges()
 
     @classmethod
     def from_config(cls, config):
-        return cls(config['face_angle'], config['n_sample_faces'],config['n_noisy_patches'],
+        return cls(config['face_angle'], config['n_sample_adj_faces'],config['n_noisy_patches'],
                    config['nondegen_tri_height'])
 
 
