@@ -206,8 +206,9 @@ def display_depth_sharpness(
                 background_idx = sharpness_image == 0
                 sharpness_image[background_idx] = np.nan
 
+                tol = 1e-3
                 sharpness_ax.imshow(sharpness_image, interpolation='nearest', cmap=sharpness_cmap,
-                                    vmin=0, vmax=1)
+                                    vmin=-tol, vmax=1 + tol)
                 sharpness_ax.axis('off')
 
     plt.tight_layout(pad=0, h_pad=0.25, w_pad=0.25)
