@@ -25,7 +25,8 @@
     "projection": "ortho",
     "resolution_image": 512,
     "resolution_3d": 0.05,
-    "fov": [115, 85, 80]
+    "fov": [115, 85, 80],
+    "validate_image": true
   },
   "noise": {
     "type": "many_noisers",

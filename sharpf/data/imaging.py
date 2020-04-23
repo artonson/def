@@ -25,10 +25,11 @@ class ImagingFunc(ABC):
 
 
 class RaycastingImaging(ImagingFunc):
-    def __init__(self, resolution_image, resolution_3d, projection):
+    def __init__(self, resolution_image, resolution_3d, projection, validate_image):
         self.resolution_image = resolution_image
         self.resolution_3d = resolution_3d
         self.projection = projection
+        self.validate_image = validate_image
         self.rays_screen_coords, self.rays_origins, self.rays_directions = generate_rays(
             self.resolution_image, self.resolution_3d)
 
@@ -36,7 +37,8 @@ class RaycastingImaging(ImagingFunc):
     def from_config(cls, config):
         return cls(config['resolution_image'],
                    config['resolution_3d'],
-                   config['projection'])
+                   config['projection'],
+                   config['validate_image'])
 
     def get_image_from_pose(self,
                             mesh: trimesh.base.Trimesh,
@@ -76,6 +78,8 @@ class RaycastingImaging(ImagingFunc):
 
         # compute an image, defined in camera frame
         image = self.points_to_image(pose.world_to_camera(points), ray_indexes)
+        if self.validate_image and np.any(image < 0.):
+            raise DataGenerationException('Negative values found in depthmap; discarding image')
 
         if return_hit_face_indexes:
             return image, points, normals, mesh_face_indexes
