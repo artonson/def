@@ -33,6 +33,7 @@ def load_func_from_config(func_dict, config):
 
 def compute_curves_nbhood(features, vert_indices, face_indexes):
     """Extracts curves for the neighbourhood."""
+    print("Start compute_curves_nbhood")
     nbhood_sharp_curves = []
     for curve in features['curves']:
         nbhood_vert_indices = np.array([
@@ -48,6 +49,7 @@ def compute_curves_nbhood(features, vert_indices, face_indexes):
         nbhood_sharp_curves.append(nbhood_curve)
 
     nbhood_features = {'curves': nbhood_sharp_curves}
+    print("Start compute_curves_nbhood")
     return nbhood_features
 
 
