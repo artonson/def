@@ -195,8 +195,10 @@ class AABBAnnotator(AnnotatorFunc, ABC):
         aabboxes, sharp_edges = self._prepare_aabb(mesh_patch, features_patch)
 
         # n_omp_threads = int(os.environ.get('OMP_NUM_THREADS', 1))
+        # N_POINTS_PER_THREAD = 1024
+        # n_threads = max(min(len(points) / N_POINTS_PER_THREAD, n_omp_threads), 1)
         # iterable = ((aabboxes, sharp_edges, points_to_thread)
-        #             for points_to_thread in np.array_split(points.astype(np.float32), n_omp_threads))
+        #             for points_to_thread in np.array_split(points.astype(np.float32), n_threads))
         # query_results = list(chain(*multiproc_parallel(parallel_nearest_point, iterable)))
 
         query_results = parallel_nearest_point(aabboxes, sharp_edges, points)
