@@ -54,7 +54,7 @@ class AddEdgesNoise(NoiserFunc):
         num_rej = 0
         num_added = 0
         
-        if len(adj_faces) >= n_sample_adj_faces:
+        if len(adj_faces) >= self.n_sample_adj_faces:
             # Loop for num_iter OR when required n_noisy_patches reaches
             while it < num_iter and len(new_patches_list) < n_noisy_patches:
                 it += 1
@@ -62,7 +62,7 @@ class AddEdgesNoise(NoiserFunc):
                     if len(new_patches_list) < n_noisy_patches:
                         # Randomly choose 'N' pairs of adj. faces 
                         sample_idx = np.random.choice(len(adj_faces), \
-                                                    size=n_sample_adj_faces, replace=False)
+                                                    size=self.n_sample_adj_faces, replace=False)
                         sample_adj_faces = adj_faces[sample_idx]
                         sample_unshared_verts = adj_unshared_verts[sample_idx]
                         sample_edges = adj_edges[sample_idx]
@@ -115,9 +115,9 @@ class AddEdgesNoise(NoiserFunc):
                         trm.repair.fix_winding(noisy_mesh)
                         if trm.triangles.nondegenerate(noisy_mesh.triangles, height=self.nondegen_tri_height).all():
                             # Add only patches with 50 % new adding faces
-                            if len(new_adding_faces) > (n_sample_adj_faces*1.2):
+                            if len(new_adding_faces) > (self.n_sample_adj_faces*1.2):
                                 print("patch {}/{} is ADDED with {}/{} new added faces.".format(i+1, n_noisy_patches, len(new_adding_faces), \
-                                                                                                n_sample_adj_faces*2))
+                                                                                                self.n_sample_adj_faces*2))
                                 new_patches_list.append(noisy_mesh)
                                 num_added += 1
                         else:
