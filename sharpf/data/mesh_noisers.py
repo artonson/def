@@ -56,10 +56,10 @@ class AddEdgesNoise(NoiserFunc):
         
         if len(adj_faces) >= self.n_sample_adj_faces:
             # Loop for num_iter OR when required n_noisy_patches reaches
-            while it < num_iter and len(new_patches_list) < n_noisy_patches:
+            while it < num_iter and len(new_patches_list) < self.n_noisy_patches:
                 it += 1
-                for i in range(n_noisy_patches):
-                    if len(new_patches_list) < n_noisy_patches:
+                for i in range(self.n_noisy_patches):
+                    if len(new_patches_list) < self.n_noisy_patches:
                         # Randomly choose 'N' pairs of adj. faces 
                         sample_idx = np.random.choice(len(adj_faces), \
                                                     size=self.n_sample_adj_faces, replace=False)
@@ -116,13 +116,13 @@ class AddEdgesNoise(NoiserFunc):
                         if trm.triangles.nondegenerate(noisy_mesh.triangles, height=self.nondegen_tri_height).all():
                             # Add only patches with 50 % new adding faces
                             if len(new_adding_faces) > (self.n_sample_adj_faces*1.2):
-                                print("patch {}/{} is ADDED with {}/{} new added faces.".format(i+1, n_noisy_patches, len(new_adding_faces), \
+                                print("patch {}/{} is ADDED with {}/{} new added faces.".format(i+1, self.n_noisy_patches, len(new_adding_faces), \
                                                                                                 self.n_sample_adj_faces*2))
                                 new_patches_list.append(noisy_mesh)
                                 num_added += 1
                         else:
             #                 print("Mesh contains degenerate triangle(s) and REJECTED")
-                            print("patch {}/{} is REJECTED".format(i+1, n_noisy_patches))
+                            print("patch {}/{} is REJECTED".format(i+1, self.n_noisy_patches))
                             num_rej += 1
                         print("-----------------------------------")
             print("After {} tries: {} ADDED and {} REJECTED.".format(it, num_added, num_rej))
