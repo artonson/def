@@ -94,10 +94,6 @@ def get_annotated_patches(item, config):
             eprint_t(str(e))
             continue
 
-        if len(points) == 0:  # we hit nothing; discard this attempt
-            eprint_t('Object out of frame; discarding patch')
-            continue
-
         nbhood, mesh_vertex_indexes, mesh_face_indexes = \
             feature_utils.submesh_from_hit_surfaces(mesh, features, mesh_face_indexes)
 

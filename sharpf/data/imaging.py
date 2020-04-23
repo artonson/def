@@ -73,6 +73,9 @@ class RaycastingImaging(ImagingFunc):
             pose.camera_to_world(self.rays_directions, translate=0)
         )
 
+        if len(points) == 0:  # we hit nothing; discard this attempt
+            raise DataGenerationException('Object out of frame; discarding patch')
+
         # extract normals
         normals = mesh.face_normals[mesh_face_indexes]
 
