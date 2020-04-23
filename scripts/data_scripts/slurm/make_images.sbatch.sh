@@ -98,7 +98,7 @@ echo "  logs path:            ${LOGS_PATH_CONTAINER}"
 echo "  output path:          ${OUTPUT_PATH_CONTAINER}"
 echo "  "
 
-N_TASKS=${SLURM_N_TASKS}
+N_TASKS=${SLURM_NTASKS}
 OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 MAKE_DATA_SCRIPT="${CODE_PATH_CONTAINER}/scripts/data_scripts/generate_depthmap_data.py"
 PC_CONFIGS_PATH_CONTAINER="${CODE_PATH_CONTAINER}/scripts/data_scripts/configs/depthmap_datasets"
