@@ -133,50 +133,82 @@ def display_sharpness(mesh=None, mesh_color=0xbbbbbb,
         return Image(data=b64decode(plot.screenshot))
 
 
-def display_depth_sharpness(depth_image=None, sharpness_image=None, axes_size=(8, 8), ncols=1):
+def display_depth_sharpness(
+        depth_images=None,
+        sharpness_images=None,
+        axes_size=(8, 8),
+        ncols=1
+):
     import matplotlib.cm
     import matplotlib.pyplot as plt
 
-    depth_ax, sharpness_ax = None, None
-    if None is not depth_image and None is not sharpness_image:
-        axes_size = axes_size[0] * 2, axes_size[1]
-        _, (depth_ax, sharpness_ax) = plt.subplots(figsize=axes_size, nrows=1, ncols=2)
+    def fix_chw_array(image_array):
+        if None is not image_array:
+            image_array = image_array.copy()
+            assert len(image_array.shape) in [2, 3], "Don't understand the datatype with shape {}".format(
+                image_array.shape)
+            if len(image_array.shape) == 2:
+                image_array = image_array[np.newaxis, ...]
+        return image_array
 
-    elif None is not depth_image:
-        _, depth_ax = plt.subplots(figsize=axes_size, nrows=1, ncols=1)
+    depth_images = fix_chw_array(depth_images)
+    sharpness_images = fix_chw_array(sharpness_images)
 
-    elif None is not sharpness_image:
-        _, sharpness_ax = plt.subplots(figsize=axes_size, nrows=1, ncols=1)
+    if None is not depth_images and None is not sharpness_images:
+        assert len(depth_images) == len(sharpness_images), 'depth and sharpness images dont coincide by length'
+        n_images = len(depth_images)
+        ncols, nrows, series = 2 * ncols, n_images // ncols, 2
+
+        axes_size = axes_size[0] * ncols, axes_size[1] * nrows
+        _, axs = plt.subplots(figsize=axes_size, nrows=nrows, ncols=ncols)
+
+    elif None is not depth_images:
+        n_images = len(depth_images)
+        ncols, nrows, series = ncols, n_images // ncols, 1
+
+        _, axs = plt.subplots(figsize=axes_size, nrows=nrows, ncols=ncols)
+
+    elif None is not sharpness_images:
+        n_images = len(sharpness_images)
+        ncols, nrows, series = ncols, n_images // ncols, 1
+
+        _, axs = plt.subplots(figsize=axes_size, nrows=nrows, ncols=ncols)
 
     else:
-        raise ValueError('at least one of "depth_image" or "sharpness_image" must be specified')
+        raise ValueError('at least one of "depth_images" or "sharpness_images" must be specified')
 
-    if None is not depth_image:
-        assert None is not depth_ax
-
+    if None is not depth_images:
         depth_cmap = matplotlib.cm.get_cmap('viridis')
         depth_cmap.set_bad(color='black')
 
-        depth_image = depth_image.copy()
-        background_idx = depth_image == 0
-        depth_image[background_idx] = np.nan
+        for row in range(nrows):
+            for col in range(0, ncols, series):
+                depth_idx = (row * ncols + col) // series
+                depth_ax = axs[row, col]
 
-        depth_ax.imshow(depth_image, interpolation='nearest', cmap=depth_cmap)
+                depth_image = depth_images[depth_idx].copy()
+                background_idx = depth_image == 0
+                depth_image[background_idx] = np.nan
 
-        depth_ax.axis('off')
+                depth_ax.imshow(depth_image, interpolation='nearest', cmap=depth_cmap)
+                depth_ax.axis('off')
 
-    if None is not sharpness_image:
-        assert None is not sharpness_ax
-
+    if None is not sharpness_images:
         sharpness_cmap = matplotlib.cm.get_cmap('coolwarm_r')
         sharpness_cmap.set_bad(color='black')
 
-        sharpness_image = sharpness_image.copy()
-        background_idx = sharpness_image == 0
-        sharpness_image[background_idx] = np.nan
+        for row in range(nrows):
+            for col in range(0, ncols, series):
+                sharpness_idx = (row * ncols + col) // series
+                sharpness_ax = axs[row, col + 1] if series == 2 else axs[row, col]
 
-        sharpness_ax.imshow(sharpness_image, interpolation='nearest', cmap=sharpness_cmap)
+                sharpness_image = sharpness_images[sharpness_idx].copy()
+                background_idx = sharpness_image == 0
+                sharpness_image[background_idx] = np.nan
 
-        sharpness_ax.axis('off')
+                sharpness_ax.imshow(sharpness_image, interpolation='nearest', cmap=sharpness_cmap,
+                                    vmin=0, vmax=1)
+                sharpness_ax.axis('off')
 
-    plt.tight_layout()
+    plt.tight_layout(pad=0, h_pad=0.25, w_pad=0.25)
+
