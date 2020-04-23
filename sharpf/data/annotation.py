@@ -194,12 +194,12 @@ class AABBAnnotator(AnnotatorFunc, ABC):
     def compute_aabb_nearest_points(self, mesh_patch, features_patch, points):
         aabboxes, sharp_edges = self._prepare_aabb(mesh_patch, features_patch)
 
-        n_omp_threads = int(os.environ.get('OMP_NUM_THREADS', 1))
-        iterable = ((aabboxes, sharp_edges, points_to_thread)
-                    for points_to_thread in np.array_split(points.astype(np.float32), n_omp_threads))
-        query_results = list(chain(*multiproc_parallel(parallel_nearest_point, iterable)))
+        # n_omp_threads = int(os.environ.get('OMP_NUM_THREADS', 1))
+        # iterable = ((aabboxes, sharp_edges, points_to_thread)
+        #             for points_to_thread in np.array_split(points.astype(np.float32), n_omp_threads))
+        # query_results = list(chain(*multiproc_parallel(parallel_nearest_point, iterable)))
 
-        # query_results = [aabb_solver.nearest_point(p, distance_func) for p in points.astype('float32')]
+        query_results = parallel_nearest_point(aabboxes, sharp_edges, points)
         matching_edges, projections, distances = [np.array(list(map(itemgetter(i), query_results))) for i in [0, 1, 2]]
         return matching_edges, projections, distances
 
@@ -267,29 +267,56 @@ class AABBSurfacePatchAnnotator(AABBAnnotator):
 
         # compute distance, iterating over points sampled from corresponding surface patches
         projections, distances, _ = self.flat_annotation(points)
-        for surface_idx, surface in enumerate(features_patch['surfaces']):
-            # constrain distance computation to certain sharp features only
-            adjacent_sharp_indexes = get_adjacent_features_by_bfs_with_depth1(
-                surface_idx, adjacent_sharp_features, adjacent_surfaces)
-            surface_adjacent_features = {
-                'curves': [features_patch['curves'][idx]
-                           for idx in np.unique(adjacent_sharp_indexes)]
-            }
-            if len(surface_adjacent_features['curves']) == 0:
-                continue
 
-            point_cloud_indexes = np.where(
-                in2d(mesh_patch.faces[point_face_indexes], surface['face_indices'])
-            )[0]
-            # point_cloud_indexes = np.where(np.isin(closest_nbhood_vertex_idx, surface['vert_indices']))[0]
-            if len(point_cloud_indexes) == 0:
-                continue
-            # compute distances using parent class AABB method
-            surface_matching_edges, surface_projections, surface_distances = \
-                self.compute_aabb_nearest_points(mesh_patch, surface_adjacent_features, points[point_cloud_indexes])
+        # perform computations in parallel for a speedup
+        iterable = ((
+            mesh_patch,
+            features_patch,
+            points,
+            surface_idx,
+            point_face_indexes,
+            adjacent_sharp_features,
+            adjacent_surfaces,
+            self)
+            for surface_idx in range(len(features_patch['surfaces'])))
+        for result in multiproc_parallel(parallel_annotation_by_surface, iterable):
+            point_cloud_indexes, _, surface_projections, surface_distances = result
             distances[point_cloud_indexes], projections[point_cloud_indexes] = surface_distances, surface_projections
 
         return projections, distances
+
+
+def parallel_annotation_by_surface(
+        mesh_patch,
+        features_patch,
+        points,
+        surface_idx,
+        point_face_indexes,
+        adjacent_sharp_features,
+        adjacent_surfaces,
+        annotator_obj
+):
+    surface = features_patch['surfaces'][surface_idx]
+    # constrain distance computation to certain sharp features only
+    adjacent_sharp_indexes = get_adjacent_features_by_bfs_with_depth1(
+        surface_idx, adjacent_sharp_features, adjacent_surfaces)
+    surface_adjacent_features = {
+        'curves': [features_patch['curves'][idx]
+                   for idx in np.unique(adjacent_sharp_indexes)]
+    }
+    if len(surface_adjacent_features['curves']) == 0:
+        return [None] * 4
+
+    point_cloud_indexes = np.where(
+        in2d(mesh_patch.faces[point_face_indexes], surface['face_indices'])
+    )[0]
+    if len(point_cloud_indexes) == 0:
+        return [None] * 4
+
+    # compute distances using parent class AABB method
+    surface_matching_edges, surface_projections, surface_distances = \
+        annotator_obj.compute_aabb_nearest_points(mesh_patch, surface_adjacent_features, points[point_cloud_indexes])
+    return point_cloud_indexes, surface_matching_edges, surface_projections, surface_distances
 
 
 ANNOTATOR_BY_TYPE = {

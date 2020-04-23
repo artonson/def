@@ -131,3 +131,50 @@ def display_sharpness(mesh=None, mesh_color=0xbbbbbb,
     if as_image:
         plot.fetch_screenshot()
         return Image(data=b64decode(plot.screenshot))
+
+
+def display_depth_sharpness(depth_image=None, sharpness_image=None, axes_size=(8, 8), ncols=1):
+    import matplotlib.cm
+    import matplotlib.pyplot as plt
+
+    depth_ax, sharpness_ax = None, None
+    if None is not depth_image and None is not sharpness_image:
+        axes_size = axes_size[0] * 2, axes_size[1]
+        _, (depth_ax, sharpness_ax) = plt.subplots(figsize=axes_size, nrows=1, ncols=2)
+
+    elif None is not depth_image:
+        _, depth_ax = plt.subplots(figsize=axes_size, nrows=1, ncols=1)
+
+    elif None is not sharpness_image:
+        _, sharpness_ax = plt.subplots(figsize=axes_size, nrows=1, ncols=1)
+
+    else:
+        raise ValueError('at least one of "depth_image" or "sharpness_image" must be specified')
+
+    if None is not depth_image:
+        assert None is not depth_ax
+
+        depth_cmap = matplotlib.cm.get_cmap('viridis')
+        depth_cmap.set_bad(color='black')
+
+        background_idx = depth_image == 0
+        depth_image[background_idx] = np.nan
+
+        depth_ax.imshow(depth_image, interpolation='nearest', cmap=depth_cmap)
+
+        depth_ax.axis('off')
+
+    if None is not sharpness_image:
+        assert None is not sharpness_ax
+
+        sharpness_cmap = matplotlib.cm.get_cmap('coolwarm_r')
+        sharpness_cmap.set_bad(color='black')
+
+        background_idx = sharpness_image == 0
+        sharpness_image[background_idx] = np.nan
+
+        sharpness_ax.imshow(sharpness_image, interpolation='nearest', cmap=sharpness_cmap)
+
+        sharpness_ax.axis('off')
+
+    plt.tight_layout()

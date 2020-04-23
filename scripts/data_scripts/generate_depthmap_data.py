@@ -7,7 +7,6 @@ import os
 import sys
 import traceback
 
-import h5py
 from joblib import Parallel, delayed
 import numpy as np
 import yaml
