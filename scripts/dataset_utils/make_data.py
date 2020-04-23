@@ -84,10 +84,10 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, noisy_
 
                     # create noisy mesh
                     # noisy_nbhood = mesh_noiser.make_noise(nbhood)
-                    print("Mesh Noise {}".format(item.item_id))
+                    eprint("Mesh Noise {}".format(item.item_id))
                     noisy_nbhood_list = mesh_noiser.make_noise(nbhood)
 
-                    print("Remeshing {}".format(item.item_id))
+                    eprint("Remeshing {}".format(item.item_id))
                     remesh_copies_nbhood_list = mesh_noiser.make_copies(nbhood)
 
                     # # sample the neighbourhood to form a point patch
@@ -97,11 +97,11 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, noisy_
                     # noisy_points = noiser.make_noise(points, normals)
 
                     # # create annotations: condition the features onto the nbhood, then compute the TSharpDF
-                    print("nbhood_features {}".format(item.item_id))
+                    eprint("nbhood_features {}".format(item.item_id))
                     nbhood_features = compute_curves_nbhood(features, orig_vert_indices, orig_face_indexes)
                     # distances, directions = annotator.annotate(nbhood, nbhood_features, noisy_points, scaler)
 
-                    print("has_sharp {}".format(item.item_id))
+                    eprint("has_sharp {}".format(item.item_id))
                     has_sharp = any(curve['sharp'] for curve in nbhood_features['curves'])
                     # if not has_sharp:
                     #     distances = np.ones(distances.shape) * config['annotation']['distance_upper_bound']
@@ -130,7 +130,7 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, noisy_
                     #     point_patches.append(patch_info)
                     #     eprint("# of created patches: {}".format(len(point_patches)))
                     if nbhood.vertices.shape[0] == config["neighbourhood"]["n_vertices"]:
-                        print("Adding noisy patches into the list {}".format(item.item_id))
+                        eprint("Adding noisy patches into the list {}".format(item.item_id))
                         for noisy_nbhood in noisy_nbhood_list:
                             patch_info = {
                                 'nbhood': nbhood,
@@ -142,7 +142,7 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, noisy_
                             }
                             noisy_patches.append(patch_info)
 
-                        print("Adding remesh patches into the list{}".format(item.item_id))
+                        eprint("Adding remesh patches into the list{}".format(item.item_id))
                         for remesh_nbhood in remesh_copies_nbhood_list:
                             patch_info = {
                                 'nbhood': nbhood,

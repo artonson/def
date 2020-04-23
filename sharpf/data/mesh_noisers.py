@@ -75,7 +75,7 @@ class AddEdgesNoise(NoiserFunc):
 
                         for f_count, adj in enumerate(sample_adj_faces):
                             # Check if any of faces in adj. pair is already processed
-                            print("f_count: {}".format(f_count))
+                            eprint("f_count: {}".format(f_count))
                             if not np.isin(processed_faces,adj).any():
                                 dif = sample_unshared_verts[f_count]
                                 same = sample_edges[f_count]
@@ -97,7 +97,7 @@ class AddEdgesNoise(NoiserFunc):
                                     processed_faces.append(adj)
     #                                 print("new faces with verts: {}".format(new_adding_faces))
                                 else:
-                                    print("REJECTED!! Degenerate Triangles")
+                                    eprint("REJECTED!! Degenerate Triangles")
 
                             # f_count = f_count + 1
 
@@ -116,16 +116,16 @@ class AddEdgesNoise(NoiserFunc):
                         if trm.triangles.nondegenerate(noisy_mesh.triangles, height=self.nondegen_tri_height).all():
                             # Add only patches with 50 % new adding faces
                             if len(new_adding_faces) > (self.n_sample_adj_faces*1.2):
-                                print("patch {}/{} is ADDED with {}/{} new added faces.".format(i+1, self.n_noisy_patches, len(new_adding_faces), \
+                                eprint("patch {}/{} is ADDED with {}/{} new added faces.".format(i+1, self.n_noisy_patches, len(new_adding_faces), \
                                                                                                 self.n_sample_adj_faces*2))
                                 new_patches_list.append(noisy_mesh)
                                 num_added += 1
                         else:
             #                 print("Mesh contains degenerate triangle(s) and REJECTED")
-                            print("patch {}/{} is REJECTED".format(i+1, self.n_noisy_patches))
+                            eprint("patch {}/{} is REJECTED".format(i+1, self.n_noisy_patches))
                             num_rej += 1
-                        print("-----------------------------------")
-            print("After {} tries: {} ADDED and {} REJECTED.".format(it, num_added, num_rej))
+                        eprint("-----------------------------------")
+            eprint("After {} tries: {} ADDED and {} REJECTED.".format(it, num_added, num_rej))
         
         return new_patches_list
 
