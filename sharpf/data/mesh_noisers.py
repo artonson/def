@@ -61,8 +61,7 @@ class AddEdgesNoise(NoiserFunc):
                 for i in range(self.n_noisy_patches):
                     if len(new_patches_list) < self.n_noisy_patches:
                         # Randomly choose 'N' pairs of adj. faces 
-                        sample_idx = np.random.choice(len(adj_faces), \
-                                                    size=self.n_sample_adj_faces, replace=False)
+                        sample_idx = np.random.choice(len(adj_faces), size=self.n_sample_adj_faces, replace=False)
                         sample_adj_faces = adj_faces[sample_idx]
                         sample_unshared_verts = adj_unshared_verts[sample_idx]
                         sample_edges = adj_edges[sample_idx]
@@ -76,6 +75,7 @@ class AddEdgesNoise(NoiserFunc):
 
                         for f_count, adj in enumerate(sample_adj_faces):
                             # Check if any of faces in adj. pair is already processed
+                            print("f_count: {}".format(f_count))
                             if not np.isin(processed_faces,adj).any():
                                 dif = sample_unshared_verts[f_count]
                                 same = sample_edges[f_count]

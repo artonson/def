@@ -82,7 +82,10 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, noisy_
 
                     # create noisy mesh
                     # noisy_nbhood = mesh_noiser.make_noise(nbhood)
+                    print("Mesh Noise")
                     noisy_nbhood_list = mesh_noiser.make_noise(nbhood)
+
+                    print("Remeshing")
                     remesh_copies_nbhood_list = mesh_noiser.make_copies(nbhood)
 
                     # # sample the neighbourhood to form a point patch
@@ -123,6 +126,7 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, noisy_
                     #     point_patches.append(patch_info)
                     #     eprint("# of created patches: {}".format(len(point_patches)))
                     if nbhood.vertices.shape[0] == config["neighbourhood"]["n_vertices"]:
+                        print("Adding noisy patches into the list")
                         for noisy_nbhood in noisy_nbhood_list:
                             patch_info = {
                                 'nbhood': nbhood,
@@ -134,6 +138,7 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, noisy_
                             }
                             noisy_patches.append(patch_info)
 
+                        print("Adding remesh patches into the list")
                         for remesh_nbhood in remesh_copies_nbhood_list:
                             patch_info = {
                                 'nbhood': nbhood,
