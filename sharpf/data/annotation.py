@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from functools import partial
-from itertools import chain
 from operator import itemgetter
 import os
 
@@ -194,6 +193,7 @@ class AABBAnnotator(AnnotatorFunc, ABC):
     def compute_aabb_nearest_points(self, mesh_patch, features_patch, points):
         aabboxes, sharp_edges = self._prepare_aabb(mesh_patch, features_patch)
 
+        # from itertools import chain
         # n_omp_threads = int(os.environ.get('OMP_NUM_THREADS', 1))
         # N_POINTS_PER_THREAD = 1024
         # n_threads = max(min(len(points) / N_POINTS_PER_THREAD, n_omp_threads), 1)
@@ -283,7 +283,8 @@ class AABBSurfacePatchAnnotator(AABBAnnotator):
             for surface_idx in range(len(features_patch['surfaces'])))
         for result in multiproc_parallel(parallel_annotation_by_surface, iterable):
             point_cloud_indexes, _, surface_projections, surface_distances = result
-            distances[point_cloud_indexes], projections[point_cloud_indexes] = surface_distances, surface_projections
+            if None is not point_cloud_indexes:
+                distances[point_cloud_indexes], projections[point_cloud_indexes] = surface_distances, surface_projections
 
         return projections, distances
 
