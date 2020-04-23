@@ -95,6 +95,7 @@ def get_annotated_patches(item, config):
             continue
 
         if len(points) == 0:  # we hit nothing; discard this attempt
+            eprint_t('Object out of frame; discarding patch')
             continue
 
         nbhood, mesh_vertex_indexes, mesh_face_indexes = \
