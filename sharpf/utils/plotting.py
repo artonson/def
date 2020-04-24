@@ -144,7 +144,7 @@ def display_depth_sharpness(
 
     def fix_chw_array(image_array):
         if None is not image_array:
-            image_array = image_array.copy()
+            image_array = np.asanyarray(image_array).copy()
             assert len(image_array.shape) in [2, 3], "Don't understand the datatype with shape {}".format(
                 image_array.shape)
             if len(image_array.shape) == 2:
@@ -177,6 +177,9 @@ def display_depth_sharpness(
     else:
         raise ValueError('at least one of "depth_images" or "sharpness_images" must be specified')
 
+    if nrows == 1:
+        axs = [[axs]] if ncols == 1 else [axs]
+
     if None is not depth_images:
         depth_cmap = matplotlib.cm.get_cmap('viridis')
         depth_cmap.set_bad(color='black')
@@ -184,7 +187,7 @@ def display_depth_sharpness(
         for row in range(nrows):
             for col in range(0, ncols, series):
                 depth_idx = (row * ncols + col) // series
-                depth_ax = axs[row, col]
+                depth_ax = axs[row][col]
 
                 depth_image = depth_images[depth_idx].copy()
                 background_idx = depth_image == 0
@@ -200,7 +203,7 @@ def display_depth_sharpness(
         for row in range(nrows):
             for col in range(0, ncols, series):
                 sharpness_idx = (row * ncols + col) // series
-                sharpness_ax = axs[row, col + 1] if series == 2 else axs[row, col]
+                sharpness_ax = axs[row][col + 1] if series == 2 else axs[row][col]
 
                 sharpness_image = sharpness_images[sharpness_idx].copy()
                 background_idx = sharpness_image == 0
@@ -212,4 +215,3 @@ def display_depth_sharpness(
                 sharpness_ax.axis('off')
 
     plt.tight_layout(pad=0, h_pad=0.25, w_pad=0.25)
-
