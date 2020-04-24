@@ -6,7 +6,7 @@ import sys
 
 __dir__ = os.path.normpath(
     os.path.join(
-        os.path.dirname(os.path.realpath(__file__)), '..', '..', '..')
+        os.path.dirname(os.path.realpath(__file__)), *['..'] * 4)
 )
 sys.path[1:1] = [__dir__]
 

@@ -4,7 +4,7 @@
 #SBATCH --output=make_canonical_datasets_%A.out
 #SBATCH --error=make_canonical_datasets_%A.err
 #SBATCH --time=2:00:00
-#SBATCH --partition=mem_small
+#SBATCH --partition=htc
 #SBATCH --cpus-per-task=40
 #SBATCH --ntasks=1
 #SBATCH --mem-per-cpu=16g
@@ -76,7 +76,7 @@ echo "  output path:          ${OUTPUT_PATH_CONTAINER}"
 echo "  "
 
 N_TASKS=${SLURM_CPUS_PER_TASK}
-MAKE_DATA_SCRIPT="${CODE_PATH_CONTAINER}/sharpf/utils/scripts/defrag_shuffle_split_hdf5.py"
+MAKE_DATA_SCRIPT="${CODE_PATH_CONTAINER}/sharpf/utils/abc_utils/scripts/defrag_shuffle_split_hdf5.py"
 CHUNK_SIZE=16384
 TRAIN_FRACTION=0.8
 RANDOM_SEED=9675

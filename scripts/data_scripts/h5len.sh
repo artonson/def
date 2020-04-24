@@ -19,7 +19,7 @@ if [[ ! ${INPUT_DIR_HOST} ]]; then
     echo "input_dir is not set" && usage && exit 1
 fi
 
-H5_LEN_SCRIPT=/code/sharpf/utils/scripts/get_hdf5_size.py
+H5_LEN_SCRIPT=/code/sharpf/utils/abc_utils/scripts/get_hdf5_size.py
 
 # get image filenames from here
 PROJECT_ROOT=/trinity/home/a.artemov/repos/sharp_features
