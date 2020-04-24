@@ -33,7 +33,6 @@ def load_func_from_config(func_dict, config):
 
 def compute_curves_nbhood(features, vert_indices, face_indexes):
     """Extracts curves for the neighbourhood."""
-    print("Start compute_curves_nbhood")
     nbhood_sharp_curves = []
     for curve in features['curves']:
         nbhood_vert_indices = np.array([
@@ -49,7 +48,6 @@ def compute_curves_nbhood(features, vert_indices, face_indexes):
         nbhood_sharp_curves.append(nbhood_curve)
 
     nbhood_features = {'curves': nbhood_sharp_curves}
-    print("Start compute_curves_nbhood")
     return nbhood_features
 
 
@@ -84,10 +82,7 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, noisy_
 
                     # create noisy mesh
                     # noisy_nbhood = mesh_noiser.make_noise(nbhood)
-                    eprint("Mesh Noise {}".format(item.item_id))
                     noisy_nbhood_list = mesh_noiser.make_noise(nbhood)
-
-                    eprint("Remeshing {}".format(item.item_id))
                     remesh_copies_nbhood_list = mesh_noiser.make_copies(nbhood)
 
                     # # sample the neighbourhood to form a point patch
@@ -97,7 +92,6 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, noisy_
                     # noisy_points = noiser.make_noise(points, normals)
 
                     # # create annotations: condition the features onto the nbhood, then compute the TSharpDF
-                    eprint("nbhood_features {}".format(item.item_id))
                     nbhood_features = compute_curves_nbhood(features, orig_vert_indices, orig_face_indexes)
                     # distances, directions = annotator.annotate(nbhood, nbhood_features, noisy_points, scaler)
 

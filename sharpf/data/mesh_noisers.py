@@ -145,8 +145,8 @@ class AddEdgesNoise(NoiserFunc):
 
     @classmethod
     def from_config(cls, config):
-        return cls(config['face_angle'], config['n_sample_adj_faces'],config['n_noisy_patches'],
-                   config['nondegen_tri_height'])
+        return cls(config['face_angle'], config['n_sample_adj_faces'],
+                   config['nondegen_tri_height'], config['n_noisy_patches'])
 
 
 class NoNoise(NoiserFunc):
