@@ -1,0 +1,7 @@
+{
+  "name": "seg_unet_vgg16_bn_partconv",
+  "task": "segmentation",
+  "encoder": "vgg16_partconv_bn",
+  "activation": "sigmoid",
+  "classes": ["sharp", "not_sharp"]
+}

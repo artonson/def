@@ -1,4 +1,4 @@
-FROM nvidia/cuda:9.0-cudnn7-devel-ubuntu16.04
+FROM nvidia/cuda:9.2-cudnn7-devel-ubuntu16.04
 
 ## Base packages for ubuntu
 
@@ -13,6 +13,7 @@ RUN apt-get clean \
     nano \
     g++ \
     make \
+    cmake \
     build-essential \
     software-properties-common \
     apt-transport-https \
@@ -22,7 +23,8 @@ RUN apt-get clean \
     graphviz \
     tmux \
     screen \
-    htop
+    htop \
+    p7zip-full
 
 
 # Create a non-root user and switch to it.
@@ -51,8 +53,10 @@ ENV CONDA_DEFAULT_ENV=py36
 ENV CONDA_PREFIX=/home/user/miniconda/envs/$CONDA_DEFAULT_ENV
 ENV PATH=$CONDA_PREFIX/bin:$PATH
 
+RUN conda install pytorch==1.2.0 torchvision==0.4.0 cudatoolkit==9.2 -c pytorch
+
 ## Install general requirements for the sharp features
-COPY requirements.txt /opt/requirements.txt
+COPY docker/requirements.txt /opt/requirements.txt
 RUN pip install --upgrade pip \
  && pip install --default-timeout=1000 -r /opt/requirements.txt
 
@@ -63,11 +67,21 @@ ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 ENV DYLD_LIBRARY_PATH=/usr/local/cuda/lib:$DYLD_LIBRARY_PATH
 
 # Install pytorch_geometric and friends
-RUN pip install --verbose --no-cache-dir torch-scatter
-RUN pip install --verbose --no-cache-dir torch-sparse
-RUN pip install --verbose --no-cache-dir torch-cluster
-RUN pip install --verbose --no-cache-dir torch-spline-conv
-RUN pip install torch-geometric
+#RUN pip install --verbose --no-cache-dir torch-scatter
+#RUN pip install --verbose --no-cache-dir torch-sparse
+#RUN pip install --verbose --no-cache-dir torch-cluster
+#RUN pip install --verbose --no-cache-dir torch-spline-conv
+#RUN pip install torch-geometric
 
 # Install geometry-related packages
-RUN conda install -c conda-forge igl point_cloud_utils
+RUN conda install -c conda-forge \
+    igl=0.4.1 \
+    point_cloud_utils \
+    libspatialindex=1.9.3 \
+    pyembree=0.1.6
+
+RUN mkdir /home/user/code
+COPY --chown=user contrib/pythonaabb /home/user/code/pythonaabb
+RUN cd /home/user/code/pythonaabb && pip install .
+RUN git clone https://github.com/Toblerity/rtree.git /home/user/code/rtree \
+ && cd /home/user/code/rtree && python setup.py install

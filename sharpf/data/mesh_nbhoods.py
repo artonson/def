@@ -1,8 +1,12 @@
+import os
 from abc import ABC, abstractmethod
 
 import numpy as np
-import trimesh
-from scipy.spatial import KDTree
+from scipy.spatial import cKDTree
+import point_cloud_utils as pcu
+
+from sharpf.data import DataGenerationException
+from sharpf.utils.abc_utils.mesh.indexing import reindex_zerobased, compute_relative_indexes
 
 
 class NeighbourhoodFunc(ABC):
@@ -15,18 +19,6 @@ class NeighbourhoodFunc(ABC):
     def get_nbhood(self):
         """Extracts a mesh neighbourhood.
 
-        :param mesh: an input mesh
-        :type mesh: MeshType (must be present attributes `vertices`, `faces`, and `edges`)
-
-        :param radius: a radius
-        :type radius: float
-        TODO maybe ring radius?
-
-        :param centroid: index of a vertex in the mesh
-        TODO maybe xyz?
-
-        :param kwargs: optional parameters (see descendant classes)
-
         :returns: neighbourhood: mesh whose faces are within a a
         :rtype: MeshType (must be present attributes `vertices`, `faces`, and `edges`)
         """
@@ -36,72 +28,148 @@ class NeighbourhoodFunc(ABC):
     def from_config(cls, config):
         pass
 
+    @abstractmethod
+    def index(self, mesh):
+        """Indexes a mesh for further processing.
+
+        :param mesh: an input mesh
+        :type mesh: MeshType (must be present attributes `vertices`, `faces`, and `edges`)
+        """
+        pass
+
 
 class EuclideanSphere(NeighbourhoodFunc):
     """Select all faces with at least one vertex within
     a specified radius from a specified point."""
-    def __init__(self, centroid, radius, n_vertices):
+    def __init__(self, centroid, radius_base, n_vertices, geodesic_patches, radius_scale_mode):
         self.centroid = centroid
-        self.radius = radius
+        self.radius_base = radius_base
         self.n_vertices = n_vertices
+        self.geodesic_patches = geodesic_patches
+        self.radius_scale_mode = radius_scale_mode
+        self.radius_scale = 1.
         self.mesh = None
         self.tree = None
 
     def index(self, mesh):
         self.mesh = mesh
-        self.tree = KDTree(mesh.vertices, leafsize=100)
+        self.tree = cKDTree(mesh.vertices, leafsize=1000)
+        if self.radius_scale_mode == 'from_edge_len':
+            self.radius_scale = self.mesh.edges_unique_length.mean() if self.radius_scale_mode else 1
+        elif self.radius_scale_mode == 'no_scale':
+            pass
+        self.n_vertices = len(self.mesh.vertices)
 
     def get_nbhood(self):
         # select vertices falling within euclidean sphere
-        _, vert_indices = self.tree.query(
-            self.centroid, k=self.n_vertices, distance_upper_bound=self.radius)
+        try:
+            n_omp_threads = int(os.environ.get('OMP_NUM_THREADS', 1))
+            _, mesh_vertex_indexes = self.tree.query(
+                self.centroid, k=self.n_vertices,
+                distance_upper_bound=self.radius_base * self.radius_scale,
+                n_jobs=n_omp_threads)
+        except RuntimeError:
+            raise DataGenerationException('Querying in very large meshes failed')
 
+        mesh_vertex_indexes = np.array(mesh_vertex_indexes)
         # get all faces that share vertices with selected vertices
-        vert_indices = vert_indices[vert_indices < len(self.mesh.vertices)]
-        adj_face_indexes = self.mesh.vertex_faces[vert_indices]
-        adj_face_indexes = np.unique(adj_face_indexes[adj_face_indexes > -1])
-
-        # get all vertices that sit on adjacent faces
-        adj_vert_indices = self.mesh.faces[adj_face_indexes]
-        adj_vert_indices = np.unique(adj_vert_indices)
+        mesh_vertex_indexes = mesh_vertex_indexes[mesh_vertex_indexes < len(self.mesh.vertices)]
+        if len(mesh_vertex_indexes) == 0:
+            raise DataGenerationException('No mesh vertices captured within tolerable distance')
+        mesh_face_indexes = self.mesh.vertex_faces[mesh_vertex_indexes]
+        mesh_face_indexes = np.unique(mesh_face_indexes[mesh_face_indexes > -1])
+        # add all vertices that sit on adjacent faces
+        mesh_vertex_indexes = np.unique(self.mesh.faces[mesh_face_indexes])
+        # close selected faces wrt to selected vertices
+        # (add faces where all selected vertices have been added)
+        mesh_face_indexes, = np.where(np.all(
+            np.any([self.mesh.faces == index for index in mesh_vertex_indexes], axis=0),
+            axis=1))
 
         # copy vertices, reindex faces
-        selected_vertices = self.mesh.vertices[adj_vert_indices]
-        selected_faces = np.array(self.mesh.faces[adj_face_indexes])
-        for reindex, index in zip(np.arange(len(selected_vertices)), adj_vert_indices):
-            selected_faces[np.where(selected_faces == index)] = reindex
+        nb = reindex_zerobased(self.mesh, mesh_vertex_indexes, mesh_face_indexes)
 
-        # push the selected stuff into a trimesh
-        neighbourhood = trimesh.base.Trimesh(
-            vertices=selected_vertices,
-            faces=selected_faces,
-            process=False,
-            validate=False)
+        # get the connected component with maximal area
+        if self.geodesic_patches:
+            sub_meshes = nb.split(only_watertight=False)
+            if len(sub_meshes) > 1:
+                areas = np.array([sub_mesh.area for sub_mesh in sub_meshes])
+                sub_mesh = sub_meshes[areas.argmax()]
 
-        return neighbourhood, adj_vert_indices, self.mesh.faces[adj_face_indexes]
+                # get indices of verts and faces
+                nb_vertex_indexes, nb_face_indexes = compute_relative_indexes(nb, sub_mesh)
+
+                # get down to sub_mesh, copy vertices, reindex faces
+                nb = reindex_zerobased(nb, nb_vertex_indexes, nb_face_indexes)
+
+                # do nested indexing
+                mesh_vertex_indexes, mesh_face_indexes = mesh_vertex_indexes[nb_vertex_indexes], \
+                                                         mesh_face_indexes[nb_face_indexes]
+
+        return nb, mesh_vertex_indexes, mesh_face_indexes, self.radius_scale
 
     @classmethod
     def from_config(cls, config):
-        return cls(config['centroid'], config['radius'], config['n_vertices'])
+        return cls(config['centroid'], config['radius_base'], config['n_vertices'],
+                   config['geodesic_patches'], config['radius_scale_mode'])
 
 
 class RandomEuclideanSphere(EuclideanSphere):
-    def __init__(self, centroid, radius, n_vertices, radius_delta):
-        super().__init__(centroid, radius, n_vertices)
+    def __init__(self, centroid, radius_base, n_vertices, geodesic_patches, radius_scale_mode, radius_delta,
+                 max_patches_per_mesh, centroid_mode):
+        super().__init__(centroid, radius_base, n_vertices, geodesic_patches, radius_scale_mode)
         self.radius_delta = radius_delta
+        self.max_patches_per_mesh = max_patches_per_mesh
+        self.n_patches_per_mesh = 0
+        self.current_patch_idx = 0
+        self.centroids_cache = []
+        self.centroid_mode = centroid_mode
+
+    def index(self, mesh):
+        super(RandomEuclideanSphere, self).index(mesh)
+
+        if self.centroid_mode == 'poisson_disk':
+            mesh_vertices = np.array(mesh.vertices, order='C')
+            mesh_normals = np.array(mesh.vertex_normals, order='C')
+            mesh_faces = np.array(mesh.faces)
+
+            self.centroids_cache, _ = pcu.sample_mesh_poisson_disk(
+                mesh_vertices, mesh_faces, mesh_normals,
+                -1, radius=2. * self.radius_base, use_geodesic_distance=True)
+            self.centroids_cache = np.atleast_2d(self.centroids_cache)
+
+            if len(self.centroids_cache) > self.max_patches_per_mesh:
+                centroid_indexes = np.random.choice(
+                    len(self.centroids_cache), size=self.max_patches_per_mesh, replace=False)
+                self.centroids_cache = self.centroids_cache[centroid_indexes, :]
+
+            self.n_patches_per_mesh = len(self.centroids_cache)
+
+        elif self.centroid_mode == 'random_vertex':
+            centroid_indexes = np.random.choice(
+                len(self.mesh.vertices), size=self.max_patches_per_mesh, replace=False)
+            self.centroids_cache = self.mesh.vertices[centroid_indexes]
+            self.n_patches_per_mesh = len(self.centroids_cache)
+
+        else:
+            raise ValueError('Unknown patches specification: "{}"'.format(self.centroid))
 
     def get_nbhood(self):
-        centroid_idx = np.random.choice(len(self.mesh.vertices))
-        self.centroid = self.mesh.vertices[centroid_idx]
-        self.radius = np.random.uniform(
-            self.radius - self.radius_delta,
-            self.radius + self.radius_delta)
+        if self.current_patch_idx >= self.n_patches_per_mesh:
+            raise StopIteration
+        self.centroid = self.centroids_cache[self.current_patch_idx]
+        self.radius_base = np.random.uniform(
+            self.radius_base - self.radius_delta,
+            self.radius_base + self.radius_delta)
+        self.current_patch_idx += 1
         return super(RandomEuclideanSphere, self).get_nbhood()
 
     @classmethod
     def from_config(cls, config):
-        return cls(config['centroid'], config['radius'],
-                   config['n_vertices'], config['radius_delta'])
+        return cls(config['centroid'], config['radius_base'],
+                   config['n_vertices'], config['geodesic_patches'],
+                   config['radius_scale_mode'], config['radius_delta'],
+                   config['max_patches_per_mesh'], config['centroid_mode'])
 
 #
 # # the function for patch generator: breadth-first search
