@@ -38,6 +38,31 @@ PYBIND11_MODULE(pyaabb, m)
 		double sq_dist;
 		nearest_facet = aabb.nearest_facet(p, sq_distance, nearest_point, sq_dist);
 		return std::make_tuple(nearest_facet, nearest_point, sq_dist);
+	})
+	.def("nearest_point_array", [](
+	        const AABB::AABB &aabb,
+	        const std::vector<AABB::Vector3> &points,
+	        const std::function<std::pair<double, AABB::Vector3>(const AABB::Vector3 &, int)> &sq_distance) {
+
+	    std::vector<int> nearest_facets;
+	    nearest_facets.reserve(points.size());
+
+	    std::vector<AABB::Vector3> nearest_points;
+	    nearest_points.reserve(points.size());
+
+	    std::vector<double> sq_dists;
+	    sq_dists.reserve(points.size());
+
+        for (int i = 0; i < points.size(); ++i) {
+            int nearest_facet;
+            AABB::Vector3 nearest_point;
+            double sq_dist;
+            nearest_facet = aabb.nearest_facet(points[i], sq_distance, nearest_point, sq_dist);
+            nearest_facets.push_back(nearest_facet);
+            nearest_points.push_back(nearest_point);
+            sq_dists.push_back(sq_dist);
+        }
+        return std::make_tuple(nearest_facets, nearest_points, sq_dists);
 	});
 	aabb.doc() = "AABB";
 }
