@@ -12,8 +12,7 @@ from sharpf.utils.py_utils.parallel import threaded_parallel
 
 class Hdf5File(Dataset):
     def __init__(self, filename, io, data_label=None, target_label=None, labels=None, preload=True,
-                 economic_mem_usage=False,
-                 transform=None):
+                 economic_mem_usage=False, transform=None):
         """Represents HDF5 dataset contained in a single HDF5 file.
 
         :param filename: name of the file
@@ -22,6 +21,7 @@ class Hdf5File(Dataset):
         :param target_label: string label in HDF5 dataset corresponding to targets
         :param labels: a list of HDF5 dataset labels to read off the file ('*' for ALL keys)
         :param preload: if True, data is read off disk in constructor; otherwise load lazily
+        :param economic_mem_usage: if True, only the requested data portions are read off disk in getitem
         :param transform: callable implementing data + target transform (e.g., adding noise)
         """
         self.filename = os.path.normpath(os.path.realpath(filename))
@@ -63,22 +63,15 @@ class Hdf5File(Dataset):
         return self.num_items
 
     def __getitem__(self, index):
-        if not self.is_loaded():
-            if self.economic_mem_usage:
-
-            else:
-                self.reload()
-
-        item = {label: self.items[label][index]
-                for label in self.labels}
+        item = self._get_item(index)
 
         data = None
         if None is not self.data_label:
-            data = torch.from_numpy(self.items[self.data_label][index])
+            data = torch.from_numpy(item[self.data_label])
 
         target = None
         if None is not self.target_label:
-            target = torch.from_numpy(self.items[self.target_label][index])
+            target = torch.from_numpy(item[self.target_label])
 
         if self.transform is not None:
             data, target = self.transform(data, target)
@@ -90,15 +83,31 @@ class Hdf5File(Dataset):
 
     def reload(self):
         with h5py.File(self.filename, 'r') as f:
+            self.num_items = self._get_length(f)
             self.items = {label: self.io.read(f, label)
                           for label in self.labels}
+
+    def reload_one(self, index):
+        with h5py.File(self.filename, 'r') as f:
             self.num_items = self._get_length(f)
+            return {label: self.io.read_one(f, label, index)
+                    for label in self.labels}
 
     def is_loaded(self):
         return None is not self.items
 
     def unload(self):
         self.items = None
+
+    def _get_item(self, index):
+        if self.economic_mem_usage:
+            if not self.is_loaded():
+                self.reload()
+            item = {label: self.items[label][index]
+                    for label in self.labels}
+        else:
+            item = self.reload_one(index)
+        return item
 
 
 class LotsOfHdf5Files(Dataset):
