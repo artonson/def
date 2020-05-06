@@ -24,7 +24,7 @@
   "noise": {
     "type": "many_noisers",
     "subtype": "isotropic_gaussian",
-    "scale": [0.08, 0.04, 0.02, 0.01, 0.005, 0.0025, 0.0]
+    "scale": [0.08, 0.04, 0.02, 0.01, 0.005, 0.0025]
   },
   "annotation": {
     "type": "surface_based_aabb",

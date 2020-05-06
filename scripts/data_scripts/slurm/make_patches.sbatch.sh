@@ -5,10 +5,11 @@
 #SBATCH --error=array_%A_%a.err
 #SBATCH --array=1-80
 #SBATCH --time=24:00:00
-#SBATCH --partition=cpu_big
+#SBATCH --partition=htc
 #SBATCH --cpus-per-task=4
 #SBATCH --ntasks=1
-#SBATCH --mem=40000
+#SBATCH --mem-per-cpu=8g
+#SBATCH --oversubscribe
 
 module load apps/singularity-3.2.0
 
@@ -97,8 +98,8 @@ echo "  logs path:            ${LOGS_PATH_CONTAINER}"
 echo "  output path:          ${OUTPUT_PATH_CONTAINER}"
 echo "  "
 
-N_TASKS=1
-OMP_NUM_THREADS=2
+N_TASKS=${SLURM_NTASKS}
+OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 MAKE_DATA_SCRIPT="${CODE_PATH_CONTAINER}/scripts/data_scripts/generate_pointcloud_data.py"
 PC_CONFIGS_PATH_CONTAINER="${CODE_PATH_CONTAINER}/scripts/data_scripts/configs/pointcloud_datasets"
 DATASET_PATH="${PC_CONFIGS_PATH_CONTAINER}/${DATASET_CONFIG}"
