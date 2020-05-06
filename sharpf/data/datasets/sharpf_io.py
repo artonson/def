@@ -59,6 +59,16 @@ DepthMapIO = io.HDF5IO({
     compression='lzf')
 
 
+# example_data_config = {
+#     'fields': [
+#         {
+#             'name': 'image',
+#             'data_type': 'float64',
+#             'variable_len': False,
+#         }
+#     ]
+# }
+
 def save_depth_maps(patches, filename):
     # turn a list of dicts into a dict of torch tensors:
     # default_collate([{'a': 'str1', 'x': np.random.normal()}, {'a': 'str2', 'x': np.random.normal()}])
