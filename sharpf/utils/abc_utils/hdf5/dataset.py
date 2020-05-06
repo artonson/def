@@ -12,6 +12,7 @@ from sharpf.utils.py_utils.parallel import threaded_parallel
 
 class Hdf5File(Dataset):
     def __init__(self, filename, io, data_label=None, target_label=None, labels=None, preload=True,
+                 economic_mem_usage=False,
                  transform=None):
         """Represents HDF5 dataset contained in a single HDF5 file.
 
@@ -32,6 +33,7 @@ class Hdf5File(Dataset):
         self.transform = transform
         self.items = None  # this is where the data internally is read to
         self.io = io
+        self.economic_mem_usage = economic_mem_usage
 
         with h5py.File(self.filename, 'r') as f:
             self.num_items = self._get_length(f)
@@ -62,7 +64,10 @@ class Hdf5File(Dataset):
 
     def __getitem__(self, index):
         if not self.is_loaded():
-            self.reload()
+            if self.economic_mem_usage:
+
+            else:
+                self.reload()
 
         item = {label: self.items[label][index]
                 for label in self.labels}

@@ -21,6 +21,9 @@ class HDF5Dataset:
     def get(self, hdf5_file):
         return np.array(hdf5_file[self.name]).astype(self.dtype)
 
+    def get_one(self, hdf5_file, index):
+        return np.array(hdf5_file[self.name][index]).astype(self.dtype)
+
 
 class Float64(HDF5Dataset):
     def __init__(self, name):
@@ -50,15 +53,25 @@ class VariableLenDataset(HDF5Dataset):
     def is_fixed_len(self):
         return False
 
+    def set(self, hdf5_file, data, compression=None):
+        dataset = hdf5_file.create_dataset(self.name, shape=(len(data), ), dtype=self.dtype, compression=compression)
+        for i, item in enumerate(data):
+            dataset[i] = item
+
 
 class VarInt32(VariableLenDataset):
     def __init__(self, name):
         super().__init__(name, dtype=h5py.special_dtype(vlen=np.int32))
 
-    def set(self, hdf5_file, data, compression=None):
-        dataset = hdf5_file.create_dataset(self.name, shape=(len(data), ), dtype=self.dtype, compression=compression)
-        for i, item in enumerate(data):
-            dataset[i] = item
+
+class VarFloat64(VariableLenDataset):
+    def __init__(self, name):
+        super().__init__(name, dtype=h5py.special_dtype(vlen=np.float64))
+
+
+class VarBool(VariableLenDataset):
+    def __init__(self, name):
+        super().__init__(name, dtype=h5py.special_dtype(vlen=np.bool))
 
 
 class HDF5IO:
@@ -74,6 +87,10 @@ class HDF5IO:
     def read(self, hdf5_file, label):
         dataset = self.datasets[label]
         return dataset.get(hdf5_file)
+
+    def read_one(self, hdf5_file, label, index):
+        dataset = self.datasets[label]
+        return dataset.get_one(hdf5_file, index)
 
     def length(self, hdf5_file):
         return len(hdf5_file[self.len_label])
