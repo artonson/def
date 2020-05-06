@@ -201,8 +201,14 @@ class AABBAnnotator(AnnotatorFunc, ABC):
         #             for points_to_thread in np.array_split(points.astype(np.float32), n_threads))
         # query_results = list(chain(*multiproc_parallel(parallel_nearest_point, iterable)))
 
-        query_results = parallel_nearest_point(aabboxes, sharp_edges, points)
-        matching_edges, projections, distances = [np.array(list(map(itemgetter(i), query_results))) for i in [0, 1, 2]]
+        # query_results = parallel_nearest_point(aabboxes, sharp_edges, points)
+        # matching_edges, projections, distances = [np.array(list(map(itemgetter(i), query_results))) for i in [0, 1, 2]]
+
+        aabb_solver = pyaabb.AABB()
+        aabb_solver.build(aabboxes)
+        distance_func = partial(dist_vector_proj, lines=sharp_edges)
+        matching_edges, projections, distances = aabb_solver.nearest_point_array(
+            points.astype(np.float32), distance_func)
         return matching_edges, projections, distances
 
 
