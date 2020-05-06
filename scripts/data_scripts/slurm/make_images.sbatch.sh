@@ -1,9 +1,9 @@
 #!/bin/bash
 
 #SBATCH --job-name=sharpf-images
-#SBATCH --output=array_%A_%a.out
-#SBATCH --error=array_%A_%a.err
-#SBATCH --array=1-80
+#SBATCH --output=logs/sharpf-images_%A_%a.out
+#SBATCH --error=logs/sharpf-images_%A_%a.err
+#SBATCH --array=1-100
 #SBATCH --time=24:00:00
 #SBATCH --partition=htc
 #SBATCH --cpus-per-task=4
@@ -104,7 +104,7 @@ MAKE_DATA_SCRIPT="${CODE_PATH_CONTAINER}/scripts/data_scripts/generate_depthmap_
 PC_CONFIGS_PATH_CONTAINER="${CODE_PATH_CONTAINER}/scripts/data_scripts/configs/depthmap_datasets"
 DATASET_PATH="${PC_CONFIGS_PATH_CONTAINER}/${DATASET_CONFIG}"
 
-CHUNK_SIZE=100
+CHUNK_SIZE=10
 SLICE_START=$(( ${CHUNK_SIZE} * ${SLURM_ARRAY_TASK_ID} ))
 SLICE_END=$(( ${CHUNK_SIZE} * (${SLURM_ARRAY_TASK_ID} + 1) ))
 echo "SLURM_ARRAY_TASK_ID=${SLURM_ARRAY_TASK_ID} SLICE_START=${SLICE_START} SLICE_END=${SLICE_END}"
