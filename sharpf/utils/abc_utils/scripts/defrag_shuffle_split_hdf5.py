@@ -15,7 +15,14 @@ __dir__ = os.path.normpath(
 sys.path[1:1] = [__dir__]
 
 from sharpf.utils.abc_utils.hdf5.dataset import LotsOfHdf5Files
-from sharpf.data.datasets.sharpf_io import save_point_patches, PointCloudIO
+# from sharpf.data.datasets.sharpf_io import (
+#     save_point_patches as save_fn,
+#     PointCloudIO as IO
+# )
+from sharpf.data.datasets.sharpf_io import (
+    save_depth_maps as save_fn,
+    DepthMapIO as IO
+)
 from sharpf.utils.abc_utils.hdf5.io_struct import collate_mapping_with_io
 
 
@@ -68,20 +75,20 @@ def main(options):
     loader = DataLoader(
         LotsOfHdf5Files(
             data_dir=options.hdf5_input_dir,
-            io=PointCloudIO,
+            io=IO,
             labels=options.keys or '*',
             max_loaded_files=options.max_loaded_files),
         num_workers=options.n_jobs,
         batch_size=batch_size,
         shuffle=options.random_shuffle,
-        collate_fn=partial(collate_mapping_with_io, io=PointCloudIO),
+        collate_fn=partial(collate_mapping_with_io, io=IO),
         # worker_init_fn=worker_init_fn,
     )
 
     writer_params = {
         'output_dir': options.hdf5_output_dir,
         'n_items_per_file': options.num_items_per_file,
-        'save_fn': save_point_patches,
+        'save_fn': save_fn,
         'verbose': options.verbose,
     }
     train_writer_params = {'prefix': options.train_prefix, **writer_params}
