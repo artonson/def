@@ -22,7 +22,7 @@ class HDF5Dataset:
         return np.array(hdf5_file[self.name]).astype(self.dtype)
 
     def get_one(self, hdf5_file, index):
-        return np.array(hdf5_file[self.name][index]).astype(self.dtype)
+        return hdf5_file[self.name][index]
 
 
 class Float64(HDF5Dataset):
