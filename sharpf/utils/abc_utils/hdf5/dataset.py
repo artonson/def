@@ -57,7 +57,7 @@ class Hdf5File(Dataset):
         default_labels = set([label for label in [data_label, target_label] if label is not None])
         self.labels = list(default_labels.union(labels))
 
-        if self.preload == PreloadTypes.PRELOAD_ALWAYS:
+        if self.preload == PreloadTypes.ALWAYS:
             self.reload()
 
     def _get_length(self, hdf5_file):
@@ -113,7 +113,7 @@ class Hdf5File(Dataset):
         self.items = None
 
     def _get_item(self, index):
-        if self.preload in [PreloadTypes.PRELOAD_LAZY, PreloadTypes.ALWAYS]:
+        if self.preload in [PreloadTypes.LAZY, PreloadTypes.ALWAYS]:
             if not self.is_loaded():
                 self.reload()
             item = {label: self.items[label][index]
