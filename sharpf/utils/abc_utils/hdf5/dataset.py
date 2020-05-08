@@ -1,5 +1,6 @@
 import os
 import glob
+from enum import Enum
 
 import h5py
 import numpy as np
@@ -9,10 +10,16 @@ from torch.utils.data import Dataset
 from sharpf.utils.py_utils.console import eprint
 from sharpf.utils.py_utils.parallel import threaded_parallel
 
+class PreloadTypes(Enum):
+    ALWAYS = 'always'
+    LAZY = 'lazy'
+    NEVER = 'never'
+
 
 class Hdf5File(Dataset):
-    def __init__(self, filename, io, data_label=None, target_label=None, labels=None, preload=True,
-                 economic_mem_usage=False, transform=None):
+
+    def __init__(self, filename, io, data_label=None, target_label=None, labels=None, preload=PreloadTypes.ALWAYS,
+                 transform=None):
         """Represents HDF5 dataset contained in a single HDF5 file.
 
         :param filename: name of the file
@@ -20,8 +27,10 @@ class Hdf5File(Dataset):
         :param data_label: string label in HDF5 dataset corresponding to data to train from
         :param target_label: string label in HDF5 dataset corresponding to targets
         :param labels: a list of HDF5 dataset labels to read off the file ('*' for ALL keys)
-        :param preload: if True, data is read off disk in constructor; otherwise load lazily
-        :param economic_mem_usage: if True, only the requested data portions are read off disk in getitem
+        :param preload: determines the data loading strategy:
+            'always': entire data is read off disk in constructor
+            'lazy': entire data is loaded on first access
+            'never': entire data never loaded, only the requested data portions are read off disk in getitem
         :param transform: callable implementing data + target transform (e.g., adding noise)
         """
         self.filename = os.path.normpath(os.path.realpath(filename))
@@ -33,7 +42,8 @@ class Hdf5File(Dataset):
         self.transform = transform
         self.items = None  # this is where the data internally is read to
         self.io = io
-        self.economic_mem_usage = economic_mem_usage
+        assert preload in PreloadTypes, 'unknown preload type: {}'.format(preload)
+        self.preload = preload
 
         with h5py.File(self.filename, 'r') as f:
             self.num_items = self._get_length(f)
@@ -47,7 +57,7 @@ class Hdf5File(Dataset):
         default_labels = set([label for label in [data_label, target_label] if label is not None])
         self.labels = list(default_labels.union(labels))
 
-        if preload:
+        if self.preload == PreloadTypes.PRELOAD_ALWAYS:
             self.reload()
 
     def _get_length(self, hdf5_file):
@@ -76,8 +86,11 @@ class Hdf5File(Dataset):
         if self.transform is not None:
             data, target = self.transform(data, target)
 
-        item.update({self.data_label: data,
-                     self.target_label: target})
+        if None is not self.data_label:
+            item.update({self.data_label: data})
+
+        if None is not self.target_label:
+            item.update({self.target_label: target})
 
         return item
 
@@ -87,7 +100,7 @@ class Hdf5File(Dataset):
             self.items = {label: self.io.read(f, label)
                           for label in self.labels}
 
-    def reload_one(self, index):
+    def load_one(self, index):
         with h5py.File(self.filename, 'r') as f:
             self.num_items = self._get_length(f)
             return {label: self.io.read_one(f, label, index)
@@ -100,27 +113,33 @@ class Hdf5File(Dataset):
         self.items = None
 
     def _get_item(self, index):
-        if self.economic_mem_usage:
+        if self.preload in [PreloadTypes.PRELOAD_LAZY, PreloadTypes.ALWAYS]:
             if not self.is_loaded():
                 self.reload()
             item = {label: self.items[label][index]
                     for label in self.labels}
-        else:
-            item = self.reload_one(index)
+
+        else:  # self.preload == PreloadTypes.NEVER
+            item = self.load_one(index)
+
         return item
 
 
 class LotsOfHdf5Files(Dataset):
     def __init__(self, data_dir, io, data_label=None, target_label=None, labels=None, partition=None,
-                 transform=None, max_loaded_files=0):
+                 transform=None, max_loaded_files=0, preload=PreloadTypes.LAZY):
         if None is not partition:
             data_dir = os.path.join(data_dir, partition)
         filenames = glob.glob(os.path.join(data_dir, '*.hdf5'))
 
         def _hdf5_creator(filename):
             try:
-                return Hdf5File(filename, io, data_label, target_label, labels=labels,
-                                transform=transform, preload=False)
+                return Hdf5File(filename, io,
+                                data_label=data_label,
+                                target_label=target_label,
+                                labels=labels,
+                                transform=transform,
+                                preload=preload)
             except (OSError, KeyError) as e:
                 eprint('Unable to open {}: {}'.format(filename, str(e)))
                 return None
