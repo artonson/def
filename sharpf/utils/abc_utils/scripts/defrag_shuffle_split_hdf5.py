@@ -14,7 +14,7 @@ __dir__ = os.path.normpath(
 )
 sys.path[1:1] = [__dir__]
 
-from sharpf.utils.abc_utils.hdf5.dataset import LotsOfHdf5Files
+from sharpf.utils.abc_utils.hdf5.dataset import LotsOfHdf5Files, PreloadTypes
 # from sharpf.data.datasets.sharpf_io import (
 #     save_point_patches as save_fn,
 #     PointCloudIO as IO
@@ -77,7 +77,8 @@ def main(options):
             data_dir=options.hdf5_input_dir,
             io=IO,
             labels=options.keys or '*',
-            max_loaded_files=options.max_loaded_files),
+            max_loaded_files=options.max_loaded_files,
+            preload=PreloadTypes.NEVER),
         num_workers=options.n_jobs,
         batch_size=batch_size,
         shuffle=options.random_shuffle,
