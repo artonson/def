@@ -101,7 +101,8 @@ nvidia-docker run \
                   ${INPUT_FILE_CONTAINER} \\
                   --output_dir ${SPLIT_DATA_PATH_CONTAINER} \\
                   --output_format 'xyz' \\
-                  --label ${DATA_LABEL} && \\
+                  --label ${DATA_LABEL} \\
+                  --use_normals true  && \\
             cd ${CODE_PATH_CONTAINER} && \\
             echo 'Evaluating the model...' && \\
             python3 compute_sharpness.py \\

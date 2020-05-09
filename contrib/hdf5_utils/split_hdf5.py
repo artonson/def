@@ -11,14 +11,20 @@ def parse_args():
     parser.add_argument('--label', help='label in hdf5 file to get data from (default: all)')
     parser.add_argument('--output_dir', help='output directory for splitted files')
     parser.add_argument('--output_format', default='xyz', help='output format for splitted files (default: xyz)')
+    parser.add_argument('--use_normals', default=False, help='use normals')
     args = parser.parse_args()
     return args
 
     
-def split_hdf5(filename, label, output_dir, output_format="xyz"):
+def split_hdf5(filename, label, output_dir, output_format="xyz", use_normals=False):
     
     with h5py.File(filename, 'r') as f:
         data = list(f[label])
+        if use_normals:
+          normals = list(f['normals'])
+          data = np.concatenate([data, normals], axis = -1)
+          print(data.shape)
+          data = list(data)
     
     file_basename = os.path.splitext(os.path.basename(filename))[0]
    
@@ -45,5 +51,5 @@ if __name__=='__main__':
     if not os.path.exists(args.output_dir):
         os.makedirs(args.output_dir)
     
-    split_hdf5(args.filename, args.label, args.output_dir, output_format)
+    split_hdf5(args.filename, args.label, args.output_dir, output_format, args.use_normals)
 
