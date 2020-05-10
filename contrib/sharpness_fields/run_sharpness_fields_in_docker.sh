@@ -3,19 +3,20 @@
 set -e
 
 # example launch string:
-# ./run_ecnet_in_docker.sh -i <input_dir>  -d <docker image name> -c <docker container name> -g <gpu-indexes>
-#	-i: 	input directory with .xyz files
+# ./run_sharpness_fields_in_docker.sh -i <input_dir> -l <label> -s <meshlab_script> -d <docker image name> -c <docker container name> -g <gpu-indexes>
+#	-i: 	input directory with .hdf5 files
 #	-d: 	docker image name
 #	-c: 	docker container name
 #	-g: 	comma-separated gpu indexes
 
-usage() { echo "Usage: $0 -i <input_file> -l <label> -d <docker_image_name> -c <container_name> -g <gpu_indexes>" >&2; }
+usage() { echo "Usage: $0 -i <input_file> -l <label> -s <meshlab_script> -d <docker_image_name> -c <container_name> -g <gpu_indexes>" >&2; }
 
-while getopts "i:o:l:d:c:g:" opt
+while getopts "i:l:s:d:c:g:" opt
 do
     case ${opt} in
         i) INPUT_FILE=$OPTARG;;
         l) DATA_LABEL=$OPTARG;;
+        s) MESHLAB_SCRIPT=$OPTARG;;
         d) IMAGE_NAME=$OPTARG;;
         c) CONTAINER_NAME=$OPTARG;;
         g) GPU_ENV=$OPTARG;;
@@ -35,6 +36,12 @@ if [[ ! ${DATA_LABEL} ]]; then
     exit 1
 fi
 
+if [[ ! ${MESHLAB_SCRIPT} ]]; then
+    echo "meshlab_script is not set";
+    usage
+    exit 1
+fi
+
 if [[ -z "${GPU_ENV}" ]] ; then
     echo "gpu_indexes not set; selecting GPU 0";
     GPU_ENV=0
@@ -47,7 +54,7 @@ if [[ ! ${IMAGE_NAME} ]]; then
     docker pull ${IMAGE_NAME}
 fi
 
-DEFAULT_CONTAINER_NAME="3ddl.$( whoami ).$( uuidgen ).$( echo "${GPU_ENV}" | tr , . ).sharp_features_ec_net"
+DEFAULT_CONTAINER_NAME="3ddl.$( whoami ).$( uuidgen ).$( echo "${GPU_ENV}" | tr , . ).sharp_features_sharpness_fields"
 if [[ ! ${CONTAINER_NAME} ]]; then
     echo "container_name is not set; generated container name: ${DEFAULT_CONTAINER_NAME}";
     CONTAINER_NAME=${DEFAULT_CONTAINER_NAME}
@@ -55,6 +62,8 @@ fi
 
 DATA_PATH_HOST="$( cd "$( dirname "${INPUT_FILE}" )" >/dev/null 2>&1 && pwd )"
 DATA_PATH_CONTAINER="/home/data"
+SCRIPT_PATH_HOST="$( cd "$( dirname "${MESHLAB_SCRIPT}" )" >/dev/null 2>&1 && pwd )"
+SCRIPT_PATH_CONTAINER="/home/scripts"
 LOCAL_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 LOGS_PATH_HOST="${LOCAL_DIR}/logs"
 LOGS_PATH_CONTAINER="/home/logs"
@@ -64,9 +73,11 @@ SPLITCODE_PATH_HOST="${LOCAL_DIR}/../hdf5_utils"
 SPLITCODE_PATH_CONTAINER="/home/hdf5_utils"
 
 INPUT_FILE_CONTAINER="${DATA_PATH_CONTAINER}/$(basename "${INPUT_FILE}")"
+MESHLAB_SCRIPT_CONTAINER="${SCRIPT_PATH_CONTAINER}/$(basename "${MESHLAB_SCRIPT}")"
 
 SPLIT_DATA_PATH_CONTAINER="${DATA_PATH_CONTAINER}/xyz_splitted"
 SPLIT_INPUT_CONTAINER="${SPLIT_DATA_PATH_CONTAINER}/*.xyz"
+# SPLIT_INPUT_MLS_CONTAINER="${SPLIT_DATA_PATH_CONTAINER}/*_mls.xyz"
 SPLIT_OUTPUT_CONTAINER="${DATA_PATH_CONTAINER}/sharpness_fields_results"
 MODEL_PATH_CONTAINER="${CODE_PATH_CONTAINER}/sharpness_model.pt"
 
@@ -90,6 +101,7 @@ nvidia-docker run \
     --name "${CONTAINER_NAME}" \
     --env CUDA_VISIBLE_DEVICES="${GPU_ENV}" \
     -v "${DATA_PATH_HOST}":"${DATA_PATH_CONTAINER}" \
+    -v "${SCRIPT_PATH_HOST}":"${SCRIPT_PATH_CONTAINER}" \
     -v "${LOGS_PATH_HOST}":"${LOGS_PATH_CONTAINER}" \
     -v "${CODE_PATH_HOST}":"${CODE_PATH_CONTAINER}" \
     -v "${SPLITCODE_PATH_HOST}":"${SPLITCODE_PATH_CONTAINER}" \
@@ -103,6 +115,13 @@ nvidia-docker run \
                   --output_format 'xyz' \\
                   --label ${DATA_LABEL} \\
                   --use_normals true  && \\
+            echo 'Performing MLS smoothing...' && \\
+            find ${SPLIT_DATA_PATH_CONTAINER} -type f -name '*.xyz' \\
+                  -exec xvfb-run -a -s '-screen 0 800x600x24' meshlabserver \\
+                        -i {} \\
+                        -o {} \\
+                        -s ${MESHLAB_SCRIPT_CONTAINER} \\
+                        -om vn {} \;  &&\\
             cd ${CODE_PATH_CONTAINER} && \\
             echo 'Evaluating the model...' && \\
             python3 compute_sharpness.py \\
@@ -113,4 +132,4 @@ nvidia-docker run \
                   1>${LOGS_PATH_CONTAINER}/out.out \\
                   2>${LOGS_PATH_CONTAINER}/err.err && \\
             rm -rf ${SPLIT_DATA_PATH_CONTAINER} && \\
-            echo 'Results are in ${DATA_PATH_HOST}/xyz_splitted'"
+            echo 'Results are in ${DATA_PATH_HOST}/sharpness_fields_results'"

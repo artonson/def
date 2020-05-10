@@ -8,7 +8,9 @@ RUN apt-get clean \
     bash \
     git \
     wget \
-    python3-pip 
+    python3-pip \
+    meshlab \
+    xvfb 
 
 # change default python
 RUN /bin/bash -c "ln -sf /usr/local/bin/python3.6 /usr/local/bin/python"
