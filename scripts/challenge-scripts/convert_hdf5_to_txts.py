@@ -40,7 +40,7 @@ def main(options):
         num_workers=4
     )
 
-    filename_template = '{prefix}{index:06d}{suffix}.{fmt}'
+    filename_template = os.path.join(options.output_dir, '{prefix}{index:06d}{suffix}.{fmt}')
 
     items = []  # used only for 'npy' format
     from tqdm import tqdm
