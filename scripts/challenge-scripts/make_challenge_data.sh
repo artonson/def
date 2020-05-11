@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+set -e
+set -x
+
 # This script is intended to use on prometheus machine
 # All paths have been configured so.
 
@@ -20,8 +23,8 @@ hdf5_to_txt() {
 
     for FILE_IDX in $( seq ${I1} ${I2} )
     do
-        OUTPUT_DIR="${OUTPUT_BASE_DIR}/${SPLIT}_${FILE_IDX}"
-        DATASET="${DATASETS_DIR}/${MODALITY}/dataset_config_${RES}_res_clean.json/${SPLIT}/${SPLIT}_${FILE_IDX}.hdf5"
+        local OUTPUT_DIR="${OUTPUT_BASE_DIR}/${SPLIT}_${FILE_IDX}"
+        local DATASET="${DATASETS_DIR}/${MODALITY}/dataset_config_${RES}_res_clean.json/${SPLIT}/${SPLIT}_${FILE_IDX}.hdf5"
 
         ./convert_hdf5_to_txts.py \
             -i ${DATASET} \
@@ -29,10 +32,10 @@ hdf5_to_txt() {
             -d points \
             -t distances
 
-        TARGZ_FILENAME="${RES}_res_${SPLIT}_${FILE_IDX}.tar.gz"
-        tar -vzcf ${TARGZ_FILENAME} ${OUTPUT_DIR}
+        local TARGZ_FILENAME="${RES}_res_${SPLIT}_${FILE_IDX}.tar.gz"
+        tar -zcf ${OUTPUT_BASE_DIR}/${TARGZ_FILENAME} ${OUTPUT_DIR}
 
-        rm -rf ${OUTPUT_DIR}
+        # rm -rf ${OUTPUT_DIR}
     done
 }
 
@@ -40,11 +43,11 @@ hdf5_to_txt() {
 for RES in high med low
 do
     # train files
-    hdf5_to_txt ${DATASETS_DIR} ${MODALITY} ${RES} train 0 5 ${OUTPUT_DIR}
+    # hdf5_to_txt ${DATASETS_DIR} ${MODALITY} ${RES} train 0 0 ${OUTPUT_DIR}
 
     # val files
-    hdf5_to_txt ${DATASETS_DIR} ${MODALITY} ${RES} val 0 1 ${OUTPUT_DIR}
+    hdf5_to_txt ${DATASETS_DIR} ${MODALITY} ${RES} val 0 0 ${OUTPUT_DIR}
 
     # test files
-    hdf5_to_txt ${DATASETS_DIR} ${MODALITY} ${RES} test 0 1 ${OUTPUT_DIR}
+    hdf5_to_txt ${DATASETS_DIR} ${MODALITY} ${RES} test 0 0 ${OUTPUT_DIR}
 done
