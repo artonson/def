@@ -13,6 +13,7 @@ __dir__ = os.path.normpath(
 )
 sys.path[1:1] = [__dir__]
 
+from sharpf.utils.py_utils.os import require_empty
 from sharpf.utils.abc_utils.hdf5.dataset import Hdf5File
 from sharpf.data.datasets.sharpf_io import (
     PointCloudIO as IO
@@ -23,6 +24,8 @@ from sharpf.data.datasets.sharpf_io import (
 
 
 def main(options):
+    require_empty(options.output_dir, recreate=options.overwrite)
+
     loader = DataLoader(
         dataset=Hdf5File(
             filename=options.hdf5_input_file,
@@ -65,8 +68,10 @@ def parse_options():
     parser.add_argument('--output-prefix', dest='output_prefix', default='distance_',
                         help='string prefix of output filename to use.')
 
-    parser.add_argument('-v', '--verbose', dest='verbose', action='store_true',
+    parser.add_argument('-w', '--overwrite', dest='overwrite', action='store_true',
                         default=False, help='overwrite existing files.')
+    parser.add_argument('-v', '--verbose', dest='verbose', action='store_true',
+                        default=False, help='be verbose.')
     args = parser.parse_args()
     return args
 
