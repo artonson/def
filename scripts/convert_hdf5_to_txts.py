@@ -9,7 +9,7 @@ from torch.utils.data import DataLoader
 
 __dir__ = os.path.normpath(
     os.path.join(
-        os.path.dirname(os.path.realpath(__file__)), *['..'] * 4)
+        os.path.dirname(os.path.realpath(__file__)), *['..'] * 1)
 )
 sys.path[1:1] = [__dir__]
 
@@ -36,14 +36,15 @@ def main(options):
         num_workers=4
     )
 
-    for item_idx, item in enumerate(loader):
-        data = item[options.data_label].numpy()
-        target = item[options.target_label].numpy()
-        X = np.stack((data, target), axis=1)
+    from tqdm import tqdm
+    for item_idx, item in tqdm(enumerate(loader)):
+        data = item[options.data_label].squeeze().numpy()
+        target = item[options.target_label].squeeze().numpy()
+        X = np.column_stack((data, target))
 
         output_filename = os.path.join(
             options.output_dir,
-            '{prefix}{index: <5}.txt'.format(
+            '{prefix}{index:05d}.txt'.format(
                 prefix=options.output_prefix,
                 index=item_idx
             )
