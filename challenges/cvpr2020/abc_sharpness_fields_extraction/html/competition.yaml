@@ -1,0 +1,41 @@
+title: 'ABC: Sharpness fields extraction - CVPR 2020'
+description: Predict a scalar field approximating distance to the closest feature line from unstructured 3D point clouds.
+start_date: 2020-05-07 00:00:00+00:00
+end_date: 2020-06-07 23:59:59+00:00
+competition_docker_image: ''
+image: logo.png
+has_registration: true
+force_submission_to_leaderboard: false
+disallow_leaderboard_modifying: false
+enable_detailed_results: false
+admin_names: null
+html:
+  data: data.html
+  evaluation: evaluation.html
+  get_starting_kit: get_starting_kit.html
+  overview: overview.html
+  terms: terms.html
+phases:
+  1:
+    auto_migration: false
+    color: white
+    description: Testing
+    is_scoring_only: true
+    label: Final
+    max_submissions: 300
+    max_submissions_per_day: 10
+    phasenumber: 1
+    reference_data: reference_data_2.zip
+    scoring_program: scoring_program_1.zip
+    start_date: 2020-05-07 00:00:00+00:00
+leaderboard:
+  columns:
+    high_res_rmse_score:
+      label: 10k All
+      leaderboard: &id001
+        label: Results
+        rank: 1
+      rank: 5
+      sort: desc
+  leaderboards:
+    Results: *id001

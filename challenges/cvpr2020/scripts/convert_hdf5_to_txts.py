@@ -37,7 +37,7 @@ def main(options):
         ),
         batch_size=1,
         shuffle=False,
-        num_workers=4
+        num_workers=0
     )
 
     filename_template = os.path.join(options.output_dir, '{prefix}{index:06d}{suffix}.{fmt}')

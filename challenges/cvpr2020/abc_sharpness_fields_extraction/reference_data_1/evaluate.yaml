@@ -1,0 +1,3 @@
+reference_file: 'high_res_val_0_target.tar.gz'
+expected_files:
+  high_res: []

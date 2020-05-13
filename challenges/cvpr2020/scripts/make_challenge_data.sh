@@ -40,7 +40,7 @@ hdf5_to_txt() {
         local DATASET="${DATASETS_DIR}/${MODALITY}/dataset_config_${RES}_res_clean.json/${SPLIT}/${SPLIT}_${FILE_IDX}.hdf5"
         local OUTPUT_DIR="${OUTPUT_BASE_DIR}/${SPLIT}_${FILE_IDX}"
 
-        ./convert_hdf5_to_txts.py \
+        convert_hdf5_to_txts.py \
             --input-file ${DATASET} \
             --output-dir ${OUTPUT_DIR} \
             --data-label points \
