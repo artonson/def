@@ -5,7 +5,7 @@ import os.path
 import yaml
 import numpy as np
 
-from .utilities import (
+from utilities import (
     read_txt_file,
     read_targz_file,
     mean_error_field,
@@ -17,7 +17,6 @@ from .utilities import (
 #   |
 #   +-- ref/
 #   |    |
-#   |    +-- files.yml
 #   |    +-- evaluate.yml
 #   |    +-- high_res_[test|val]_0_target.tar.gz
 #   |
@@ -35,8 +34,8 @@ from .utilities import (
 input_dir = sys.argv[1]
 output_dir = sys.argv[2]
 
-submission_dir = os.path.join(input_dir, 'res')
-reference_dir = os.path.join(input_dir, 'ref')
+submission_dir = os.path.realpath(os.path.join(input_dir, 'res'))
+reference_dir = os.path.realpath(os.path.join(input_dir, 'ref'))
 
 if not os.path.isdir(submission_dir):
     print("{} doesn't exist".format(submission_dir))
@@ -70,7 +69,7 @@ if os.path.isdir(submission_dir) and os.path.isdir(reference_dir):
                 try:
                     _, pred_target = read_txt_file(
                         os.path.join(submission_dir, split, filename),
-                        read_points=True,
+                        read_points=False,
                     )
                 except Exception as e:
                     print('Encountered error reading file {filename}: {what}'.format(
@@ -86,6 +85,7 @@ if os.path.isdir(submission_dir) and os.path.isdir(reference_dir):
                         print('Encountered error computing quality for file {filename}: {what}'.format(
                             filename=filename, what=str(e)
                         ))
+                print(filename, rmse)
                 metrics.append(rmse)
 
             mean_rmse = np.mean(metrics)
