@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 
 __dir__ = os.path.normpath(
     os.path.join(
-        os.path.dirname(os.path.realpath(__file__)), *['..'] * 2)
+        os.path.dirname(os.path.realpath(__file__)), *['..'] * 3)
 )
 sys.path[1:1] = [__dir__]
 
