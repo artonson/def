@@ -48,19 +48,18 @@ if os.path.isdir(submission_dir) and os.path.isdir(reference_dir):
     with open(evaluate_yml_filename) as fi:
         config = yaml.load(fi)
 
-    reference_filename = config['reference_file']
-    filenames_by_split = config['expected_files']
-
-    # read GT targets off disk
-    _, ref_targets = read_targz_file(
-        os.path.join(reference_dir, reference_filename),
-        read_points=False,
-    )
-
     output_filename = os.path.join(output_dir, 'scores.txt')
     with open(output_filename, 'w') as output_file:
 
-        for split, filenames in filenames_by_split.items():
+        for split, split_config in config.items():
+
+            reference_filename = split_config['reference_file']
+            filenames = split_config['expected_files']
+            # read GT targets off disk
+            _, ref_targets = read_targz_file(
+                os.path.join(reference_dir, split, reference_filename),
+                read_points=False,
+            )
 
             # this computes mean value of a metric for all files in the dataset
             metrics = []
@@ -85,7 +84,6 @@ if os.path.isdir(submission_dir) and os.path.isdir(reference_dir):
                         print('Encountered error computing quality for file {filename}: {what}'.format(
                             filename=filename, what=str(e)
                         ))
-                print(filename, rmse)
                 metrics.append(rmse)
 
             mean_rmse = np.mean(metrics)
