@@ -5,7 +5,7 @@ import os.path
 import yaml
 import numpy as np
 
-from .utilities import (
+from utilities import (
     read_txt_file,
     read_targz_npy_file,
     mean_error_field,
