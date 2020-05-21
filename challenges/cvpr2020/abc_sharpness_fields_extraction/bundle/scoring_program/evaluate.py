@@ -7,7 +7,7 @@ import numpy as np
 
 from utilities import (
     read_txt_file,
-    read_targz_file,
+    read_targz_npy_file,
     mean_error_field,
 )
 
