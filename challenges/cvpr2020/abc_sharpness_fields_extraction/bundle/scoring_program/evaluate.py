@@ -5,7 +5,7 @@ import os.path
 import yaml
 import numpy as np
 
-from utilities import (
+from .utilities import (
     read_txt_file,
     read_targz_npy_file,
     mean_error_field,
@@ -56,7 +56,7 @@ if os.path.isdir(submission_dir) and os.path.isdir(reference_dir):
             reference_filename = split_config['reference_file']
             filenames = split_config['expected_files']
             # read GT targets off disk
-            _, ref_targets = read_targz_file(
+            _, ref_targets = read_targz_npy_file(
                 os.path.join(reference_dir, split, reference_filename),
                 read_points=False,
             )
