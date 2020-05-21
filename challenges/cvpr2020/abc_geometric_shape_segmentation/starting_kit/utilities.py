@@ -2,6 +2,7 @@ from io import BytesIO
 import tarfile
 
 import numpy as np
+from sklearn.metrics import balanced_accuracy_score, jaccard_score
 
 
 def _get_requested(data_target, read_points=True, read_distances=True):
@@ -57,15 +58,15 @@ def read_txt_file(path, read_points=True, read_distances=True):
     return data, target
 
 
-def read_targz_file(path, read_points=True, read_distances=True):
-    """Read numpy file and return numpy arrays
+def read_targz_npy_file(path, read_points=True, read_distances=True):
+    """Read tarzipped numpy file and return numpy arrays
     for points (n_obj, n_points, 3) and distances (n_obj, n_points) values
 
     # Read points and normals
-    >>> points, distances = read_targz_file("npy/high_res_train_0.tar.gz")
+    >>> points, distances = read_targz_npy_file("npy/high_res_train_0.tar.gz")
 
     # Read points only:
-    >>> points, _ = read_targz_file("npy/high_res_test_0_target.tar.gz", read_distances=False)
+    >>> points, _ = read_targz_npy_file("npy/high_res_test_0_target.tar.gz", read_distances=False)
     """
     assert read_points or read_distances, 'at least one of read_points or read_distances must be specified'
 
@@ -78,26 +79,16 @@ def read_targz_file(path, read_points=True, read_distances=True):
     return _get_requested(data_target, read_points=read_points, read_distances=read_distances)
 
 
-def mean_error_field(ref, est):
-    """Calculates the mean errors between reference distance field and estimated distance field."""
+def segmentation_balanced_accuracy_error(ref, est):
+    """Calculates the balanced accuracy between reference segmentation and estimated segmentation."""
     assert len(est.shape) == len(ref.shape) == 1, '1d arrays expected'
     assert est.shape == ref.shape, 'inconsistent shapes'
-
-    # make sure that estimations live in [0, 1]
-    est = np.maximum(0, np.minimum(1, est))
-
-    rmse = np.sqrt(np.mean((ref - est) ** 2))
-
-    return rmse
+    return balanced_accuracy_score(ref, est)
 
 
-def mean_error_segmentation(ref, est):
-    """Calculates the mean errors between reference and estimated sharpness segmentations."""
+def segmentation_iou_error(ref, est):
+    """Calculates the IoU between reference segmentation and estimated segmentation."""
     assert len(est.shape) == len(ref.shape) == 1, '1d arrays expected'
+    assert est.shape == ref.shape, 'inconsistent shapes'
+    return jaccard_score(ref, est)
 
-    # make sure that estimations live in [0, 1]
-    est = np.maximum(0, np.minimum(1, est))
-
-    mse = np.mean((ref - est) ** 2)
-
-    return mse
