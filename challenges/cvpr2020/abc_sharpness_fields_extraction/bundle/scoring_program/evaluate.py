@@ -89,7 +89,7 @@ if os.path.isdir(submission_dir) and os.path.isdir(reference_dir):
             mean_rmse = np.mean(metrics)
 
             output_file.write(
-                '{split}_{metric}_score:{value}'.format(
+                '{split}_{metric}_score:{value}\n'.format(
                     split=split,
                     metric='rmse',
                     value=mean_rmse
