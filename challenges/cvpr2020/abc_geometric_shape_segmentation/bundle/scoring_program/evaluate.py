@@ -66,6 +66,7 @@ if os.path.isdir(submission_dir) and os.path.isdir(reference_dir):
             balanced_accuracy_scores = []
             iou_scores = []
             for idx, filename in enumerate(filenames):
+                count_iou = True
                 ref_target = ref_targets[idx]
                 try:
                     _, pred_target = read_txt_file(
@@ -87,15 +88,24 @@ if os.path.isdir(submission_dir) and os.path.isdir(reference_dir):
                         print('Encountered error computing Acc for file {filename}: {what}'.format(
                             filename=filename, what=str(e)
                         ))
-                    try:
-                        iou = segmentation_iou_error(ref_target, pred_target)
-                    except Exception as e:
-                        iou = 0.
-                        print('Encountered error computing IoU for file {filename}: {what}'.format(
-                            filename=filename, what=str(e)
-                        ))
+                    if not np.any(ref_target):
+                        # don't try computing IoU if no ground truth sharpness
+                        if np.any(pred_target):
+                            iou = 0.
+                        else:
+                            count_iou = False
+                    else:
+                        # try to perform the actual computation
+                        try:
+                            iou = segmentation_iou_error(ref_target, pred_target)
+                        except Exception as e:
+                            iou = 0.
+                            print('Encountered error computing IoU for file {filename}: {what}'.format(
+                                filename=filename, what=str(e)
+                            ))
                 balanced_accuracy_scores.append(acc)
-                iou_scores.append(iou)
+                if count_iou:
+                    iou_scores.append(iou)
 
             mean_balanced_accuracy = np.mean(balanced_accuracy_scores)
             output_file.write(
