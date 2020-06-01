@@ -19,13 +19,27 @@ from utilities import (
 #   +-- ref/
 #   |    |
 #   |    +-- evaluate.yml
-#   |    +-- high_res_[test|val]_0_target.tar.gz
+#   |    +-- high_res/
+#   |    |      +-- high_res_[test|val]_0_target.tar.gz
+#   |    +-- med_res/
+#   |    |      +-- med_res_[test|val]_0_target.tar.gz
+#   |    +-- low_res/
+#   |           +-- low_res_[test|val]_0_target.tar.gz
 #   |
 #   +-- res/
 #        |
-#        +-- field_000001_target.txt
-#        +-- field_000002_target.txt
-#        +-- ...
+#        +-- high_res/
+#        |      +-- field_000001_target.txt
+#        |      +-- field_000002_target.txt
+#        |      +-- ...
+#        +-- med_res/
+#        |      +-- field_000001_target.txt
+#        |      +-- field_000002_target.txt
+#        |      +-- ...
+#        +-- low_res/
+#        |      +-- field_000001_target.txt
+#        |      +-- field_000002_target.txt
+#               +-- ...
 #
 # <output-dir>
 #   |

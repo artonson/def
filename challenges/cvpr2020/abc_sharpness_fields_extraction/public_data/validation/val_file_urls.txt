@@ -1,0 +1,6 @@
+https://box.skoltech.ru/index.php/s/T05jhGjwGOv6ls7/download npy/high_res_val_0_data.tar.gz
+https://box.skoltech.ru/index.php/s/k1TfVHS9QNediCI/download npy/med_res_val_0_data.tar.gz
+https://box.skoltech.ru/index.php/s/qtzKSugqL3sUNOl/download npy/low_res_val_0_data.tar.gz
+https://box.skoltech.ru/index.php/s/1v69mm25PZR474m/download txt/high_res_val_0_data.tar.gz
+https://box.skoltech.ru/index.php/s/TuZO2Xm5AF192dE/download txt/med_res_val_0_data.tar.gz
+https://box.skoltech.ru/index.php/s/2wuwI2hSOsW33sf/download txt/low_res_val_0_data.tar.gz

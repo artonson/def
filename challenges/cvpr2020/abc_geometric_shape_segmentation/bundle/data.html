@@ -1,0 +1,49 @@
+<h2>Data</h2>
+
+<p>We supply 3 datasets and a starting kit (with evaluation and file loading python code)</p>
+
+<ol>
+<li><b>Training datasets:</b> 294k point clouds with ground truth segmentations in 3&nbsp;varying 3D resolutions: 0.02&thinsp;mm/point (high resolution), 0.05&thinsp;mm/point (medium), and 0.125&thinsp;mm/point (low). The spatial size of each CAD model has been selected such that the 75% longest feature lines in that model are sampled with at least 8 points at the low 0.125&thinsp;mm 3D resolution (and denser in other resolutions). Each point has a binary label associated to it, which is set to 1 for points lying within a pre-specified distance to the feature line, and zero otherwise. Specifically, this distance is set to be equal to the 3D resolution of the point cloud (i.e., for high-resolution instances, points located within 0.02 mm to features lines are marked as 1). We provide 98k annotated samples per each of the above 3D resolutions, packed in chunks of 16k samples each.
+
+<br />
+
+There are two versions of the training dataset: A textfile version (1 point cloud per file) and a python/numpy version (16k point clouds per file).
+
+<br />
+
+<strong>You can download the training datasets here:</strong>
+
+<table border-collapse="collapse" cellspacing="10" cellpadding="0" align="center">
+  <tr>
+    <td colspan="2" align="center">HighRes 0.02</td>
+    <td width="10" align="center"></td>
+    <td colspan="2" align="center">MedRes 0.05</td>
+    <td width="10" align="center"></td>
+    <td colspan="2" align="center">LowRes 0.125</td>
+  </tr>
+  <tr>
+    <td align="center"><a href="https://box.skoltech.ru/index.php/s/0eThOENmPmwh3vk" target="_blank">TXT</a></td>
+    <td align="center"><a href="https://box.skoltech.ru/index.php/s/N5lXm5A1ikDypbh" target="_blank">NPY</a></td>
+    <td></td> 
+    <td align="center"><a href="https://box.skoltech.ru/index.php/s/TtrH9A5ZSZZ6l78" target="_blank">TXT</a></td>
+    <td align="center"><a href="https://box.skoltech.ru/index.php/s/iFaDAqB29kzSn7T" target="_blank">NPY</a></td>
+    <td></td> 
+    <td align="center"><a href="https://box.skoltech.ru/index.php/s/ZAOGmfeSedwVMrk" target="_blank">TXT</a></td>
+    <td align="center"><a href="https://box.skoltech.ru/index.php/s/yxQflDooFrazvob" target="_blank">NPY</a></td>
+  </tr>
+</table>
+
+
+</li>
+
+<li>
+	<b>Validation datasets:</b> 16k point clouds without ground truth segmentation per each 3D resolution. See <a href="#participate-get_starting_kit">Files</a> for download.
+</li>
+
+<li>
+  <b>Testing datasets:</b> 16k point clouds without ground truth segmentation per each 3D resolution. The evaluation on this dataset will result in the final score. See <a href="#participate-get_starting_kit">Files</a> for download.
+</li>
+
+</ol>
+
+<!-- <p><img src="http://cybertron.cg.tu-berlin.de/skoch/abc/sampling.png" alt="Different point cloud sampling 1k, 5k and 10k with surface normals" width="1828" height="600" /></p> -->

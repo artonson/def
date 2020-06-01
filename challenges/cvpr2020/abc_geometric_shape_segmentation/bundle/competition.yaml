@@ -1,9 +1,9 @@
-title: 'ABC: Sharpness Fields Extraction - CVPR 2020'
-description: Predict a scalar field approximating distance to the closest feature line from unstructured 3D point clouds.
+title: 'ABC: Geometric Shape Segmentation - CVPR 2020'
+description: Predict segments of 3D point clouds located near geometric feature lines of 3D shapes.
 start_date: 2020-06-01 00:00:00+00:00
 end_date: 2020-12-31 23:59:59+00:00
 competition_docker_image: ''
-image: abc_logo_sdf.png
+image: abc_logo_seg.png
 has_registration: true
 force_submission_to_leaderboard: false
 disallow_leaderboard_modifying: false
@@ -27,7 +27,7 @@ phases:
     max_submissions_per_day: 10
     phasenumber: 1
     reference_data: reference_data_1.zip
-    public_data: 666585db-fc94-4c0c-a9c1-902fbe76de51
+    public_data: 0bde9e5b-98bd-4f89-8cfd-9230c5ff0475
     scoring_program: scoring_program.zip
     start_date: 2020-06-01 00:00:00+00:00
   2:
@@ -41,7 +41,7 @@ phases:
     max_submissions_per_day: 10
     phasenumber: 2
     reference_data: reference_data_2.zip
-    public_data: 3c917f4e-5a58-4d01-9584-d768a694dd0d
+    public_data: 20308bac-dd9e-466c-8c45-6d23c3d595ac
     scoring_program: scoring_program.zip
     start_date: 2020-12-01 00:00:00+00:00
 leaderboard:
@@ -50,18 +50,33 @@ leaderboard:
       label: Results
       rank: 1
   columns:
-    high_res_rmse_score:
-      label: HighRes All
+    high_res_balanced_accuracy_score:
+      label: HighRes Accuracy
       leaderboard: *Results
       rank: 1
-      sort: asc
-    med_res_rmse_score:
-      label: MedRes All
+      sort: desc
+    med_res_balanced_accuracy_score:
+      label: MedRes Accuracy
       leaderboard: *Results
       rank: 2
-      sort: asc
-    low_res_rmse_score:
-      label: LowRes All
+      sort: desc
+    low_res_balanced_accuracy_score:
+      label: LowRes Accuracy
       leaderboard: *Results
       rank: 3
-      sort: asc
+      sort: desc
+    high_res_iou_score:
+      label: HighRes mIoU
+      leaderboard: *Results
+      rank: 4
+      sort: desc
+    med_res_iou_score:
+      label: MedRes mIoU
+      leaderboard: *Results
+      rank: 5
+      sort: desc
+    low_res_iou_score:
+      label: LowRes mIoU
+      leaderboard: *Results
+      rank: 6
+      sort: desc
