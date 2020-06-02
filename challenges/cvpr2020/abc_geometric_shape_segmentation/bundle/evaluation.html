@@ -6,4 +6,14 @@
 
 <p>For evaluation, the estimated per-point segmentation values <i>p<sub>PRED</sub></i> are compared to the ground truth segmentations with two measures: the <a href="https://scikit-learn.org/stable/modules/generated/sklearn.metrics.balanced_accuracy_score.html">balanced accuracy score</a> and <a href="https://scikit-learn.org/stable/modules/generated/sklearn.metrics.jaccard_score.html">intersection-over-union score</a>. <strong>See our <a href="#learn_the_details-get_starting_kit">starting kit</a> for python evaluation code.</strong></p>
 
-<p>The final reported scores are mean Accuracy and IoU scores computed for each of the point clouds.</p>
+<p>The final reported scores are mean Accuracy and IoU scores computed for each of the point clouds, computed separately for different resolutions (HighRes, MedRes, and LowRes). In total, 6 scores will be computed: </p>
+<ul>
+    <li>HighRes Accuracy (high_res_balanced_accuracy_score)</li>
+    <li>MedRes Accuracy (med_res_balanced_accuracy_score)</li>
+    <li>LowRes Accuracy (low_res_balanced_accuracy_score)</li>
+    <li>HighRes mIoU (high_res_iou_score)</li>
+    <li>MedRes mIoU (med_res_iou_score)</li>
+    <li>LowRes mIoU (low_res_iou_score)</li>
+</ul>
+
+<p><b>Note:</b> you can submit results separately for different resolutions (e.g., HighRes, MedRes, or LowRes only) to avoid evaluation timeouts.</p>

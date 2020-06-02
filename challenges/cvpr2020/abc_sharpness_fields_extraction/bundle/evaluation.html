@@ -6,4 +6,11 @@
 
 <p>For evaluation, the estimated per-point distance values <i>d<sub>PRED</sub></i> are first clipped to [0, 1] range by taking <i>CLIP(d<sub>PRED</sub>) = max(0, min(1, d<sub>PRED</sub>))</i> and then compared to the ground truth distances with the root mean squared error (RMSE) evaluation function: <i>SQRT(||d<sub>GT</sub> &mdash; CLIP(d<sub>PRED</sub>)||<sup>2</sup>)</i>, with <i>d<sub>GT</sub></i> as the ground truth distance label (thresholded to 1.0). The scores are calculated as the mean over of all predicted distance values for all points. <strong>See our <a href="#learn_the_details-get_starting_kit">starting kit</a> for python evaluation code.</strong></p>
 
-<p>The final reported score is the mean over RMSE scores computed for each of the point clouds.</p>
+<p>The final reported score is the mean over RMSE scores computed for each of the point clouds, computed separately for different resolutions (HighRes, MedRes, and LowRes). In total, 3 scores will be computed: </p>
+<ul>
+    <li>HighRes All (high_res_rmse_score)</li>
+    <li>MedRes All (med_res_rmse_score)</li>
+    <li>LowRes All (low_res_rmse_score)</li>
+</ul>
+
+<p><b>Note:</b> you can submit results separately for different resolutions (e.g., HighRes, MedRes, or LowRes only) to avoid evaluation timeouts.</p>
