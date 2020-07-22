@@ -3,6 +3,7 @@ import torch
 import random
 import argparse
 import json
+import glob
 import h5py
 import time
 import sys
@@ -29,6 +30,10 @@ from scripts.train_scripts.seg_models_lib.segmentation_models_pytorch.utils.trai
 from scripts.train_scripts.seg_models_lib.raster_metrics import precision_recall_fscore_iou_support
 
 from sharpf.data.datasets.hdf5_datasets import Hdf5File, LotsOfHdf5Files
+
+high_res_quantile = 7.4776
+med_res_quantile = 69.0811
+low_res_quantile = 1.0
 
 
 class Transform():
@@ -240,12 +245,13 @@ class mse_loss(torch.nn.MSELoss):
 
     def forward(self, input, target, mask=None):
         if mask is None:
-            return torch.mean(F.mse_loss(input, target, reduction='none')), \
-                   lp_error(p=2).forward(input.detach().cpu(), target.detach().cpu()).numpy()
+            return torch.mean(F.mse_loss(input, target, reduction='none'), dim=(1, 2)), \
+                   lp_error(p=2).forward(input, target)
         else:
             # mask[mask == 1.0] = 5.0
             # mask[mask == 0.0] = 10.0
-            return torch.mean(F.mse_loss(input, target, reduction='none') * mask)
+            return torch.mean(F.mse_loss(input, target, reduction='none') * mask, dim=(1, 2)).unsqueeze(-1), \
+                   lp_error(p=2).forward(input, target)
 
 
 class huber(torch.nn.SmoothL1Loss):
@@ -308,9 +314,33 @@ class kldivloss(torch.nn.KLDivLoss):
 
 class bce_loss(nn.BCEWithLogitsLoss):
     __name__ = 'bce loss'
+    def __init__(self, weights, reduce='mean'):
+        self.loss = super().__init__(reduce=reduce, weights=weights)
 
     def forward(self, prediction, target, mask=None):
-        return super().forward(prediction, target)
+        return self.loss.forward(prediction, target)
+
+
+class FocalLoss(nn.Module):
+    def __init__(self, alpha=1, gamma=2, logits=False, reduce=True):
+        super(FocalLoss, self).__init__()
+        self.alpha = alpha
+        self.gamma = gamma
+        self.logits = logits
+        self.reduce = reduce
+
+    def forward(self, inputs, targets):
+        if self.logits:
+            BCE_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduce=False)
+        else:
+            BCE_loss = F.binary_cross_entropy(inputs, targets, reduce=False)
+
+        pt = torch.exp(-BCE_loss)
+        F_loss = self.alpha * (1-pt)**self.gamma * BCE_loss
+        if self.reduce:
+            return torch.mean(F_loss, dim=(1, 2)).unsqueeze(-1)
+        else:
+            return F_loss
 
 
 class l1loss(nn.L1Loss):
@@ -325,7 +355,7 @@ class field_seg_loss(torch.nn.MSELoss):
         self.reg_loss = LOSS[reg_loss]().to('cuda')
         self.weights = torch.FloatTensor(weights).cuda if weights is not None else weights
         self.weights = None
-        self.seg_loss = LOSS[seg_loss](self.weights).to('cuda')
+        self.seg_loss = FocalLoss(logits=True).to('cuda')
         self.alpha_1 = alpha_1
 
     def to(self, device):
@@ -333,25 +363,50 @@ class field_seg_loss(torch.nn.MSELoss):
         self.seg_loss.requires_grad = True
         self.reg_loss.to(device)
 
-    def L_field(self, pred, target):
-        return self.reg_loss.forward(pred, target)[0]  # compute regression only for object
+    def L_field(self, pred, target, mask=None):
+        return self.reg_loss.forward(pred, target, mask)[0]  # compute regression only for object
                                                        # select [0] cause mse_loss outputs rmse_metric at [1]
 
     def L_seg(self, pred, target):
         return self.seg_loss.forward(pred, target)  # compute segmentation only for far from sharp pixels
 
     def forward(self, pred, target, mask=None):
-        preds_reg, preds_seg = pred[:, 0], pred[:, 1]
+        preds_reg, preds_seg = pred[0], pred[1]
         gt_reg, gt_seg = target[:, 0], target[:, 1]
 
         ones_tensor = torch.ones(preds_reg.size(), device='cuda')
         preds_reg_masked = preds_reg * preds_seg.round() + (ones_tensor - preds_seg.round())
-
         self.seg_loss_val = self.L_seg(preds_seg, gt_seg)
-        self.reg_loss_val = self.L_field(preds_reg_masked, gt_reg)
-        l2_error = lp_error(p=2).forward(preds_reg.detach().cpu().numpy(), gt_reg.detach().cpu().numpy())  # metric
-        return self.alpha_1 * self.seg_loss_val + self.reg_loss_val, l2_error
+        self.reg_loss_val = self.L_field(preds_reg_masked, gt_reg, mask=gt_seg)
+        l2_error = lp_error(p=2).forward(preds_reg, gt_reg)  # metric
+        return (self.alpha_1 * self.seg_loss_val + self.reg_loss_val).mean(), l2_error
 
+class two_heads_nn(Unet):
+    def __init__(self, encoder_name='vgg16'):
+        super().__init__(
+            encoder_name=encoder_name,
+            decoder_channels=(256, 128, 64, 32, 16),
+            encoder_weights=None)
+
+        self.regression_head = nn.Sequential(
+            nn.Conv2d(16, 8, kernel_size=(1, 1)),
+            nn.ReLU(),
+            nn.Conv2d(8, 1, kernel_size=(1, 1)),
+            nn.Sigmoid()
+        )
+
+        self.segmentation_head = nn.Sequential(
+            nn.Conv2d(16, 8, kernel_size=(1, 1)),
+            nn.ReLU(),
+            nn.Conv2d(8, 1, kernel_size=(1, 1))
+        )
+
+    def forward(self, x):
+        encoded_x = self.encoder(x)
+        features = self.decoder(encoded_x)
+        reg = self.regression_head(features).squeeze(1)
+        seg = self.segmentation_head(features).squeeze(1)
+        return reg, seg
 
 LOSS = {
     'field_seg_loss': field_seg_loss,
@@ -360,6 +415,7 @@ LOSS = {
     'reg_huber_loss': huber,
     'reg_kldiv_loss': kldivloss,
     'classif_ce_loss': bce_loss,
+    'focal_loss': FocalLoss,
     'l1loss': l1loss
 }
 
@@ -419,11 +475,8 @@ if __name__ == '__main__':
     cfg = json.load(open(args.model_spec_filename))
 
     if cfg['task'] == 'two-heads':
-        model = Unet(
+        model = two_heads_nn(
             encoder_name=cfg['encoder'],
-            encoder_weights=None,
-            classes=cfg['num_classes'],
-            activation=cfg['activation']
         )
     elif cfg['task'] == 'two-stages-classifier':
         cfg_classif = json.load(open('./sharpf/models/specs/image_based_regression/classification_model.json'))
@@ -513,6 +566,7 @@ if __name__ == '__main__':
         optimizer=optimizer,
         writer=writer,
         save_each_batch=1,
+        save_predictions=False,
         device=args.gpu,
         visualization=True,
         verbose=True
@@ -524,6 +578,7 @@ if __name__ == '__main__':
         metrics=metrics,
         writer=writer,
         save_each_batch=1,
+        save_predictions=True,
         device=args.gpu,
         visualization=True,
         verbose=True
@@ -546,10 +601,10 @@ if __name__ == '__main__':
             torch.save(torch.FloatTensor(another_loss), '{}/train_log_l2error_{}_epoch{}'.format(args.output_dir, cfg['name'], epoch))
 
         torch.save(loss_values, '{}/train_loss_values_{}_epoch{}'.format(args.output_dir, cfg['name'], epoch))
-        val_logs, another_loss, loss_values = val_epoch.run(val_loader, epoch)  # [first_batch], epoch)
+        val_logs, predictions, another_loss, loss_values = val_epoch.run(val_loader, epoch)  # [first_batch], epoch)
         with open('{}/val_{}_log_epoch_{}.json'.format(args.logs_dir, cfg['name'], epoch), 'w') as fp:
             json.dump(val_logs, fp)
-        #np.save('/{}/predictions_vgg13.npy'.format(args.logs_dir), predictions)
+        np.save('/{}/predictions_{}.npy'.format(args.logs_dir, cfg['name']), predictions)
 
         if epoch % 50 == 0:
             torch.save(torch.FloatTensor(another_loss),
