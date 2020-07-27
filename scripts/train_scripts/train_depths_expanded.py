@@ -175,22 +175,25 @@ class DepthHDF5Dataset(Dataset):
             data = self.standartize(data)
 
         dist_new = np.copy(target)
+        dist_mask = dist_new * mask_1  # select object points
+        dist_mask[mask_2] = 1.0  # background points has max distance to sharp features
+        close_to_sharp = np.array((dist_mask != np.nan) & (dist_mask < 1.)).astype(float)
+
         if self.task == 'regression_segmentation' or self.task == 'two-heads':
-            dist_mask = dist_new * mask_1 # select object points
-            dist_mask[mask_2] = 1.0 # background points has max distance to sharp features
-            close_to_sharp = np.array((dist_mask != np.nan) & (dist_mask < 1.)).astype(float)
             # regression + segmentation (or two-head network) has to targets:
             # distance field and segmented close-to-sharp region of the object
-            target = torch.cat([torch.FloatTensor(dist_mask).unsqueeze(0), torch.FloatTensor(close_to_sharp).unsqueeze(0)], dim=0)
+            target = torch.cat(
+                [torch.FloatTensor(dist_mask).unsqueeze(0), torch.FloatTensor(close_to_sharp).unsqueeze(0)], dim=0)
         if self.task == 'segmentation':
-            dist_new *= mask_1
-            dist1 = np.array((dist_new != np.nan) & (dist_new < 0.15)).astype(float)
-            dist2 = np.array((dist_new != np.nan) & (dist_new > 0.15)).astype(float)
-            target = torch.cat([torch.FloatTensor(dist1).unsqueeze(0), torch.FloatTensor(dist2).unsqueeze(0)], dim=0)
+            # dist_new *= mask_1
+            # dist1 = np.array((dist_new != np.nan) & (dist_new < 0.15)).astype(float)
+            # dist2 = np.array((dist_new != np.nan) & (dist_new > 0.15)).astype(float)
+            # target = torch.cat([torch.FloatTensor(dist1).unsqueeze(0), torch.FloatTensor(dist2).unsqueeze(0)], dim=0)
+            target = torch.FloatTensor(mask_1)
         elif self.task == 'regression' or self.task == 'two-stages':
             dist_mask = dist_new * mask_1  # * 5.0
             dist_mask[mask_2] = 1.0
-            target = torch.FloatTensor(dist_mask).unsqueeze(0)
+            target = torch.FloatTensor(dist_mask)
         elif self.task == 'classification':
             # classify has sharp/ doesn't have sharp
             dist_mask = dist_new*mask_1
@@ -206,6 +209,8 @@ class DepthHDF5Dataset(Dataset):
             data = torch.cat([data, data, data, torch.FloatTensor(mask)], dim=0)
         else:
             data = torch.cat([data, data, data], dim=0)
+
+        #print('target shape', target.shape)
         return data, target
 
 
@@ -245,12 +250,12 @@ class mse_loss(torch.nn.MSELoss):
 
     def forward(self, input, target, mask=None):
         if mask is None:
-            return torch.mean(F.mse_loss(input, target, reduction='none'), dim=(1, 2)), \
+            return torch.mean(F.mse_loss(input, target, reduction='none')), \
                    lp_error(p=2).forward(input, target)
         else:
             # mask[mask == 1.0] = 5.0
             # mask[mask == 0.0] = 10.0
-            return torch.mean(F.mse_loss(input, target, reduction='none') * mask, dim=(1, 2)).unsqueeze(-1), \
+            return torch.mean(F.mse_loss(input, target, reduction='none') * mask), \
                    lp_error(p=2).forward(input, target)
 
 
@@ -322,6 +327,7 @@ class bce_loss(nn.BCEWithLogitsLoss):
 
 
 class FocalLoss(nn.Module):
+    __name__='focal loss'
     def __init__(self, alpha=1, gamma=2, logits=False, reduce=True):
         super(FocalLoss, self).__init__()
         self.alpha = alpha
@@ -329,7 +335,7 @@ class FocalLoss(nn.Module):
         self.logits = logits
         self.reduce = reduce
 
-    def forward(self, inputs, targets):
+    def forward(self, inputs, targets, mask=None):
         if self.logits:
             BCE_loss = F.binary_cross_entropy_with_logits(inputs, targets, reduce=False)
         else:
@@ -338,7 +344,7 @@ class FocalLoss(nn.Module):
         pt = torch.exp(-BCE_loss)
         F_loss = self.alpha * (1-pt)**self.gamma * BCE_loss
         if self.reduce:
-            return torch.mean(F_loss, dim=(1, 2)).unsqueeze(-1)
+            return torch.mean(F_loss)
         else:
             return F_loss
 
@@ -376,10 +382,11 @@ class field_seg_loss(torch.nn.MSELoss):
 
         ones_tensor = torch.ones(preds_reg.size(), device='cuda')
         preds_reg_masked = preds_reg * preds_seg.round() + (ones_tensor - preds_seg.round())
-        self.seg_loss_val = self.L_seg(preds_seg, gt_seg)
+        self.seg_loss_val = self.L_seg(preds_seg, gt_seg).mean()
         self.reg_loss_val = self.L_field(preds_reg_masked, gt_reg, mask=gt_seg)
+
         l2_error = lp_error(p=2).forward(preds_reg, gt_reg)  # metric
-        return (self.alpha_1 * self.seg_loss_val + self.reg_loss_val).mean(), l2_error
+        return self.alpha_1 * self.seg_loss_val + self.reg_loss_val, l2_error
 
 class two_heads_nn(Unet):
     def __init__(self, encoder_name='vgg16'):
@@ -401,12 +408,50 @@ class two_heads_nn(Unet):
             nn.Conv2d(8, 1, kernel_size=(1, 1))
         )
 
+        self.freeze_regression = False
+        self.freeze_segmentation = False
+
     def forward(self, x):
         encoded_x = self.encoder(x)
         features = self.decoder(encoded_x)
-        reg = self.regression_head(features).squeeze(1)
-        seg = self.segmentation_head(features).squeeze(1)
+        reg, seg = None, None
+        if not (self.freeze_regression):
+            reg = self.regression_head(features).squeeze(1)
+        if not (self.freeze_segmentation):
+            seg = self.segmentation_head(features).squeeze(1)
+
+        if reg is None:
+            return seg
+        elif seg is None:
+            return reg
+
         return reg, seg
+
+    def freeze_regression_head(self, mode=True):
+        self.freeze_regression = mode
+        if mode:
+            self.regression_head.train(False)
+        else:
+            self.regression_head.train(True)
+        # done
+
+    def freeze_segmentation_head(self, mode=True):
+        self.freeze_segmentation = mode
+        if mode:
+            self.segmentation_head.train(False)
+        else:
+            self.segmentation_head.train(True)
+        # done
+
+    def freeze_unet(self, mode=True):
+        if mode:
+            self.encoder.train(False)
+            self.decoder.train(False)
+        else:
+            self.encoder.train(True)
+            self.decoder.train(True)
+        # done
+
 
 LOSS = {
     'field_seg_loss': field_seg_loss,
@@ -418,6 +463,32 @@ LOSS = {
     'focal_loss': FocalLoss,
     'l1loss': l1loss
 }
+
+def iterate_epoches(start_epoch, epochs, args, cfg, train_epoch, val_epoch, train_loader, val_loader, name):
+    for epoch in range(start_epoch, start_epoch + epochs + 1):
+        print('\nEpoch: {}'.format(epoch))
+
+        train_logs, another_loss, loss_values = train_epoch.run(train_loader, epoch)  # [first_batch], epoch)
+        if args.save_model:
+            torch.save(model.state_dict(), '{}/seg_model_{}_epoch_{}_{}'.format(args.output_dir+'/'+name, cfg['name'], epoch, name))
+        with open('{}/train_{}_log_epoch_{}.json'.format(args.logs_dir, cfg['name'], epoch), 'w') as fp:
+             json.dump(train_logs, fp)
+        if epoch % 50 == 0:
+            torch.save(torch.FloatTensor(another_loss), '{}/train_log_l2error_{}_epoch{}'.format(args.output_dir, cfg['name'], epoch))
+
+        torch.save(loss_values, '{}/train_loss_values_{}_epoch{}'.format(args.output_dir, cfg['name'], epoch))
+        val_logs, predictions, another_loss, loss_values = val_epoch.run(val_loader, epoch)  # [first_batch], epoch)
+        with open('{}/val_{}_log_epoch_{}.json'.format(args.logs_dir, cfg['name'], epoch), 'w') as fp:
+            json.dump(val_logs, fp)
+        np.save('/{}/predictions_{}_{}.npy'.format(args.logs_dir, cfg['name'], name), predictions)
+
+        if epoch % 50 == 0:
+            torch.save(torch.FloatTensor(another_loss),
+                       '{}/val_log_l2error_{}_epoch{}'.format(args.output_dir, cfg['name'], epoch))
+
+        if epoch % 50 == 0:
+            torch.save(loss_values, '{}/val_loss_values_{}_epoch{}'.format(args.output_dir, cfg['name'], epoch))
+
 
 METRIC = {
     'precision_recall_fscore_iou': precision_recall_fscore_iou(),
@@ -524,14 +595,15 @@ if __name__ == '__main__':
         loss = LOSS[cfg['loss_name']](**cfg['loss_params'])
     else:
         loss = LOSS[cfg['loss_name']]()
-    optimizer = torch.optim.Adam(model.parameters(), args.lr)
+    optimizer = torch.optim.Adam(model.parameters(), 0.01)
     metrics = []#[cfg['metrics_name']] if cfg['metrics_name'] is not None else []
 
     transforms = Transform() if args.aug else None
     print('transforms', True if transforms is not None else False)
 
     train_dataset = DepthHDF5Dataset(
-                                     cfg['task'],
+                                     'segmentation',
+                                     #cfg['task'],
                                      args.data_dir,
                                      partition='train/batched_16k',
                                      normalisation=cfg['normalisation'],
@@ -541,7 +613,8 @@ if __name__ == '__main__':
                                      max_loaded_files=MAX_LOADED_FILES
                                     )
     val_dataset = DepthHDF5Dataset(
-                                   cfg['task'],
+                                   'segmentation',
+                                   #cfg['task'],
                                    args.data_dir,
                                    partition='val/batched_16k',
                                    normalisation=cfg['normalisation'],
@@ -557,6 +630,138 @@ if __name__ == '__main__':
     val_loader = DataLoader(val_dataset, batch_size=args.val_batch_size)
 
     print('datasets created')
+    train_epoch = TrainEpoch(
+        'segmentation',
+        model,
+        loss=LOSS['seg_bce_dice'](),
+        metrics=metrics,
+        optimizer=optimizer,
+        writer=writer,
+        save_each_batch=1,
+        save_predictions=False,
+        device=args.gpu,
+        visualization=True,
+        verbose=True
+    )
+    val_epoch = ValidEpoch(
+        'segmentation',
+        model,
+        loss=LOSS['seg_bce_dice'](),
+        metrics=metrics,
+        writer=writer,
+        save_each_batch=1,
+        save_predictions=True,
+        device=args.gpu,
+        visualization=True,
+        verbose=True
+    )
+
+    # train segmentation first
+
+    # model.freeze_regression_head(mode=True)
+
+    PATH = '{}/seg_model_{}_epoch_{}'
+    if args.load_model_filename is not None and args.load_model_filename != 'None':
+        model.load_state_dict(torch.load(args.load_model_filename))
+
+    name = 'segmentation'
+    #model.load_state_dict(torch.load('/gpfs/gpfs0/g.bobrovskih/kldiv/vgg16/seg_model_reg_unet_vgg16_bn_epoch_457'))
+    iterate_epoches(0, 200, args, cfg, train_epoch, val_epoch, train_loader, val_loader, name)
+
+    # train regression next
+    print('train regression')
+    model.freeze_regression_head(mode=False)
+    model.freeze_segmentation_head(mode=True)
+    model.freeze_unet(mode=True)
+
+    optimizer = torch.optim.Adam(model.parameters(), 0.01)
+
+    train_dataset = DepthHDF5Dataset(
+        'regression',
+        # cfg['task'],
+        args.data_dir,
+        partition='train/batched_16k',
+        normalisation=cfg['normalisation'],
+        transform=transforms,
+        save_mask=False,  # if save mask => data channels equals 4 else equals 3
+        target_transform=None,
+        max_loaded_files=MAX_LOADED_FILES
+    )
+    val_dataset = DepthHDF5Dataset(
+        'regression',
+        # cfg['task'],
+        args.data_dir,
+        partition='val/batched_16k',
+        normalisation=cfg['normalisation'],
+        transform=None,
+        save_mask=False,
+        target_transform=None,
+        max_loaded_files=MAX_LOADED_FILES
+    )
+
+    train_loader = DataLoader(train_dataset, batch_size=args.train_batch_size)
+    val_loader = DataLoader(val_dataset, batch_size=args.val_batch_size)
+
+    train_epoch = TrainEpoch(
+        'regression',
+        model,
+        loss=LOSS['reg_mse_loss'](),
+        metrics=metrics,
+        optimizer=optimizer,
+        writer=writer,
+        save_each_batch=1,
+        save_predictions=False,
+        device=args.gpu,
+        visualization=True,
+        verbose=True
+    )
+    val_epoch = ValidEpoch(
+        'regression',
+        model,
+        loss=LOSS['reg_mse_loss'](),
+        metrics=metrics,
+        writer=writer,
+        save_each_batch=1,
+        save_predictions=True,
+        device=args.gpu,
+        visualization=True,
+        verbose=True
+    )
+
+    name = 'regression'
+    iterate_epoches(0, 100, args, cfg, train_epoch, val_epoch, train_loader, val_loader, name)
+
+    # train two-heads
+    print('train two-heads')
+    model.freeze_regression_head(mode=False)
+    model.freeze_segmentation_head(mode=False)
+    model.freeze_unet(mode=False)
+
+    train_dataset = DepthHDF5Dataset(
+        cfg['task'],
+        # cfg['task'],
+        args.data_dir,
+        partition='train/batched_16k',
+        normalisation=cfg['normalisation'],
+        transform=transforms,
+        save_mask=False,  # if save mask => data channels equals 4 else equals 3
+        target_transform=None,
+        max_loaded_files=MAX_LOADED_FILES
+    )
+    val_dataset = DepthHDF5Dataset(
+        cfg['task'],
+        # cfg['task'],
+        args.data_dir,
+        partition='val/batched_16k',
+        normalisation=cfg['normalisation'],
+        transform=None,
+        save_mask=False,
+        target_transform=None,
+        max_loaded_files=MAX_LOADED_FILES
+    )
+
+    train_loader = DataLoader(train_dataset, batch_size=args.train_batch_size)
+    val_loader = DataLoader(val_dataset, batch_size=args.val_batch_size)
 
     train_epoch = TrainEpoch(
         cfg['task'],
@@ -584,61 +789,32 @@ if __name__ == '__main__':
         verbose=True
     )
 
-    PATH = '{}/seg_model_{}_epoch_{}'
-    if args.load_model_filename is not None and args.load_model_filename != 'None':
-        model.load_state_dict(torch.load(args.load_model_filename))
+    name = 'two-heads'
+    iterate_epoches(0, 200, args, cfg, train_epoch, val_epoch, train_loader, val_loader, name)
 
-    for epoch in range(args.start_epoch, args.start_epoch+args.epochs+1):
-        print('\nEpoch: {}'.format(epoch))
-        start = time.time()
+    predict_epoch = PredictEpoch(
+        cfg['task'],
+        model,
+        loss=loss,
+        metrics=metrics,
+        writer=writer,
+        save_each_batch=10,
+        save_dir=args.output_dir,
+        device=args.gpu,
+        verbose=True
+    )
 
-        train_logs, another_loss, loss_values = train_epoch.run(train_loader, epoch)  # [first_batch], epoch)
-        if args.save_model:
-            torch.save(model.state_dict(), PATH.format(args.output_dir, cfg['name'], epoch))
-        with open('{}/train_{}_log_epoch_{}.json'.format(args.logs_dir, cfg['name'], epoch), 'w') as fp:
-             json.dump(train_logs, fp)
-        if epoch % 50 == 0:
-            torch.save(torch.FloatTensor(another_loss), '{}/train_log_l2error_{}_epoch{}'.format(args.output_dir, cfg['name'], epoch))
+    with tqdm(val_loader, desc='prediction', file=sys.stdout, disable=False) as iterator:
+        for i, iter_ in enumerate(iterator):
+            x, y = iter_
+            x, y = x.to(args.gpu), y.to(args.gpu)
 
-        torch.save(loss_values, '{}/train_loss_values_{}_epoch{}'.format(args.output_dir, cfg['name'], epoch))
-        val_logs, predictions, another_loss, loss_values = val_epoch.run(val_loader, epoch)  # [first_batch], epoch)
-        with open('{}/val_{}_log_epoch_{}.json'.format(args.logs_dir, cfg['name'], epoch), 'w') as fp:
-            json.dump(val_logs, fp)
-        np.save('/{}/predictions_{}.npy'.format(args.logs_dir, cfg['name']), predictions)
+            loss, y_pred = predict_epoch.batch_update(x, y)
 
-        if epoch % 50 == 0:
-            torch.save(torch.FloatTensor(another_loss),
-                        '{}/val_log_l2error_{}_epoch{}'.format(args.output_dir, cfg['name'], epoch))
-
-        if epoch % 50 == 0:
-            torch.save(loss_values, '{}/val_loss_values_{}_epoch{}'.format(args.output_dir, cfg['name'], epoch))
-
-
-
-
-    # predict_epoch = PredictEpoch(
-    #     cfg['task'],
-    #     model,
-    #     loss=loss,
-    #     metrics=metrics,
-    #     writer=writer,
-    #     save_each_batch=10,
-    #     save_dir=args.output_dir,
-    #     device=args.gpu,
-    #     verbose=True
-    # )
-    #
-    # with tqdm(val_loader, desc='prediction', file=sys.stdout, disable=False) as iterator:
-    #     for i, iter_ in enumerate(iterator):
-    #         x, y = iter_
-    #         x, y = x.to(args.gpu), y.to(args.gpu)
-    #
-    #         loss, y_pred = predict_epoch.batch_update(x, y)
-    #
-    #         # save prediction
-    #         torch.save(y_pred, '{}/predictions/prediction_{}_by_{}_model'.format(args.output_dir, i+1, cfg['name']))
-    #         if iter_ > 5:
-    #             break
+            # save prediction
+            torch.save(y_pred, '{}/predictions/prediction_{}_by_{}_model'.format(args.output_dir, i+1, cfg['name']))
+            if iter_ > 5:
+                break
 
     if writer is not None:
         writer.close()
