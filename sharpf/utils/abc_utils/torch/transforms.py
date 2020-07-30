@@ -45,7 +45,7 @@ class NormalizeL2(AbstractTransform):
         # scale: sup_i ||p_i|| = 1
         data_scale = data.norm(dim=1).max(dim=0).values
         data /= data_scale
-        target /= data_scale
+        # target /= data_scale
         return data, target
 
 
@@ -60,7 +60,7 @@ class CompositeTransform(AbstractTransform):
 
 
 class TypeCast(AbstractTransform):
-    def __init__(self, data_type, target_type):
+    def __init__(self, data_type=torch.float32, target_type=torch.float32):
         self.data_type = data_type
         self.target_type = target_type
 

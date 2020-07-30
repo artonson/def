@@ -1,33 +1,60 @@
-FROM nvidia/cuda:9.2-cudnn7-devel-ubuntu16.04
+FROM nvidia/cuda:10.1-cudnn7-devel
+LABEL maintainer="3ddl <adase@skoltech.ru>"
 
-## Base packages for ubuntu
+ENV DEBIAN_FRONTEND noninteractive
 
-# clean the libs list
+# Install Ubuntu packages
 RUN apt-get clean \
  && apt-get update -qq \
  && apt-get install -y --no-install-recommends \
-    git \
+    libpng-dev \
+    libjpeg-dev \
+    zlib1g-dev \
+    default-jre \
+    libopenblas-dev \
     wget \
+    sudo \
+    gosu \
+    libgl1-mesa-glx \
+    screen \
+    graphviz \
+    cmake \
+    ninja-build \
+    protobuf-compiler \
+    libprotobuf-dev \
     bzip2 \
+    ca-certificates \
+    build-essential \
+    software-properties-common \
+    curl \
+    apt-transport-https \
+    openssh-server \
+    git-core \
+    htop \
+    automake \
+    libtool \
+    pkg-config \
+    unzip \
+    unrar \
+    tree \
+    freetds-dev \
+    openssh-server \
     vim \
     nano \
     g++ \
     make \
-    cmake \
-    build-essential \
-    software-properties-common \
-    apt-transport-https \
-    sudo \
-    gosu \
-    libgl1-mesa-glx \
-    graphviz \
+    strace \
     tmux \
-    screen \
-    htop \
+    libgl1-mesa-glx \
+    rsync \
+    net-tools \
+    git \
     p7zip-full
 
+# Clean up
+RUN apt-get clean && rm -rf /var/lib/apt/lists/*
 
-# Create a non-root user and switch to it.
+# Create a non-root user
 RUN adduser --disabled-password --gecos '' --shell /bin/bash user
 RUN echo "user ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/90-user
 USER user
@@ -36,52 +63,39 @@ USER user
 ENV HOME=/home/user
 RUN chmod 777 /home/user
 
-## Download and install miniconda
-RUN wget https://repo.continuum.io/miniconda/Miniconda3-4.6.14-Linux-x86_64.sh -O ~/miniconda.sh \
- && chmod +x ~/miniconda.sh \
- && ~/miniconda.sh -b -p ~/miniconda \
- && rm ~/miniconda.sh \
- && echo "export PATH=/home/user/miniconda/bin:$PATH" >>/home/user/.profile
-ENV PATH /home/user/miniconda/bin:$PATH
+# Install Miniconda
+RUN echo "export PATH=/home/user/miniconda/bin:$PATH" >> /home/user/.profile
+RUN wget --quiet http://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh
+RUN /bin/bash ~/miniconda.sh -b -p ~/miniconda
+RUN rm ~/miniconda.sh
 ENV CONDA_AUTO_UPDATE_CONDA=false
 
-# Create a Python 3.6 environment.
-RUN /home/user/miniconda/bin/conda install conda-build \
- && /home/user/miniconda/bin/conda create -y --name py36 python=3.6.5 \
- && /home/user/miniconda/bin/conda clean -ya
-ENV CONDA_DEFAULT_ENV=py36
-ENV CONDA_PREFIX=/home/user/miniconda/envs/$CONDA_DEFAULT_ENV
-ENV PATH=$CONDA_PREFIX/bin:$PATH
+# Set path to conda
+ENV PATH /home/user/miniconda/bin:$PATH
 
-RUN conda install pytorch==1.2.0 torchvision==0.4.0 cudatoolkit==9.2 -c pytorch
+# Update Miniconda
+RUN conda config --add channels conda-forge && \
+    conda config --add channels pytorch
+RUN conda update -n base -c defaults conda
+RUN conda install igl point_cloud_utils libspatialindex pyembree
+RUN conda update --all --yes && conda clean --all --yes
+RUN conda init bash
 
-## Install general requirements for the sharp features
-COPY docker/requirements.txt /opt/requirements.txt
-RUN pip install --upgrade pip \
- && pip install --default-timeout=1000 -r /opt/requirements.txt
-
-# Install PyTorch Geometric.
-ENV PATH=/usr/local/cuda/bin:$PATH
-ENV CPATH=/usr/local/cuda/include:$CPATH
-ENV LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
-ENV DYLD_LIBRARY_PATH=/usr/local/cuda/lib:$DYLD_LIBRARY_PATH
-
-# Install pytorch_geometric and friends
-#RUN pip install --verbose --no-cache-dir torch-scatter
-#RUN pip install --verbose --no-cache-dir torch-sparse
-#RUN pip install --verbose --no-cache-dir torch-cluster
-#RUN pip install --verbose --no-cache-dir torch-spline-conv
-#RUN pip install torch-geometric
-
-# Install geometry-related packages
-RUN conda install -c conda-forge \
-    igl=0.4.1 \
-    point_cloud_utils \
-    libspatialindex=1.9.3 \
-    pyembree=0.1.6
-
-RUN mkdir /home/user/code
-COPY --chown=user contrib/pythonaabb /home/user/code/pythonaabb
-RUN cd /home/user/code/pythonaabb && pip install .
-RUN git clone https://github.com/Toblerity/rtree.git /home/user/code/rtree \
- && cd /home/user/code/rtree && python setup.py install
+# Install Python packages
+RUN pip install --no-cache-dir --use-feature=2020-resolver \
+    scikit-image tqdm xgboost seaborn scikit-learn pandas \
+    xlrd numpy scipy numba matplotlib pillow-simd \
+    jupyter catboost statsmodels lightgbm \
+    joblib ffmpeg pytest pyyaml \
+    termcolor docutils Sphinx recommonmark sphinx_rtd_theme \
+    mock yacs tabulate cloudpickle \
+    six terminaltables imgaug albumentations \
+    shapely psutil portalocker onnx imagesize pydot \
+    plyfile rdflib isodate dill dominate psutil \
+    tensorboard protobuf future \
+    torch==1.5.1 torchvision \
+    opencv-python opencv-contrib-python \
+    opencv-python-headless Cython lmdb \
+    ipyparallel trimesh glob2 h5py pylzma k3d randomcolor nose \
+    'git+https://github.com/Toblerity/rtree' \
+    tensorflow-hub tensorflow-gan keras tensorflow-gpu scipy

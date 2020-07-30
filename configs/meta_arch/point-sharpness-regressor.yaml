@@ -1,0 +1,6 @@
+# @package _group_
+
+target: sharpf.modeling.PointSharpnessRegressor
+monitor: val_mean_rmse
+loss:
+  target: torch.nn.functional.mse_loss

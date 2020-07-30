@@ -1,13 +1,15 @@
-import os
 import glob
+import logging
+import os
 
 import h5py
 import numpy as np
 import torch
 from torch.utils.data import Dataset
 
-from sharpf.utils.py_utils.console import eprint
-from sharpf.utils.py_utils.parallel import threaded_parallel
+from ..py_utils.parallel import threaded_parallel
+
+log = logging.getLogger(__name__)
 
 
 class Hdf5File(Dataset):
@@ -52,7 +54,7 @@ class Hdf5File(Dataset):
         try:
             num_items = self.io.length(hdf5_file)
         except KeyError:
-            eprint('File {} is not compatible with Hdf5File I/O interface {}'.format(
+            log.error('File {} is not compatible with Hdf5File I/O interface {}'.format(
                 self.filename, str(self.io.__class__)))
             num_items = 0
         return num_items
@@ -108,7 +110,7 @@ class LotsOfHdf5Files(Dataset):
                 return Hdf5File(filename, io, data_label, target_label, labels=labels,
                                 transform=transform, preload=False)
             except (OSError, KeyError) as e:
-                eprint('Unable to open {}: {}'.format(filename, str(e)))
+                log.error('Unable to open {}: {}'.format(filename, str(e)))
                 return None
 
         self.files = [hdf5_file for hdf5_file in filter(lambda obj: obj is not None,

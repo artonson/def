@@ -2,7 +2,6 @@ import collections
 
 import h5py
 import numpy as np
-# pytorch==1.2.0
 from torch.utils.data._utils.collate import default_collate
 
 
@@ -25,7 +24,6 @@ class HDF5Dataset:
 class Float64(HDF5Dataset):
     def __init__(self, name):
         super().__init__(name, dtype=np.float64)
-
 
 class Bool(HDF5Dataset):
     def __init__(self, name):
@@ -56,7 +54,7 @@ class VarInt32(VariableLenDataset):
         super().__init__(name, dtype=h5py.special_dtype(vlen=np.int32))
 
     def set(self, hdf5_file, data, compression=None):
-        dataset = hdf5_file.create_dataset(self.name, shape=(len(data), ), dtype=self.dtype, compression=compression)
+        dataset = hdf5_file.create_dataset(self.name, shape=(len(data),), dtype=self.dtype, compression=compression)
         for i, item in enumerate(data):
             dataset[i] = item
 

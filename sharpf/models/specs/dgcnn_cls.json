@@ -1,6 +1,0 @@
-{
-  "kind": "dgcnn_cls",
-  "output_channels": 1,
-  "k": 30,
-  "dropout": 0.1
-}

@@ -1,0 +1,31 @@
+defaults:
+  - task: regression
+    optional: True
+  - model_name: dgcnn-4k
+    optional: True
+  - dataset: abc-pointcloud
+    optional: True
+
+  - data: ${defaults.0.task}/${defaults.2.dataset}
+  - model: ${defaults.0.task}/${defaults.1.model_name}
+  - transforms: pc_basic
+
+  # defines pl_module and some custom options applicable only to that particular pl_module
+  - meta_arch: point-sharpness-regressor
+
+  - trainer: trainer
+  - scheduler: step
+  - opt: adam
+
+data_loader:
+  train:
+    total_batch_size: 16
+    num_workers: 0
+  val:
+    total_batch_size: 16
+    num_workers: 0
+  test:
+    total_batch_size: 16
+    num_workers: 0
+
+seed: 123

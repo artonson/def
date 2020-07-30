@@ -1,0 +1,17 @@
+# @package _group_
+
+train:
+  - target: sharpf.utils.abc_utils.torch.TypeCast
+  - target: sharpf.utils.abc_utils.torch.Center
+  - target: sharpf.utils.abc_utils.torch.NormalizeL2
+  - target: sharpf.utils.abc_utils.torch.Random3DRotation
+
+val:
+  - target: sharpf.utils.abc_utils.torch.TypeCast
+  - target: sharpf.utils.abc_utils.torch.Center
+  - target: sharpf.utils.abc_utils.torch.NormalizeL2
+
+test:
+  - target: sharpf.utils.abc_utils.torch.TypeCast
+  - target: sharpf.utils.abc_utils.torch.Center
+  - target: sharpf.utils.abc_utils.torch.NormalizeL2
