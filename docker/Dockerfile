@@ -93,9 +93,10 @@ RUN pip install --no-cache-dir --use-feature=2020-resolver \
     shapely psutil portalocker onnx imagesize pydot \
     plyfile rdflib isodate dill dominate psutil \
     tensorboard protobuf future \
-    torch==1.5.1 torchvision \
+    torch torchvision \
     opencv-python opencv-contrib-python \
     opencv-python-headless Cython lmdb \
     ipyparallel trimesh glob2 h5py pylzma k3d randomcolor nose \
     'git+https://github.com/Toblerity/rtree' \
-    tensorflow-hub tensorflow-gan keras tensorflow-gpu scipy
+    tensorflow-hub tensorflow-gan keras tensorflow-gpu scipy \
+    wandb onnxruntime einops
