@@ -30,9 +30,9 @@ class DepthRegressor(LightningModule):
         super().__init__()
         self.hparams = flatten_omegaconf(cfg)  # there should be better official way later
         self.cfg = cfg
-        self.model = build_model(cfg.model.regression)
+        self.model = build_model(cfg.model)
         self.example_input_array = torch.rand(1, 1, 64, 64)
-        self.data_dir = hydra.utils.to_absolute_path(self.cfg.data.regression.data_dir)
+        self.data_dir = hydra.utils.to_absolute_path(self.cfg.data.data_dir)
 
         dist_backend = self.cfg.trainer.distributed_backend
         if (dist_backend is not None and 'ddp' in dist_backend) or (
@@ -100,11 +100,11 @@ class DepthRegressor(LightningModule):
         return LotsOfHdf5Files(
             data_dir=self.data_dir,
             io=DepthMapIO,
-            data_label=self.cfg.data.regression.data_label,
-            target_label=self.cfg.data.regression.target_label,
+            data_label=self.cfg.data.data_label,
+            target_label=self.cfg.data.target_label,
             partition=partition,
             transform=transform,
-            max_loaded_files=self.cfg.data.regression.max_loaded_files
+            max_loaded_files=self.cfg.data.max_loaded_files
         )
 
     def _get_dataloader(self, partition):

@@ -2,7 +2,7 @@
 
 resolution: high
 size: 64k
-data_dir: data/abc/images/${data.regression.resolution}/${data.regression.size}
+data_dir: data/abc/images/${data.resolution}/${data.size}
 data_label: image
 target_label: distances
 max_loaded_files: 5
