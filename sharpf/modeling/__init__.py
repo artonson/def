@@ -1,5 +1,5 @@
-from .meta_arch import PointSharpnessRegressor
-from .model import MODEL_REGISTRY, build_model, DGCNN
+from .meta_arch import PointSharpnessRegressor, DepthRegressor
+from .model import MODEL_REGISTRY, build_model, DGCNN, Unet, PixelRegressor
 from .modules import (
     AggregationMax,
     AggregationMaxPooling,
@@ -7,5 +7,6 @@ from .modules import (
     LocalDynamicGraph,
     NeighbourBase,
     NeighbourKNN,
-    PointOpBlock
+    PointOpBlock,
+    UnetDecoder
 )

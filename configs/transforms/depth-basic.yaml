@@ -1,0 +1,10 @@
+# @package _group_
+
+train:
+  - target: sharpf.utils.abc_utils.torch.TypeCast
+
+val:
+  - target: sharpf.utils.abc_utils.torch.TypeCast
+
+test:
+  - target: sharpf.utils.abc_utils.torch.TypeCast

@@ -101,9 +101,9 @@ class Hdf5File(Dataset):
 class LotsOfHdf5Files(Dataset):
     def __init__(self, data_dir, io, data_label=None, target_label=None, labels=None, partition=None,
                  transform=None, max_loaded_files=0):
-        if None is not partition:
+        if partition is not None:
             data_dir = os.path.join(data_dir, partition)
-        filenames = glob.glob(os.path.join(data_dir, '*.hdf5'))
+        filenames = sorted(glob.glob(os.path.join(data_dir, '*.hdf5')))
 
         def _hdf5_creator(filename):
             try:

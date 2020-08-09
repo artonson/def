@@ -1,1 +1,1 @@
-from .datasets import PointCloudIO
+from .datasets import PointCloudIO, DepthMapIO

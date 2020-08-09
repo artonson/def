@@ -1,0 +1,19 @@
+# @package _group_
+model_name: PixelRegressor
+params:
+  feature_extractor:
+    target: sharpf.modeling.Unet
+    params:
+      encoder_name: resnet50
+      decoder_use_batchnorm: true
+      decoder_channels: [256, 128, 64, 32, 16]
+      decoder_attention_type: null
+      in_channels: 1
+  regression_head:
+    - target: torch.nn.Conv2d
+      params:
+        in_channels: 16
+        out_channels: 1
+        kernel_size: 3
+        padding: 1
+    - target: torch.nn.Sigmoid

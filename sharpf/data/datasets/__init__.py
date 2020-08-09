@@ -1,1 +1,1 @@
-from .sharpf_io import PointCloudIO
+from .sharpf_io import PointCloudIO, DepthMapIO

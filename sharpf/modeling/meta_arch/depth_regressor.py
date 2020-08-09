@@ -9,9 +9,9 @@ from pytorch_lightning.core.lightning import LightningModule
 from pytorch_lightning.metrics import tensor_metric
 from torch.utils.data import DataLoader
 
-from sharpf.data import PointCloudIO
 from sharpf.utils.comm import get_batch_size
 from ..model.build import build_model
+from ...data import DepthMapIO
 from ...utils.abc_utils import LotsOfHdf5Files
 from ...utils.abc_utils.torch import CompositeTransform
 from ...utils.config import flatten_omegaconf
@@ -24,14 +24,14 @@ def gather_sum(x: torch.Tensor) -> torch.Tensor:
     return x
 
 
-class PointSharpnessRegressor(LightningModule):
+class DepthRegressor(LightningModule):
 
     def __init__(self, cfg):
         super().__init__()
         self.hparams = flatten_omegaconf(cfg)  # there should be better official way later
         self.cfg = cfg
         self.model = build_model(cfg.model.regression)
-        self.example_input_array = torch.rand(1, 4096, 3)
+        self.example_input_array = torch.rand(1, 1, 64, 64)
         self.data_dir = hydra.utils.to_absolute_path(self.cfg.data.regression.data_dir)
 
         dist_backend = self.cfg.trainer.distributed_backend
@@ -45,16 +45,18 @@ class PointSharpnessRegressor(LightningModule):
         return self.model(x)
 
     def training_step(self, batch, batch_idx):
-        points, distances = batch['points'], batch['distances']
-        preds = self.model(points)
+        points, distances = batch['image'], batch['distances']
+        points = points.unsqueeze(1) if points.dim() == 3 else points
+        preds = self.forward(points)
         loss = hydra.utils.instantiate(self.cfg.meta_arch.loss, preds, distances)
         result = TrainResult(minimize=loss)
         result.log('train_loss', loss, prog_bar=True)
         return result
 
     def _shared_eval_step(self, batch, batch_idx, prefix):
-        points, distances = batch['points'], batch['distances']
-        preds = self.model(points)  # (batch, n_points)
+        points, distances = batch['image'], batch['distances']
+        points = points.unsqueeze(1) if points.dim() == 3 else points
+        preds = self.forward(points)
 
         mean_squared_errors = F.mse_loss(preds, distances, reduction='none').mean(dim=1)  # (batch)
         root_mean_squared_errors = torch.sqrt(mean_squared_errors)
@@ -97,7 +99,7 @@ class PointSharpnessRegressor(LightningModule):
         transform = CompositeTransform([hydra.utils.instantiate(tf) for tf in self.cfg.transforms[partition]])
         return LotsOfHdf5Files(
             data_dir=self.data_dir,
-            io=PointCloudIO,
+            io=DepthMapIO,
             data_label=self.cfg.data.regression.data_label,
             target_label=self.cfg.data.regression.target_label,
             partition=partition,
@@ -123,4 +125,4 @@ class PointSharpnessRegressor(LightningModule):
         return self._get_dataloader('val')
 
     def test_dataloader(self):
-        return self._get_dataloader('test')
+        return self._get_dataloader('val')  # FIXME
