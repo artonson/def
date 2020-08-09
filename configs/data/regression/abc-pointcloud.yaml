@@ -5,4 +5,4 @@ size: 64k
 data_dir: data/${data.regression.resolution}/${data.regression.size}
 data_label: 'points'
 target_label: 'distances'
-max_loaded_files: 12
+max_loaded_files: 5

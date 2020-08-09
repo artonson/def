@@ -1,4 +1,5 @@
 from omegaconf import DictConfig
+import torch.nn as nn
 
 from sharpf.utils.registry import Registry
 
@@ -13,7 +14,8 @@ def build_model(cfg: DictConfig):
     Build a backbone from `cfg.MODEL.BACKBONE.NAME`.
 
     Returns:
-        an instance of :class:`Backbone`
+        an instance of :class:`nn.Module`
     """
     model = MODEL_REGISTRY.get(cfg.model_name)(cfg.params)
+    assert isinstance(model, nn.Module)
     return model

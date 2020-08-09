@@ -17,15 +17,18 @@ defaults:
   - scheduler: step
   - opt: adam
 
+eval_only: false
+weights: none
+
 data_loader:
   train:
     total_batch_size: 16
-    num_workers: 0
+    num_workers: 2
   val:
     total_batch_size: 16
-    num_workers: 0
+    num_workers: 2
   test:
     total_batch_size: 16
-    num_workers: 0
+    num_workers: 2
 
 seed: 123

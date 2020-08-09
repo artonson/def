@@ -110,7 +110,7 @@ params:
           blocks: 1
           bn: false
           relu: false
-          conv_bias: true
+#          conv_bias: true
       aggregation:
         target: torch.nn.Identity
       interpolation:

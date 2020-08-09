@@ -3,7 +3,7 @@ import sharpf.utils.abc_utils.hdf5.io_struct as io
 # TODO turn this variable into a singleton
 PointCloudIO = io.HDF5IO(
     {
-        'points': io.Float64('points'),
+        'points': io.Float64('points'),  #
         'normals': io.Float64('normals'),
         'distances': io.Float64('distances'),
         'directions': io.Float64('directions'),
