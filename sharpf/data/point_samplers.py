@@ -7,7 +7,6 @@ import igl
 import point_cloud_utils as pcu
 
 from sharpf.data import DataGenerationException
-from sharpf.utils.geometry import mean_mmd
 
 
 class SamplerFunc(ABC):
@@ -41,15 +40,13 @@ class PoissonDiskSampler(SamplerFunc):
     based on "Parallel Poisson Disk Sampling with Spectrum
     Analysis on Surface". (Implementation by fwilliams) """
     # https://github.com/marmakoide/mesh-blue-noise-sampling/blob/master/mesh-sampling.py
-    def __init__(self, n_points, resolution_3d, crop_center, resolution_deviation_tolerance):
+    def __init__(self, n_points, resolution_3d, crop_center):
         self.crop_center = crop_center
-        self.resolution_deviation_tolerance = resolution_deviation_tolerance
         super().__init__(n_points, resolution_3d)
 
     @classmethod
     def from_config(cls, config):
-        return cls(config['n_points'], config['resolution_3d'], config['crop_center'],
-                   config['resolution_deviation_tolerance'])
+        return cls(config['n_points'], config['resolution_3d'], config['crop_center'])
 
     def _make_dense_mesh(self, mesh, extra_points_factor=10, point_split_factor=4):
         # Intuition: take 10x the number of needed n_points,
@@ -102,15 +99,6 @@ class PoissonDiskSampler(SamplerFunc):
             return_idx = np.random.choice(np.arange(len(points)), size=self.n_points, replace=False)
 
         points, normals = points[return_idx], normals[return_idx]
-        if self.resolution_deviation_tolerance > 0:
-            estimated_resolution_3d = mean_mmd(points)
-            if np.abs(self.resolution_3d - estimated_resolution_3d) > self.resolution_deviation_tolerance:
-                raise DataGenerationException(
-                    'Significant deviation in sampling density: '
-                    'resolution_3d = {resolution_3d:3.3f}, actual = {actual:3.3f} (difference = {diff:3.3f}, '
-                    'discarding patch'.format(resolution_3d=self.resolution_3d, actual=estimated_resolution_3d,
-                                              diff=np.abs(self.resolution_3d - estimated_resolution_3d)))
-
         return points, normals
 
 

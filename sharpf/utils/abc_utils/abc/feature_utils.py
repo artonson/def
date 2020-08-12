@@ -52,17 +52,27 @@ def build_surface_patch_graph(features):
     return adjacent_sharp_features, adjacent_surfaces
 
 
-def compute_features_nbhood(mesh, features, mesh_vertex_indexes, mesh_face_indexes):
+def compute_features_nbhood(
+        mesh,
+        features,
+        mesh_face_indexes,
+        mesh_vertex_indexes=None,
+        deduce_verts_from_faces=False,
+):
     """Extracts curves for the neighbourhood."""
+
+    if deduce_verts_from_faces:
+        mesh_vertex_indexes = np.unique(mesh.faces[mesh_face_indexes].ravel())
+
     nbhood_curves = []
     for curve in features['curves']:
         curve_vertex_indexes = np.array(curve['vert_indices'])
         curve_vertex_indexes = curve_vertex_indexes[
-            np.where(np.isin(curve_vertex_indexes, mesh_vertex_indexes, assume_unique=True))[0]]
+            np.where(np.isin(curve_vertex_indexes, mesh_vertex_indexes))[0]]
         if len(curve_vertex_indexes) == 0:
             continue
 
-        curve_vertex_indexes = reindex_array(curve_vertex_indexes, np.sort(mesh_vertex_indexes))
+        curve_vertex_indexes = reindex_array(curve_vertex_indexes, mesh_vertex_indexes)
 
         nbhood_curve = deepcopy(curve)
         nbhood_curve['vert_indices'] = curve_vertex_indexes
@@ -72,11 +82,11 @@ def compute_features_nbhood(mesh, features, mesh_vertex_indexes, mesh_face_index
     for idx, surface in enumerate(features['surfaces']):
         surface_face_indexes = np.array(surface['face_indices'])
         surface_face_indexes = surface_face_indexes[
-            np.where(np.isin(surface_face_indexes, mesh_face_indexes, assume_unique=True))[0]]
+            np.where(np.isin(surface_face_indexes, mesh_face_indexes))[0]]
         if len(surface_face_indexes) == 0:
             continue
 
-        surface_faces = reindex_array(mesh.faces[surface_face_indexes], np.sort(mesh_vertex_indexes))
+        surface_faces = reindex_array(mesh.faces[surface_face_indexes], mesh_vertex_indexes)
         # surface_face_indexes = np.where(in2d(mesh.faces, mesh.faces[surface_face_indexes]))[0]
 
         nbhood_surface = deepcopy(surface)
@@ -91,6 +101,62 @@ def compute_features_nbhood(mesh, features, mesh_vertex_indexes, mesh_face_index
     return nbhood_features
 
 
+def get_boundary_curves(mesh, surface, features):
+    # represent surface patch as mesh
+    surface_mesh = get_surface_as_mesh(mesh, surface, deduce_verts_from_faces=True)
+
+    # extract surface mesh boundary (edges with only 1 adjacent face)
+    boundary_vertex_indexes, _ = get_boundary_vertex_indexes(surface_mesh)
+
+    # extract subset of curves belonging to surface patch
+    surface_features = compute_features_nbhood(
+        mesh, features, surface['face_indices'], deduce_verts_from_faces=True)
+
+    # extract subset of curves belonging to surface mesh boundary
+    boundary_curves = [
+        curve for curve in surface_features['curves']
+        if len(curve['vert_indices']) > 1
+           and np.all(np.isin(curve['vert_indices'], boundary_vertex_indexes))]
+
+    return boundary_curves
+
+
+def get_intersecting_surfaces(mesh_face_indexes, features_surfaces):
+    intersecting_surfaces = []
+    for i, surface in enumerate(features_surfaces):
+        face_indices = np.array(surface['face_indices'])
+        if np.any(np.in1d(mesh_face_indexes, face_indices)):
+            intersecting_surfaces.append(surface)
+    return intersecting_surfaces
+
+
+def get_surface_as_mesh(mesh, surface, deduce_verts_from_faces=False):
+    # if deduce_verts_from_faces is True, extract vert_indices by pooling faces
+    # rather than extracting these from surface directly
+
+    face_indices = np.array(surface['face_indices'])
+
+    if deduce_verts_from_faces:
+        vert_indices = np.unique(mesh.faces[face_indices].ravel())
+    else:
+        vert_indices = surface['vert_indices']
+
+    return reindex_zerobased(mesh, vert_indices, face_indices)
+
+
+def get_boundary_vertex_indexes(mesh):
+    mesh_edge_indexes, mesh_edge_counts = np.unique(
+        mesh.faces_unique_edges.flatten(), return_counts=True
+    )
+    boundary_edges = mesh.edges_unique[
+        mesh_edge_indexes[
+            np.where(mesh_edge_counts == 1)[0]
+        ]
+    ]
+    boundary_vertex_indexes = np.unique(boundary_edges.flatten())
+    return boundary_vertex_indexes, boundary_edges
+
+
 def remove_boundary_features(mesh, features, how='none'):
     """Removes features indexed into vertex edges adjacent to 1 face only.
     :param how: 'all_verts': remove entire feature curve if all vertices are boundary
@@ -101,11 +167,7 @@ def remove_boundary_features(mesh, features, how='none'):
     if how == 'none':
         return features
 
-    mesh_edge_indexes, mesh_edge_counts = np.unique(
-        mesh.faces_unique_edges.flatten(), return_counts=True)
-
-    boundary_edges = mesh.edges_unique[mesh_edge_indexes[np.where(mesh_edge_counts == 1)[0]]]
-    boundary_vertex_indexes = np.unique(boundary_edges.flatten())
+    boundary_vertex_indexes, boundary_edges = get_boundary_vertex_indexes(mesh)
 
     non_boundary_curves = []
     for curve in features['curves']:

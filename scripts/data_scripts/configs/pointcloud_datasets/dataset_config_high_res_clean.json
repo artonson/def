@@ -18,8 +18,7 @@
     "type": "poisson_disk",
     "n_points": 4096,
     "resolution_3d": 0.02,
-    "crop_center": true,
-    "resolution_deviation_tolerance": 0.01
+    "crop_center": true
   },
   "noise": {
     "type": "many_noisers",
@@ -28,7 +27,18 @@
   },
   "annotation": {
     "type": "surface_based_aabb",
-    "distance_upper_bound": 1.0,
-    "validate_annotation": true
+    "distance_upper_bound": 1.0
+  },
+  "smell_coarse_surfaces_by_num_edges": {
+    "num_edges_threshold": 8
+  },
+  "smell_coarse_surfaces_by_angles": {
+    "max_angle_threshold_degrees": 15.0
+  },
+  "smell_deviating_resolution": {
+    "resolution_3d": 0.02,
+    "resolution_deviation_tolerance": 0.01
+  },
+  "smell_sharpness_discontinuities": {
   }
 }

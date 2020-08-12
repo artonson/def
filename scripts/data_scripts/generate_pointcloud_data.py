@@ -30,6 +30,7 @@ from sharpf.utils.py_utils.console import eprint_t
 from sharpf.utils.py_utils.os import add_suffix
 from sharpf.utils.py_utils.config import load_func_from_config
 from sharpf.utils.abc_utils.mesh.io import trimesh_load
+import sharpf.data.data_smells as smells
 
 
 LARGEST_PROCESSABLE_MESH_VERTICES = 20000
@@ -71,6 +72,11 @@ def get_annotated_patches(item, config):
     noiser = load_func_from_config(NOISE_BY_TYPE, config['noise'])
     annotator = load_func_from_config(ANNOTATOR_BY_TYPE, config['annotation'])
 
+    smell_coarse_surfaces_by_num_edges = smells.SmellCoarseSurfacesByNumEdges.from_config(config['smell_coarse_surfaces_by_num_edges'])
+    smell_coarse_surfaces_by_angles = smells.SmellCoarseSurfacesByAngles.from_config(config['smell_coarse_surfaces_by_angles'])
+    smell_deviating_resolution = smells.SmellDeviatingResolution.from_config(config['smell_deviating_resolution'])
+    smell_sharpness_discontinuities = smells.SmellSharpnessDiscontinuities.from_config(config['smell_sharpness_discontinuities'])
+
     # Specific to this script only: override radius of neighbourhood extractor
     # to reflect actual point cloud resolution:
     # we extract spheres of radius r, such that area of a (plane) disk with radius r
@@ -78,7 +84,7 @@ def get_annotated_patches(item, config):
     nbhood_extractor.radius_base = np.sqrt(sampler.n_points) * 0.5 * sampler.resolution_3d
 
     # load the mesh and the feature curves annotations
-    mesh = trimesh_load(item.obj)
+    mesh, _, _ = trimesh_load(item.obj)
     features = yaml.load(item.feat, Loader=yaml.Loader)
 
     # fix mesh fabrication size in physical mm
@@ -99,8 +105,11 @@ def get_annotated_patches(item, config):
             eprint_t(str(e))
             continue
 
+        has_smell_coarse_surfaces_by_num_edges = smell_coarse_surfaces_by_num_edges.run(mesh, mesh_face_indexes, features)
+        has_smell_coarse_surfaces_by_angles = smell_coarse_surfaces_by_angles.run(mesh, mesh_face_indexes, features)
+
         # create annotations: condition the features onto the nbhood
-        nbhood_features = compute_features_nbhood(mesh, features, mesh_vertex_indexes, mesh_face_indexes)
+        nbhood_features = compute_features_nbhood(mesh, features, mesh_face_indexes, mesh_vertex_indexes)
 
         # remove vertices lying on the boundary (sharp edges found in 1 face only)
         nbhood_features = remove_boundary_features(nbhood, nbhood_features, how='edges')
@@ -112,6 +121,8 @@ def get_annotated_patches(item, config):
             eprint_t(str(e))
             continue
 
+        has_smell_deviating_resolution = smell_deviating_resolution.run(points)
+
         # create a noisy sample
         for configuration, noisy_points in noiser.make_noise(points, normals):
             # compute the TSharpDF
@@ -120,6 +131,8 @@ def get_annotated_patches(item, config):
             except DataGenerationException as e:
                 eprint_t(str(e))
                 continue
+
+            has_smell_sharpness_discontinuities = smell_sharpness_discontinuities.run(points, distances)
 
             num_sharp_curves = len([curve for curve in nbhood_features['curves'] if curve['sharp']])
             num_surfaces = len(nbhood_features['surfaces'])
@@ -134,6 +147,10 @@ def get_annotated_patches(item, config):
                 'has_sharp': has_sharp,
                 'num_sharp_curves': num_sharp_curves,
                 'num_surfaces': num_surfaces,
+                'has_smell_coarse_surfaces_by_num_faces': has_smell_coarse_surfaces_by_num_edges,
+                'has_smell_coarse_surfaces_by_angles': has_smell_coarse_surfaces_by_angles,
+                'has_smell_deviating_resolution': has_smell_deviating_resolution,
+                'has_smell_sharpness_discontinuities': has_smell_sharpness_discontinuities,
             }
             yield configuration, patch_info
 

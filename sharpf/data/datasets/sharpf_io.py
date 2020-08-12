@@ -18,6 +18,10 @@ PointCloudIO = io.HDF5IO({
         'has_sharp': io.Bool('has_sharp'),
         'num_sharp_curves': io.Int8('num_sharp_curves'),
         'num_surfaces': io.Int8('num_surfaces'),
+        'has_smell_coarse_surfaces_by_num_faces': io.Bool('has_smell_coarse_surfaces_by_num_faces'),
+        'has_smell_coarse_surfaces_by_angles': io.Bool('has_smell_coarse_surfaces_by_angles'),
+        'has_smell_deviating_resolution': io.Bool('has_smell_deviating_resolution'),
+        'has_smell_sharpness_discontinuities': io.Bool('has_smell_sharpness_discontinuities'),
     },
     len_label='has_sharp',
     compression='lzf')
@@ -39,6 +43,10 @@ def save_point_patches(patches, filename):
         PointCloudIO.write(f, 'has_sharp', patches['has_sharp'].numpy().astype(np.bool))
         PointCloudIO.write(f, 'num_sharp_curves', patches['num_sharp_curves'].numpy())
         PointCloudIO.write(f, 'num_surfaces', patches['num_surfaces'].numpy())
+        has_smell_keys = [key for key in PointCloudIO.datasets.keys()
+                          if key.startswith('has_smell')]
+        for key in has_smell_keys:
+            PointCloudIO.write(f, key, patches[key].numpy().astype(np.bool))
 
 
 DepthMapIO = io.HDF5IO({

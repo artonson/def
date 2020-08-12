@@ -1,14 +1,12 @@
 from abc import ABC, abstractmethod
 from functools import partial
 from operator import itemgetter
-import os
 
 import numpy as np
 from scipy.spatial import cKDTree
 import igl
 from pyaabb import pyaabb
 
-from sharpf.data import DataGenerationException
 from sharpf.utils.abc_utils.abc.feature_utils import get_adjacent_features_by_bfs_with_depth1, build_surface_patch_graph
 from sharpf.utils.geometry import dist_vector_proj
 from sharpf.utils.abc_utils.mesh.indexing import in2d
@@ -35,9 +33,8 @@ class AnnotatorFunc(ABC):
     """Implements obtaining point samples from meshes.
     Given a mesh, extracts a point cloud located on the
     mesh surface, i.e. a set of 3d point locations."""
-    def __init__(self, distance_upper_bound, validate_annotation):
+    def __init__(self, distance_upper_bound):
         self.distance_upper_bound = distance_upper_bound
-        self.validate_annotation = validate_annotation
 
     def flat_annotation(self, points):
         projections = np.zeros_like(points)
@@ -76,15 +73,6 @@ class AnnotatorFunc(ABC):
                 points, projections, distances=distances,
                 max_distance=self.distance_upper_bound)
 
-            if self.validate_annotation:
-                # validate for Lipshitz condition:
-                # if for two points x_i and x_j (nearest neighbours of each other)
-                # corresponding values f(x_i) and f(x_j) differ by more than ||x_i - x_j||, discard the patch
-                n_omp_threads = int(os.environ.get('OMP_NUM_THREADS', 1))
-                nn_distances, nn_indexes = cKDTree(points, leafsize=16).query(points, k=2, n_jobs=n_omp_threads)
-                values = np.abs(distances[nn_indexes[:, 0]] - distances[nn_indexes[:, 1]]) / nn_distances[:, 1]
-                if np.any(values > 1.1):
-                    raise DataGenerationException('Discontinuities found in SDF values, discarding patch')
 
         return distances, directions, has_sharp
 
@@ -98,14 +86,13 @@ class SharpnessResamplingAnnotator(AnnotatorFunc):
     compute distances from the input point clouds
     to the closest sharp points."""
 
-    def __init__(self, distance_upper_bound, validate_annotation, sharp_discretization):
-        super(SharpnessResamplingAnnotator, self).__init__(distance_upper_bound, validate_annotation)
+    def __init__(self, distance_upper_bound, sharp_discretization):
+        super(SharpnessResamplingAnnotator, self).__init__(distance_upper_bound)
         self.sharp_discretization = sharp_discretization
 
     @classmethod
     def from_config(cls, config):
         return cls(config['distance_upper_bound'],
-                   config['validate_annotation'],
                    config['sharp_discretization'])
 
     def _resample_sharp_edges(self, mesh_patch, features):
@@ -155,7 +142,7 @@ class AABBAnnotator(AnnotatorFunc, ABC):
 
     @classmethod
     def from_config(cls, config):
-        return cls(config['distance_upper_bound'], config['validate_annotation'])
+        return cls(config['distance_upper_bound'])
 
     def _prepare_aabb(self, mesh_patch, features):
         """Creates a set of axis-aligned bboxes """
@@ -210,15 +197,14 @@ class AABBGlobalAnnotator(AABBAnnotator):
     """Use axis-aligned bounding box representation sharp edges and compute
     distances from the input point cloud to the closest sharp edges."""
 
-    def __init__(self, distance_upper_bound, validate_annotation, closest_matching_distance_q, max_empty_envelope_radius):
-        super(AABBGlobalAnnotator, self).__init__(distance_upper_bound, validate_annotation)
+    def __init__(self, distance_upper_bound, closest_matching_distance_q, max_empty_envelope_radius):
+        super(AABBGlobalAnnotator, self).__init__(distance_upper_bound)
         self.closest_matching_distance_q = closest_matching_distance_q
         self.max_empty_envelope_radius = max_empty_envelope_radius
 
     @classmethod
     def from_config(cls, config):
         return cls(config['distance_upper_bound'],
-                   config['validate_annotation'],
                    config['closest_matching_distance_q'],
                    config['max_empty_envelope_radius'])
 
