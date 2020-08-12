@@ -76,6 +76,7 @@ def get_annotated_patches(item, config):
     smell_coarse_surfaces_by_angles = smells.SmellCoarseSurfacesByAngles.from_config(config['smell_coarse_surfaces_by_angles'])
     smell_deviating_resolution = smells.SmellDeviatingResolution.from_config(config['smell_deviating_resolution'])
     smell_sharpness_discontinuities = smells.SmellSharpnessDiscontinuities.from_config(config['smell_sharpness_discontinuities'])
+    smell_bad_face_sampling = smells.SmellBadFaceSampling.from_config(config['smell_bad_face_sampling'])
 
     # Specific to this script only: override radius of neighbourhood extractor
     # to reflect actual point cloud resolution:
@@ -122,6 +123,7 @@ def get_annotated_patches(item, config):
             continue
 
         has_smell_deviating_resolution = smell_deviating_resolution.run(points)
+        has_smell_bad_face_sampling = smell_bad_face_sampling.run(nbhood, points)
 
         # create a noisy sample
         for configuration, noisy_points in noiser.make_noise(points, normals):
@@ -151,6 +153,7 @@ def get_annotated_patches(item, config):
                 'has_smell_coarse_surfaces_by_angles': has_smell_coarse_surfaces_by_angles,
                 'has_smell_deviating_resolution': has_smell_deviating_resolution,
                 'has_smell_sharpness_discontinuities': has_smell_sharpness_discontinuities,
+                'has_smell_bad_face_sampling': has_smell_bad_face_sampling
             }
             yield configuration, patch_info
 

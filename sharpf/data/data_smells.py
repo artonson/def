@@ -68,7 +68,7 @@ class SmellCoarseSurfacesByAngles(DataSmell):
 
 class SmellDeviatingResolution(DataSmell):
     def __init__(self, resolution_deviation_tolerance, resolution_3d):
-        self.resolution_deviation_tolerance = np.cos(np.pi * resolution_deviation_tolerance / 180)
+        self.resolution_deviation_tolerance = resolution_deviation_tolerance
         self.resolution_3d = resolution_3d
 
     @classmethod
@@ -99,3 +99,17 @@ class SmellSharpnessDiscontinuities(DataSmell):
         # warnings.warn('Discontinuities found in SDF values, discarding patch')
         return np.any(values > 1.1)
 
+
+class SmellBadFaceSampling(DataSmell):
+    def __init__(self, min_points_per_face, max_points_per_face):
+        self.min_points_per_face = min_points_per_face
+        self.max_points_per_face = max_points_per_face
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(config['min_points_per_face'],
+                   config['max_points_per_face'],)
+
+    def run(self, nbhood, points):
+        sampling_density = points / len(nbhood.faces)
+        return not self.min_points_per_face <= sampling_density <= self.max_points_per_face
