@@ -9,6 +9,7 @@ import traceback
 
 from joblib import Parallel, delayed
 import numpy as np
+import trimesh
 import yaml
 
 __dir__ = os.path.normpath(
@@ -88,6 +89,16 @@ def get_annotated_patches(item, config):
     mesh, _, _ = trimesh_load(item.obj)
     features = yaml.load(item.feat, Loader=yaml.Loader)
 
+    processed_mesh = trimesh.base.Trimesh(vertices=mesh.vertices, faces=mesh.faces, process=True, validate=True)
+    if processed_mesh.vertices.shape != mesh.vertices.shape or \
+            processed_mesh.faces.shape != mesh.faces.shape or not mesh.is_watertight:
+        raise DataGenerationException('Will not process mesh {}: likely the mesh is broken')
+
+    has_smell_mismatching_surface_annotation = any([
+        np.array(np.unique(mesh.faces[surface['face_indices']]) != np.sort(surface['vert_indices'])).all()
+        for surface in features['surfaces']
+    ])
+
     # fix mesh fabrication size in physical mm
     mesh = scale_mesh(mesh, features, shape_fabrication_extent, base_resolution_3d,
                       short_curve_quantile=short_curve_quantile,
@@ -153,7 +164,8 @@ def get_annotated_patches(item, config):
                 'has_smell_coarse_surfaces_by_angles': has_smell_coarse_surfaces_by_angles,
                 'has_smell_deviating_resolution': has_smell_deviating_resolution,
                 'has_smell_sharpness_discontinuities': has_smell_sharpness_discontinuities,
-                'has_smell_bad_face_sampling': has_smell_bad_face_sampling
+                'has_smell_bad_face_sampling': has_smell_bad_face_sampling,
+                'has_smell_mismatching_surface_annotation': has_smell_mismatching_surface_annotation
             }
             yield configuration, patch_info
 
