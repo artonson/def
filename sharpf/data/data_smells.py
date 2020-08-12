@@ -58,7 +58,7 @@ class SmellCoarseSurfacesByAngles(DataSmell):
                 continue
             surface_mesh = get_surface_as_mesh(mesh, surface, deduce_verts_from_faces=True)
             adjacent_normal_a = surface_mesh.face_normals[surface_mesh.face_adjacency][:, 0, :]
-            adjacent_normal_b = surface_mesh.face_normals[surface_mesh.face_adjacency][:, 1, :].T
+            adjacent_normal_b = surface_mesh.face_normals[surface_mesh.face_adjacency][:, 1, :]
             adjacent_angle_cosines = np.diag(np.dot(adjacent_normal_a, adjacent_normal_b.T))
             if np.median(adjacent_angle_cosines) < self.angle_cosine_threshold:
                 return True
