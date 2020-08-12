@@ -111,5 +111,5 @@ class SmellBadFaceSampling(DataSmell):
                    config['max_points_per_face'],)
 
     def run(self, nbhood, points):
-        sampling_density = points / len(nbhood.faces)
-        return not self.min_points_per_face <= sampling_density <= self.max_points_per_face
+        sampling_density = len(points) / len(nbhood.faces)
+        return not (self.min_points_per_face <= sampling_density <= self.max_points_per_face)
