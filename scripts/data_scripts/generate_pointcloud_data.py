@@ -92,7 +92,7 @@ def get_annotated_patches(item, config):
     processed_mesh = trimesh.base.Trimesh(vertices=mesh.vertices, faces=mesh.faces, process=True, validate=True)
     if processed_mesh.vertices.shape != mesh.vertices.shape or \
             processed_mesh.faces.shape != mesh.faces.shape or not mesh.is_watertight:
-        raise DataGenerationException('Will not process mesh {}: likely the mesh is broken')
+        raise DataGenerationException('Will not process mesh {}: likely the mesh is broken'.format(item.item_id))
 
     has_smell_mismatching_surface_annotation = any([
         np.array(np.unique(mesh.faces[surface['face_indices']]) != np.sort(surface['vert_indices'])).all()

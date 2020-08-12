@@ -23,7 +23,7 @@ PointCloudIO = io.HDF5IO({
         'has_smell_deviating_resolution': io.Bool('has_smell_deviating_resolution'),
         'has_smell_sharpness_discontinuities': io.Bool('has_smell_sharpness_discontinuities'),
         'has_smell_bad_face_sampling': io.Bool('has_smell_bad_face_sampling'),
-        'has_mismatching_surface_annotation': io.Bool('has_mismatching_surface_annotation'),
+        'has_smell_mismatching_surface_annotation': io.Bool('has_smell_mismatching_surface_annotation'),
     },
     len_label='has_sharp',
     compression='lzf')
