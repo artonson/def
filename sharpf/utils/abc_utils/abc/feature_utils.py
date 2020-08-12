@@ -11,30 +11,35 @@ def get_adjacent_features_by_bfs_with_depth1(surface_idx, adjacent_sharp_feature
     If not, return ones adjacent to adjacent surfaces. """
 
     adjacent_sharp_indexes = deepcopy(adjacent_sharp_features[surface_idx])
+    if not adjacent_sharp_indexes:
+        for adjacent_surface_idx in adjacent_surfaces[surface_idx]:
+            adjacent_surface_adjacent_sharp_features = \
+                {adjacent_surface_idx: adjacent_sharp_features[adjacent_surface_idx]}
 
-    # if not adjacent_sharp_indexes:
-    #     adjacent_sharp_indexes = []
-    #
-    for adjacent_surface_idx in adjacent_surfaces[surface_idx]:
-        adjacent_surface_adjacent_sharp_features = \
-            {adjacent_surface_idx: adjacent_sharp_features[adjacent_surface_idx]}
+            adjacent_surface_adjacent_sharp_indexes = \
+                get_adjacent_features_by_bfs_with_depth1(
+                    adjacent_surface_idx, adjacent_surface_adjacent_sharp_features,
+                    defaultdict(list))
 
-        adjacent_surface_adjacent_sharp_indexes = \
-            get_adjacent_features_by_bfs_with_depth1(
-                adjacent_surface_idx, adjacent_surface_adjacent_sharp_features,
-                defaultdict(list))
-
-        adjacent_sharp_indexes.extend(adjacent_surface_adjacent_sharp_indexes)
+            adjacent_sharp_indexes.extend(adjacent_surface_adjacent_sharp_indexes)
 
     return adjacent_sharp_indexes
 
 
-def build_surface_patch_graph(features):
+def get_surface_vert_indexes(mesh, surface, get_from_faces=False):
+    if get_from_faces:
+        face_indexes = surface['face_indices']
+        return np.unique(mesh.faces[face_indexes].ravel())
+    else:
+        return np.array(surface['vert_indices'])
+
+
+def build_surface_patch_graph(mesh, features):
     adjacent_sharp_features = defaultdict(list)
     adjacent_surfaces = defaultdict(list)
 
     for surface_idx, surface in enumerate(features['surfaces']):
-        surface_vertex_indexes = np.array(surface['vert_indices'])
+        surface_vertex_indexes = get_surface_vert_indexes(mesh, surface, get_from_faces=True)
 
         for curve_idx, curve in enumerate(features['curves']):
             curve_vertex_indexes = np.array(curve['vert_indices'])
@@ -44,7 +49,7 @@ def build_surface_patch_graph(features):
 
         for other_surface_idx, other_surface in enumerate(features['surfaces']):
             if other_surface_idx != surface_idx:
-                other_surface_vertex_indexes = np.array(other_surface['vert_indices'])
+                other_surface_vertex_indexes = get_surface_vert_indexes(mesh, other_surface, get_from_faces=True)
 
                 if np.any(np.isin(surface_vertex_indexes, other_surface_vertex_indexes)):
                     adjacent_surfaces[surface_idx].append(other_surface_idx)
@@ -87,10 +92,9 @@ def compute_features_nbhood(
             continue
 
         surface_faces = reindex_array(mesh.faces[surface_face_indexes], mesh_vertex_indexes)
-        # surface_face_indexes = np.where(in2d(mesh.faces, mesh.faces[surface_face_indexes]))[0]
 
         nbhood_surface = deepcopy(surface)
-        nbhood_surface['face_indices'] = surface_faces
+        nbhood_surface['face_indices'] = reindex_array(surface_face_indexes, mesh_face_indexes)
         nbhood_surface['vert_indices'] = np.unique(surface_faces)
         nbhood_surfaces.append(nbhood_surface)
 
@@ -133,14 +137,8 @@ def get_intersecting_surfaces(mesh_face_indexes, features_surfaces):
 def get_surface_as_mesh(mesh, surface, deduce_verts_from_faces=False):
     # if deduce_verts_from_faces is True, extract vert_indices by pooling faces
     # rather than extracting these from surface directly
-
+    vert_indices = get_surface_vert_indexes(mesh, surface, get_from_faces=deduce_verts_from_faces)
     face_indices = np.array(surface['face_indices'])
-
-    if deduce_verts_from_faces:
-        vert_indices = np.unique(mesh.faces[face_indices].ravel())
-    else:
-        vert_indices = surface['vert_indices']
-
     return reindex_zerobased(mesh, vert_indices, face_indices)
 
 

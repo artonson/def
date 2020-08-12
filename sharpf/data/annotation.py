@@ -251,7 +251,7 @@ class AABBSurfacePatchAnnotator(AABBAnnotator):
 
         # understand which surface patches are adjacent to which sharp features
         # and other surface patches
-        adjacent_sharp_features, adjacent_surfaces = build_surface_patch_graph(features_patch)
+        adjacent_sharp_features, adjacent_surfaces = build_surface_patch_graph(mesh_patch, features_patch)
 
         # compute distance, iterating over points sampled from corresponding surface patches
         projections, distances, _ = self.flat_annotation(points)
@@ -297,7 +297,7 @@ def parallel_annotation_by_surface(
         return [None] * 4
 
     point_cloud_indexes = np.where(
-        in2d(mesh_patch.faces[point_face_indexes], surface['face_indices'])
+        in2d(mesh_patch.faces[point_face_indexes], mesh_patch.faces[surface['face_indices']])
     )[0]
     if len(point_cloud_indexes) == 0:
         return [None] * 4
