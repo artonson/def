@@ -61,12 +61,12 @@ class BufferedHDF5Writer(object):
         if -1 != self.n_items_per_file and len(self.data) >= self.n_items_per_file:
             self._flush()
             self.file_id += 1
-            self.data = []
+            self.data = self.data[self.n_items_per_file:]
 
     def _flush(self):
         filename = '{prefix}{id}.hdf5'.format(prefix=self.prefix, id=self.file_id)
         filename = os.path.join(self.output_dir, filename)
-        self.save_fn(self.data, filename)
+        self.save_fn(self.data[:self.n_items_per_file], filename)
         if self.verbose:
             print('Saved {} with {} items'.format(filename, len(self.data)))
 
