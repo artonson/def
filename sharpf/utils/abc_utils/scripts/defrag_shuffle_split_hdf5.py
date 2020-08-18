@@ -6,6 +6,7 @@ import os
 import sys
 from functools import partial
 
+import torch
 from torch.utils.data import DataLoader
 
 __dir__ = os.path.normpath(
@@ -70,6 +71,33 @@ class BufferedHDF5Writer(object):
             print('Saved {} with {} items'.format(filename, len(self.data)))
 
 
+def select_items_by_predicates(batch, true_keys=None, false_keys=None):
+    """Selects sub-batch where item[key] == True for each key in true_keys
+    and item[key] == False for each key in false_keys"""
+    any_key = next(iter(batch.keys()))
+    batch_size = len(batch[any_key])
+
+    if None is not true_keys:
+        true_mask = torch.stack([batch[key] for key in true_keys]).all(axis=0)
+    else:
+        true_mask = torch.ones(batch_size).bool()
+
+    if None is not false_keys:
+        false_mask = torch.stack([~batch[key] for key in false_keys]).all(axis=0)
+    else:
+        false_mask = torch.ones(batch_size).bool()
+
+    selected_idx = torch.where(true_mask * false_mask)[0]
+    filtered_batch = {}
+    for key, value in batch.items():
+        if isinstance(value, torch.Tensor):
+            filtered_batch[key] = value[selected_idx]
+        elif isinstance(value, list):
+            filtered_batch[key] = [value[i] for i in selected_idx]
+
+    return filtered_batch
+
+
 def main(options):
     batch_size = min(128, options.num_items_per_file)
     loader = DataLoader(
@@ -100,7 +128,9 @@ def main(options):
         for batch_idx, batch in enumerate(loader):
             seen_fraction = batch_idx * batch_size / len(loader.dataset)
             writer = train_writer if seen_fraction <= options.train_fraction else val_writer
-            writer.extend(batch)
+            filtered_batch = select_items_by_predicates(
+                batch, true_keys=options.true_keys, false_keys=options.false_keys)
+            writer.extend(filtered_batch)
 
 
 def parse_options():
@@ -125,6 +155,10 @@ def parse_options():
     parser.add_argument('-k', '--key', dest='keys', action='append',
                         help='specify keys to put into resulting HDF5 files '
                              '(can me multiple; empty means ALL encountered keys).')
+    parser.add_argument('-tk', '--true-key', dest='true_keys', action='append',
+                        help='specify keys that must be TRUE to put into resulting HDF5 files (can me multiple).')
+    parser.add_argument('-fk', '--false-key', dest='false_keys', action='append',
+                        help='specify keys that must be FALSE to put into resulting HDF5 files (can me multiple).')
     parser.add_argument('-j', '--jobs', dest='n_jobs',
                         type=int, default=4, help='CPU jobs to use in parallel [default: 4].')
     parser.add_argument('-x', '--max-loaded-files', dest='max_loaded_files',
