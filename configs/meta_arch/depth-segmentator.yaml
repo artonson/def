@@ -1,0 +1,6 @@
+# @package _group_
+#
+# target: sharpf.modeling.DepthSegmentator
+# monitor: val_balanced_accuracy #TODO: add balanced accuracy metric class
+# loss:
+#   target: torch.nn.BCEWithLogitsLoss

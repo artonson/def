@@ -133,3 +133,118 @@ class LotsOfHdf5Files(Dataset):
             file_index_to_unload = np.random.choice(loaded_file_indexes)
             self.files[file_index_to_unload].unload()
         return item
+
+class DepthDataset(LotsOfHdf5Files):
+
+    def __init__(self, io, data_dir, data_label, target_label, task, partition=None,
+                 transform=None, max_loaded_files=0):
+        super().__init__(data_dir=data_dir, io=io,
+                         data_label=data_label, target_label=target_label,
+                         labels=None,
+                         partition=partition,
+                         transform=transform,
+                         max_loaded_files=max_loaded_files)
+        self.task = task
+        self.quality = self._get_quantity()
+
+        if None is not partition:
+            data_dir = os.path.join(data_dir, partition)
+        filenames = glob.glob(os.path.join(data_dir, '*.hdf5'))
+        self.files = []
+
+        for i, filename in enumerate(filenames):
+            print('preload', True * bool(i > max_loaded_files))
+            self.files.append(Hdf5File(filename, data_label, target_label,
+                                       transform=transform, preload=bool(i < max_loaded_files)))
+
+        self.cum_num_items = np.cumsum([len(f) for f in self.files])
+        self.current_file_idx = 0
+        self.max_loaded_files = max_loaded_files
+        self.loaded_file_indexes = 0
+        self.previous_loaded_id = 0
+
+    def __len__(self):
+        if len(self.cum_num_items) > 0:
+            return self.cum_num_items[-1]
+        return 0
+
+    def _get_quantity(self):
+        data_dir_split = self.data_dir.split('_')
+        if 'high' in data_dir_split:
+            return 'high'
+        elif 'low' in data_dir_split:
+            return 'low'
+        elif 'med' in data_dir_split:
+            return 'med'
+
+    def quantile_normalize(self, data):
+        # mask -> min shift -> quantile
+
+        norm_data = np.copy(data)
+        mask_obj = np.where(norm_data != 0)
+        mask_back = np.where(norm_data == 0)
+        norm_data[mask_back] = norm_data.max() + 1.0  # new line
+        norm_data -= norm_data[mask_obj].min()
+
+        norm_data /= high_res_quantile
+
+        return norm_data
+
+    def standartize(self, data):
+        # zero mean, unit variance
+
+        standart_data = np.copy(data)
+        standart_data -= np.mean(standart_data)
+        std = np.linalg.norm(standart_data, axis=1).max()
+        if std > 0:
+            standart_data /= std
+
+        return standart_data
+
+    def _getdata(self, index):
+
+        file_index = np.searchsorted(self.cum_num_items, index, side='right')
+        relative_index = index - self.cum_num_items[file_index] if file_index > 0 else index
+
+        data, target = self.files[file_index][relative_index]
+        if file_index != self.previous_loaded_id:
+            self.loaded_file_indexes += 1
+
+        # loaded_file_indexes = [i for i, f in enumerate(self.files) if f.is_loaded()]
+        if self.loaded_file_indexes > self.max_loaded_files:
+            print('unloading {}'.format(self.previous_loaded_id))
+            self.files[self.previous_loaded_id].unload()
+            self.loaded_file_indexes -= 1
+        self.previous_loaded_id = file_index
+
+        return data, target
+
+    def __getitem__(self, index):
+
+        data, target = self._getdata(index)
+        mask_1 = (np.copy(data) != 0.0).astype(float)  # mask for object
+        mask_2 = np.where(data == 0)  # mask for background
+
+        data = self.quantile_normalize(data)
+        data = self.standartize(data)
+
+        dist_new = np.copy(target)
+        dist_mask = dist_new * mask_1  # select object points
+        dist_mask[mask_2] = 1.0  # background points has max distance to sharp features
+        close_to_sharp = np.array((dist_mask != np.nan) & (dist_mask < 1.)).astype(float)
+
+        if self.task == 'two-heads':
+            # regression + segmentation (or two-head network) has to targets:
+            # distance field and segmented close-to-sharp region of the object
+            target = torch.cat(
+                [torch.FloatTensor(dist_mask).unsqueeze(0), torch.FloatTensor(close_to_sharp).unsqueeze(0)], dim=0)
+        if self.task == 'segmentation':
+            target = torch.FloatTensor(close_to_sharp)
+        elif self.task == 'regression':
+            target = torch.FloatTensor(dist_mask)
+
+        data = torch.FloatTensor(data).unsqueeze(0)
+        data = torch.cat([data, data, data], dim=0)
+
+        return data, target
+
