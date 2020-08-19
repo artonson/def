@@ -10,9 +10,10 @@ from pytorch_lightning.metrics import tensor_metric
 from torch.utils.data import DataLoader
 
 from sharpf.utils.comm import get_batch_size
+from sharpf.utils.losses import balanced_accuracy
 from ..model.build import build_model
 from ...data import DepthMapIO
-from ...utils.abc_utils import LotsOfHdf5Files
+from ...utils.abc_utils import LotsOfHdf5Files, DepthDataset
 from ...utils.abc_utils.torch import CompositeTransform
 from ...utils.config import flatten_omegaconf
 
@@ -24,13 +25,13 @@ def gather_sum(x: torch.Tensor) -> torch.Tensor:
     return x
 
 
-class DepthRegressor(LightningModule):
+class DepthSegmentator(LightningModule):
 
     def __init__(self, cfg):
         super().__init__()
         self.hparams = flatten_omegaconf(cfg)  # there should be better official way later
         self.cfg = cfg
-        self.task = 'regression'
+        self.task = 'segmentation'
         self.model = build_model(cfg.model)
         self.example_input_array = torch.rand(1, 1, 64, 64)
         self.data_dir = hydra.utils.to_absolute_path(self.cfg.data.data_dir)
@@ -59,12 +60,11 @@ class DepthRegressor(LightningModule):
         points = points.unsqueeze(1) if points.dim() == 3 else points
         preds = self.forward(points)
 
-        mean_squared_errors = F.mse_loss(preds, distances, reduction='none').mean(dim=1)  # (batch)
-        root_mean_squared_errors = torch.sqrt(mean_squared_errors)
+        metric = balanced_accuracy(preds, distances)  # (batch)
         # loss = hydra.utils.instantiate(self.cfg.meta_arch.loss, preds, distances)
         # self.logger[0].experiment.add_scalars('losses', {f'{prefix}_loss': loss})
         # TODO Consider pl.EvalResult, once there are good examples how to use it
-        return {'rmse_sum': root_mean_squared_errors.sum(),
+        return {'balanced_accuracy_sum': metric.sum(),
                 'batch_size': torch.tensor(points.size(0), device=self.device)}
 
     def _shared_eval_epoch_end(self, outputs, prefix):
@@ -98,7 +98,7 @@ class DepthRegressor(LightningModule):
         if hasattr(self, f'{partition}_set') and getattr(self, f'{partition}_set') is not None:
             return getattr(self, f'{partition}_set')
         transform = CompositeTransform([hydra.utils.instantiate(tf) for tf in self.cfg.transforms[partition]])
-        return LotsOfHdf5Files(
+        return DepthDataset(
             data_dir=self.data_dir,
             io=DepthMapIO,
             data_label=self.cfg.data.data_label,
