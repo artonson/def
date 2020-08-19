@@ -30,7 +30,6 @@ class DepthRegressor(LightningModule):
         super().__init__()
         self.hparams = flatten_omegaconf(cfg)  # there should be better official way later
         self.cfg = cfg
-        self.task = 'regression'
         self.model = build_model(cfg.model)
         self.example_input_array = torch.rand(1, 1, 64, 64)
         self.data_dir = hydra.utils.to_absolute_path(self.cfg.data.data_dir)
@@ -103,7 +102,6 @@ class DepthRegressor(LightningModule):
             io=DepthMapIO,
             data_label=self.cfg.data.data_label,
             target_label=self.cfg.data.target_label,
-            task=self.task,
             partition=partition,
             transform=transform,
             max_loaded_files=self.cfg.data.max_loaded_files
