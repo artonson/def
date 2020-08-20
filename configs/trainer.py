@@ -34,6 +34,7 @@ class LightningTrainerConf:
     log_save_interval: int = 100
     row_log_interval: int = 50
     distributed_backend: Optional[str] = None
+    sync_batchnorm: bool = False
     precision: int = 32
     weights_summary: Optional[str] = "top"
     weights_save_path: Optional[str] = None
@@ -48,7 +49,7 @@ class LightningTrainerConf:
     terminate_on_nan: bool = False
     auto_scale_batch_size: Any = False
     prepare_data_per_node: bool = True
-    amp_level: str = "O1"
+    amp_backend: str = 'native'
 
 
 cs.store(group="trainer", name="trainer", node=LightningTrainerConf)
