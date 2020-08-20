@@ -14,7 +14,6 @@ from sharpf.utils.comm import get_batch_size
 from ..model.build import build_model
 from ...utils.abc_utils import LotsOfHdf5Files
 from ...utils.abc_utils.torch import CompositeTransform
-from ...utils.config import flatten_omegaconf
 
 log = logging.getLogger(__name__)
 
@@ -28,16 +27,15 @@ class PointSharpnessRegressor(LightningModule):
 
     def __init__(self, cfg):
         super().__init__()
-        self.hparams = flatten_omegaconf(cfg)  # there should be better official way later
-        self.cfg = cfg
-        self.model = build_model(cfg.model)
+        self.hparams = cfg
+        self.model = build_model(self.hparams.model)
         self.example_input_array = torch.rand(1, 4096, 3)
-        self.data_dir = hydra.utils.to_absolute_path(self.cfg.data.data_dir)
+        self.data_dir = hydra.utils.to_absolute_path(self.hparams.data.data_dir)
 
-        dist_backend = self.cfg.trainer.distributed_backend
+        dist_backend = self.hparams.trainer.distributed_backend
         if (dist_backend is not None and 'ddp' in dist_backend) or (
-                dist_backend is None and self.cfg.trainer.gpus is not None and (
-                self.cfg.trainer.gpus > 1 or self.cfg.trainer.num_nodes > 1)):
+                dist_backend is None and self.hparams.trainer.gpus is not None and (
+                self.hparams.trainer.gpus > 1 or self.hparams.trainer.num_nodes > 1)):
             log.info('Converting BatchNorm to SyncBatchNorm. Do not forget other batch-dimension dependent operations.')
             self.model = nn.SyncBatchNorm.convert_sync_batchnorm(self.model)
 
@@ -47,7 +45,7 @@ class PointSharpnessRegressor(LightningModule):
     def training_step(self, batch, batch_idx):
         points, distances = batch['points'], batch['distances']
         preds = self.model(points)
-        loss = hydra.utils.instantiate(self.cfg.meta_arch.loss, preds, distances)
+        loss = hydra.utils.call(self.hparams.meta_arch.loss, preds, distances)
         result = TrainResult(minimize=loss)
         result.log('train_loss', loss, prog_bar=True)
         return result
@@ -58,7 +56,7 @@ class PointSharpnessRegressor(LightningModule):
 
         mean_squared_errors = F.mse_loss(preds, distances, reduction='none').mean(dim=1)  # (batch)
         root_mean_squared_errors = torch.sqrt(mean_squared_errors)
-        # loss = hydra.utils.instantiate(self.cfg.meta_arch.loss, preds, distances)
+        # loss = hydra.utils.call(self.hparams.meta_arch.loss, preds, distances)
         # self.logger[0].experiment.add_scalars('losses', {f'{prefix}_loss': loss})
         # TODO Consider pl.EvalResult, once there are good examples how to use it
         return {'rmse_sum': root_mean_squared_errors.sum(),
@@ -87,28 +85,28 @@ class PointSharpnessRegressor(LightningModule):
         return self._shared_eval_epoch_end(outputs, prefix='test')
 
     def configure_optimizers(self):
-        optimizer = hydra.utils.instantiate(self.cfg.opt, params=self.parameters())
-        scheduler = hydra.utils.instantiate(self.cfg.scheduler, optimizer=optimizer)
+        optimizer = hydra.utils.instantiate(self.hparams.opt, params=self.parameters())
+        scheduler = hydra.utils.instantiate(self.hparams.scheduler, optimizer=optimizer)
         return [optimizer], [scheduler]
 
     def _get_dataset(self, partition):
         if hasattr(self, f'{partition}_set') and getattr(self, f'{partition}_set') is not None:
             return getattr(self, f'{partition}_set')
-        transform = CompositeTransform([hydra.utils.instantiate(tf) for tf in self.cfg.transforms[partition]])
+        transform = CompositeTransform([hydra.utils.instantiate(tf) for tf in self.hparams.transforms[partition]])
         return LotsOfHdf5Files(
             data_dir=self.data_dir,
             io=PointCloudIO,
-            data_label=self.cfg.data.data_label,
-            target_label=self.cfg.data.target_label,
+            data_label=self.hparams.data.data_label,
+            target_label=self.hparams.data.target_label,
             partition=partition,
             transform=transform,
-            max_loaded_files=self.cfg.data.max_loaded_files
+            max_loaded_files=self.hparams.data.max_loaded_files
         )
 
     def _get_dataloader(self, partition):
         dataset = self._get_dataset(partition)
-        num_workers = self.cfg.data_loader[partition].num_workers
-        batch_size = get_batch_size(self.cfg.data_loader[partition].total_batch_size)
+        num_workers = self.hparams.data_loader[partition].num_workers
+        batch_size = get_batch_size(self.hparams.data_loader[partition].total_batch_size)
         return DataLoader(dataset, batch_size=batch_size, num_workers=num_workers, pin_memory=True)
 
     def setup(self, stage: str):

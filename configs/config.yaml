@@ -10,13 +10,13 @@ defaults:
 data_loader:
   train:
     total_batch_size: 16
-    num_workers: 2
+    num_workers: 0  # depending on RAM capacity set this value carefully
   val:
     total_batch_size: 16
-    num_workers: 2
+    num_workers: 0  # depending on RAM capacity set this value carefully
   test:
     total_batch_size: 16
-    num_workers: 2
+    num_workers: 0  # depending on RAM capacity set this value carefully
 
 eval_only: false
 weights: null

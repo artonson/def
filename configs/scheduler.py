@@ -2,13 +2,14 @@ from dataclasses import dataclass, field
 from typing import Any, List, Optional
 
 from hydra.core.config_store import ConfigStore
-from hydra.types import ObjectConf
+from hydra.types import TargetConf
 
 cs = ConfigStore.instance()
 
 
 @dataclass
-class CosineConf:
+class CosineConf(TargetConf):
+    _target_: str = "torch.optim.lr_scheduler.CosineAnnealingLR"
     T_max: int = 100
     eta_min: float = 0
     last_epoch: int = -1
@@ -17,12 +18,13 @@ class CosineConf:
 cs.store(
     group="scheduler",
     name="cosine",
-    node=ObjectConf(target="torch.optim.lr_scheduler.CosineAnnealingLR", params=CosineConf()),
+    node=CosineConf(),
 )
 
 
 @dataclass
-class CosineWarmConf:
+class CosineWarmConf(TargetConf):
+    _target_: str = "torch.optim.Adamax"
     T_0: int = 10
     T_mult: int = 1
     eta_min: float = 0
@@ -32,12 +34,13 @@ class CosineWarmConf:
 cs.store(
     group="scheduler",
     name="cosinewarm",
-    node=ObjectConf(target="torch.optim.lr_scheduler.CosineAnnealingLR", params=CosineWarmConf()),
+    node=CosineWarmConf(),
 )
 
 
 @dataclass
-class CyclicConf:
+class CyclicConf(TargetConf):
+    _target_: str = "torch.optim.Adamax"
     base_lr: Any = 1e-3
     max_lr: Any = 1e-2
     step_size_up: int = 2000
@@ -53,12 +56,13 @@ class CyclicConf:
 
 
 cs.store(
-    group="scheduler", name="cyclic", node=ObjectConf(target="torch.optim.lr_scheduler.CyclicLR", params=CyclicConf()),
+    group="scheduler", name="cyclic", node=CyclicConf(),
 )
 
 
 @dataclass
-class ExponentialConf:
+class ExponentialConf(TargetConf):
+    _target_: str = "torch.optim.lr_scheduler.ExponentialLR"
     gamma: float = 1
     last_epoch: int = -1
 
@@ -66,12 +70,13 @@ class ExponentialConf:
 cs.store(
     group="scheduler",
     name="exponential",
-    node=ObjectConf(target="torch.optim.lr_scheduler.ExponentialLR", params=ExponentialConf()),
+    node=ExponentialConf(),
 )
 
 
 @dataclass
-class RedPlatConf:
+class RedPlatConf(TargetConf):
+    _target_: str = "torch.optim.lr_scheduler.ReduceLROnPlateau"
     mode: str = "min"
     factor: float = 0.1
     patience: int = 10
@@ -86,12 +91,13 @@ class RedPlatConf:
 cs.store(
     group="scheduler",
     name="redplat",
-    node=ObjectConf(target="torch.optim.lr_scheduler.ReduceLROnPlateau", params=RedPlatConf()),
+    node=RedPlatConf(),
 )
 
 
 @dataclass
-class MultiStepConf:
+class MultiStepConf(TargetConf):
+    _target_: str = "torch.optim.lr_scheduler.MultiStepLR"
     milestones: List = field(default_factory=lambda: [10, 20, 30, 40])
     gamma: float = 0.1
     last_epoch: int = -1
@@ -100,12 +106,13 @@ class MultiStepConf:
 cs.store(
     group="scheduler",
     name="multistep",
-    node=ObjectConf(target="torch.optim.lr_scheduler.MultiStepLR", params=MultiStepConf()),
+    node=MultiStepConf(),
 )
 
 
 @dataclass
-class OneCycleConf:
+class OneCycleConf(TargetConf):
+    _target_: str = "torch.optim.lr_scheduler.OneCycleLR"
     max_lr: Any = 1e-2
     total_steps: int = 2000
     epochs: int = 200
@@ -123,17 +130,18 @@ class OneCycleConf:
 cs.store(
     group="scheduler",
     name="onecycle",
-    node=ObjectConf(target="torch.optim.lr_scheduler.OneCycleLR", params=OneCycleConf()),
+    node=OneCycleConf(),
 )
 
 
 @dataclass
-class StepConf:
+class StepConf(TargetConf):
+    _target_: str = "torch.optim.lr_scheduler.StepLR"
     step_size: int = 20
     gamma: float = 0.1
     last_epoch: int = -1
 
 
 cs.store(
-    group="scheduler", name="step", node=ObjectConf(target="torch.optim.lr_scheduler.StepLR", params=StepConf()),
+    group="scheduler", name="step", node=StepConf(),
 )
