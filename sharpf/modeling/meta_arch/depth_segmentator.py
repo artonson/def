@@ -105,7 +105,7 @@ class DepthSegmentator(LightningModule):
             normalisation = self.cfg.transforms['normalisation']
         else:
             normalisation = None
-            
+
         return DepthDataset(
             data_dir=self.data_dir,
             io=DepthMapIO,
