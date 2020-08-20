@@ -56,26 +56,29 @@ class DepthSegmentator(LightningModule):
         return result
 
     def _shared_eval_step(self, batch, batch_idx, prefix):
+        metric_name = 'balanced_accuracy'
+        metric = balanced_accuracy
         points, distances = batch['image'], batch['distances']
         points = points.unsqueeze(1) if points.dim() == 3 else points
         preds = self.forward(points)
 
-        metric = balanced_accuracy(preds, distances)  # (batch)
+        metric_value = metric(preds, distances)  # (batch)
         # loss = hydra.utils.instantiate(self.cfg.meta_arch.loss, preds, distances)
         # self.logger[0].experiment.add_scalars('losses', {f'{prefix}_loss': loss})
         # TODO Consider pl.EvalResult, once there are good examples how to use it
-        return {'balanced_accuracy_sum': metric.sum(),
+        return {f'{metric_name}_sum': metric_value.sum(),
                 'batch_size': torch.tensor(points.size(0), device=self.device)}
 
     def _shared_eval_epoch_end(self, outputs, prefix):
-        rmse_sum = 0
+        metric_name = 'balanced_accuracy'
+        metric_sum = 0
         size = 0
         for output in outputs:
-            rmse_sum += output['rmse_sum']
+            metric_sum += output[f'{metric_name}_sum']
             size += output['batch_size']
-        mean_rmse = gather_sum(rmse_sum) / gather_sum(size)
-        logs = {f'{prefix}_mean_rmse': mean_rmse}
-        return {f'{prefix}_mean_rmse': mean_rmse, 'log': logs}
+        mean_metric = gather_sum(metric_sum) / gather_sum(size)
+        logs = {f'{prefix}_mean_{metric_name}': mean_metric}
+        return {f'{prefix}_mean_{metric_name}': mean_metric, 'log': logs}
 
     def validation_step(self, batch, batch_idx):
         return self._shared_eval_step(batch, batch_idx, prefix='val')
@@ -98,6 +101,11 @@ class DepthSegmentator(LightningModule):
         if hasattr(self, f'{partition}_set') and getattr(self, f'{partition}_set') is not None:
             return getattr(self, f'{partition}_set')
         transform = CompositeTransform([hydra.utils.instantiate(tf) for tf in self.cfg.transforms[partition]])
+        if 'normalisation' in self.cfg.transforms.keys:
+            normalisation = self.cfg.transforms['normalisation']
+        else:
+            normalisation = None
+            
         return DepthDataset(
             data_dir=self.data_dir,
             io=DepthMapIO,
@@ -106,7 +114,8 @@ class DepthSegmentator(LightningModule):
             task=self.task,
             partition=partition,
             transform=transform,
-            max_loaded_files=self.cfg.data.max_loaded_files
+            max_loaded_files=self.cfg.data.max_loaded_files,
+            normalisation=normalisation
         )
 
     def _get_dataloader(self, partition):
