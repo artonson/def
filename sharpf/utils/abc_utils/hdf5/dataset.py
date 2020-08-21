@@ -200,15 +200,21 @@ class DepthDataset(LotsOfHdf5Files):
         dist_mask[mask_2] = 1.0  # background points has max distance to sharp features
         close_to_sharp = np.array((dist_mask != np.nan) & (dist_mask < 1.)).astype(float)
 
+        output = {}
+
         if self.task == 'two-heads':
             # regression + segmentation (or two-head network) has to targets:
             # distance field and segmented close-to-sharp region of the object
             target = torch.cat([torch.FloatTensor(dist_mask).unsqueeze(0), torch.FloatTensor(close_to_sharp).unsqueeze(0)], dim=0)
+            output['distance_and_close_to_sharp'] = target
         if self.task == 'segmentation':
             target = torch.FloatTensor(close_to_sharp).unsqueeze(0)
+            output['close_to_sharp_mask] = target
         elif self.task == 'regression':
             target = torch.FloatTensor(dist_mask).unsqueeze(0)
+            output['distance_to_sharp'] = target
 
         data = torch.FloatTensor(data).unsqueeze(0)
+        output['image'] = data
 
-        return {'image': data, 'distances': target}
+        return output

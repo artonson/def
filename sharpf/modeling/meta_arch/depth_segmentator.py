@@ -47,11 +47,9 @@ class DepthSegmentator(LightningModule):
         return self.model(x)
 
     def training_step(self, batch, batch_idx):
-        print('training step')
         points, distances = batch['image'], batch['distances']
         points = points.unsqueeze(1) if points.dim() == 3 else points
         preds = self.forward(points)
-        print(preds.shape, distances.shape)
         loss = hydra.utils.instantiate(self.cfg.meta_arch.loss, preds, distances)
         result = TrainResult(minimize=loss)
         result.log('train_loss', loss, prog_bar=True)

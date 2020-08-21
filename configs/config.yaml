@@ -12,8 +12,8 @@ data_loader:
     total_batch_size: 16
     num_workers: 2
   val:
-    total_batch_size: 16
-    num_workers: 2
+    total_batch_size: 4
+    num_workers: 0
   test:
     total_batch_size: 16
     num_workers: 2
