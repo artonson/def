@@ -76,8 +76,12 @@ class PointSharpnessRegressor(LightningModule):
         }
 
     def _plot_rmse_hist(self, rmse_hist):
-        figure = plt.figure(figsize=(19.20, 10.80))
-        plt.bar(torch.linspace(0, 1, 101)[1:], rmse_hist, label='hist')
+        figure = plt.figure(figsize=(4.8, 3.6))
+
+        bins = torch.linspace(0, 1, len(rmse_hist) + 1)
+        width = 0.7 * (bins[1] - bins[0])
+        center = (bins[:-1] + bins[1:]) / 2
+        plt.bar(center, rmse_hist, label='hist', align='center', width=width)
         plt.xlabel('RMSE per patch value')
         plt.ylabel('# of patches')
         plt.xlim((0.0, 1.0))
