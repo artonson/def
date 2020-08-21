@@ -46,7 +46,7 @@ class DepthRegressor(LightningModule):
         points, distances = batch['image'], batch['distances']
         points = points.unsqueeze(1) if points.dim() == 3 else points
         preds = self.forward(points)
-        loss = hydra.utils.TargetConfate(self.hparams.meta_arch.loss, preds, distances)
+        loss = hydra.utils.instantiate(self.hparams.meta_arch.loss, preds, distances)
         result = TrainResult(minimize=loss)
         result.log('train_loss', loss, prog_bar=True)
         return result
