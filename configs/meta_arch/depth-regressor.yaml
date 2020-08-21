@@ -1,6 +1,7 @@
 # @package _group_
 
-target: sharpf.modeling.DepthRegressor
+pl_class:
+  _target_: sharpf.modeling.DepthRegressor
 monitor: val_mean_rmse
 loss:
-  target: torch.nn.functional.mse_loss
+  _target_: torch.nn.functional.mse_loss

@@ -1,0 +1,6 @@
+- trainer.gpus=1
+- trainer.max_epochs=1
+- model=unet-segmentator
+- data=abc-depth
+- transforms=depth-norm
+- meta_arch=depth-segmentator

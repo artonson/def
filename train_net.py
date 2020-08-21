@@ -4,6 +4,7 @@ import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 import hydra
+from omegaconf import OmegaConf
 import torch
 from hydra.utils import instantiate
 from omegaconf import DictConfig
@@ -19,7 +20,6 @@ from configs import trainer, optimizer, scheduler
 
 log = logging.getLogger(__name__)
 
-
 @hydra.main(config_path="configs", config_name="config")
 def main(cfg: DictConfig):
     """
@@ -31,12 +31,12 @@ def main(cfg: DictConfig):
     assert cfg.trainer.distributed_backend != 'dp', 'dp is the tricky and bad choice. It is currently not supported for now'
 
     log.info(f"Environment info:\n{collect_env_info()}")
-    log.info(f"Config:\n{cfg.pretty()}")
+    log.info(f"Config:\n{OmegaConf.to_yaml(cfg)}")
     log.info(f"Current working directory: {os.getcwd()}")
     log.info(f"Original working directory: {hydra.utils.get_original_cwd()}")
     seed_everything(cfg.seed)
 
-    model = instantiate(cfg.meta_arch, cfg=cfg)
+    model = instantiate(cfg.meta_arch.pl_class, cfg=cfg)
     if cfg.weights is not None:
         model.load_state_dict(torch.load(cfg.weights)['state_dict'])
 

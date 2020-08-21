@@ -10,13 +10,18 @@ defaults:
 data_loader:
   train:
     total_batch_size: 16
-    num_workers: 2
+    num_workers: 0  # depending on RAM capacity set this value carefully
   val:
+<<<<<<< HEAD
     total_batch_size: 4
     num_workers: 0
+=======
+    total_batch_size: 16
+    num_workers: 0  # depending on RAM capacity set this value carefully
+>>>>>>> pl_hydra
   test:
     total_batch_size: 16
-    num_workers: 2
+    num_workers: 0  # depending on RAM capacity set this value carefully
 
 eval_only: false
 weights: null
