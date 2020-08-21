@@ -11,6 +11,7 @@ from ..py_utils.parallel import threaded_parallel
 
 log = logging.getLogger(__name__)
 
+high_res_quantile = 7.4776
 
 class Hdf5File(Dataset):
     def __init__(self, filename, io, data_label=None, target_label=None, labels=None, preload=True,
@@ -144,6 +145,7 @@ class DepthDataset(LotsOfHdf5Files):
                          partition=partition,
                          transform=transform,
                          max_loaded_files=max_loaded_files)
+        self.data_dir = data_dir
         self.task = task
         self.quality = self._get_quantity()
         self.normalisation = normalisation
@@ -183,7 +185,8 @@ class DepthDataset(LotsOfHdf5Files):
 
     def __getitem__(self, index):
 
-        data, target = super.__getitem__(index)
+        item = super().__getitem__(index)
+        data, target = item['image'], item['distances']
         mask_1 = (np.copy(data) != 0.0).astype(float)  # mask for object
         mask_2 = np.where(data == 0)  # mask for background
 
@@ -202,10 +205,10 @@ class DepthDataset(LotsOfHdf5Files):
             # distance field and segmented close-to-sharp region of the object
             target = torch.cat([torch.FloatTensor(dist_mask).unsqueeze(0), torch.FloatTensor(close_to_sharp).unsqueeze(0)], dim=0)
         if self.task == 'segmentation':
-            target = torch.FloatTensor(close_to_sharp)
+            target = torch.FloatTensor(close_to_sharp).unsqueeze(0)
         elif self.task == 'regression':
-            target = torch.FloatTensor(dist_mask)
+            target = torch.FloatTensor(dist_mask).unsqueeze(0)
 
         data = torch.FloatTensor(data).unsqueeze(0)
 
-        return {'data': data, 'target': target}
+        return {'image': data, 'distances': target}

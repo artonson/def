@@ -14,6 +14,8 @@ from pytorch_lightning.profiler import SimpleProfiler
 
 from sharpf.utils.callbacks import FitDurationCallback
 from sharpf.utils.collect_env import collect_env_info
+from sharpf.modeling.meta_arch.depth_regressor import DepthRegressor
+from sharpf.modeling.meta_arch.depth_segmentator import DepthSegmentator
 
 from configs import trainer, optimizer, scheduler
 
@@ -36,7 +38,7 @@ def main(cfg: DictConfig):
     log.info(f"Original working directory: {hydra.utils.get_original_cwd()}")
     seed_everything(cfg.seed)
 
-    model = instantiate(cfg.meta_arch, cfg=cfg)
+    model = DepthRegressor(cfg)
     if cfg.weights is not None:
         model.load_state_dict(torch.load(cfg.weights)['state_dict'])
 

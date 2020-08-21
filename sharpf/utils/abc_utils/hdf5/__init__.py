@@ -1,1 +1,1 @@
-from .dataset import Hdf5File, LotsOfHdf5Files
+from .dataset import Hdf5File, LotsOfHdf5Files, DepthDataset

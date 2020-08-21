@@ -12,7 +12,7 @@ from torch.utils.data import DataLoader
 from sharpf.utils.comm import get_batch_size
 from ..model.build import build_model
 from ...data import DepthMapIO
-from ...utils.abc_utils import LotsOfHdf5Files
+from ...utils.abc_utils.hdf5.dataset import LotsOfHdf5Files, DepthDataset
 from ...utils.abc_utils.torch import CompositeTransform
 from ...utils.config import flatten_omegaconf
 
@@ -98,7 +98,7 @@ class DepthRegressor(LightningModule):
         if hasattr(self, f'{partition}_set') and getattr(self, f'{partition}_set') is not None:
             return getattr(self, f'{partition}_set')
         transform = CompositeTransform([hydra.utils.instantiate(tf) for tf in self.cfg.transforms[partition]])
-        return LotsOfHdf5Files(
+        return DepthDataset(
             data_dir=self.data_dir,
             io=DepthMapIO,
             data_label=self.cfg.data.data_label,

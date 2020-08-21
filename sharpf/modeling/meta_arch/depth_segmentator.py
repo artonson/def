@@ -13,7 +13,7 @@ from sharpf.utils.comm import get_batch_size
 from sharpf.utils.losses import balanced_accuracy
 from ..model.build import build_model
 from ...data import DepthMapIO
-from ...utils.abc_utils import LotsOfHdf5Files, DepthDataset
+from ...utils.abc_utils.hdf5 import DepthDataset
 from ...utils.abc_utils.torch import CompositeTransform
 from ...utils.config import flatten_omegaconf
 
@@ -47,9 +47,11 @@ class DepthSegmentator(LightningModule):
         return self.model(x)
 
     def training_step(self, batch, batch_idx):
+        print('training step')
         points, distances = batch['image'], batch['distances']
         points = points.unsqueeze(1) if points.dim() == 3 else points
         preds = self.forward(points)
+        print(preds.shape, distances.shape)
         loss = hydra.utils.instantiate(self.cfg.meta_arch.loss, preds, distances)
         result = TrainResult(minimize=loss)
         result.log('train_loss', loss, prog_bar=True)
