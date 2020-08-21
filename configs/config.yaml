@@ -1,5 +1,5 @@
 defaults:
-  - data: abc-pointcloud
+  - data: abc-pc
   - model: dgcnn-4k
   - transforms: pc-basic
   - meta_arch: point-sharpness-regressor

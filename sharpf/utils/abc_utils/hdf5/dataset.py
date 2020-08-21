@@ -99,11 +99,19 @@ class Hdf5File(Dataset):
 
 
 class LotsOfHdf5Files(Dataset):
-    def __init__(self, data_dir, io, data_label=None, target_label=None, labels=None, partition=None,
+    def __init__(self, io, data_dir=None, filenames=None, data_label=None, target_label=None, labels=None,
+                 partition=None,
                  transform=None, max_loaded_files=0):
-        if partition is not None:
-            data_dir = os.path.join(data_dir, partition)
-        filenames = sorted(glob.glob(os.path.join(data_dir, '*.hdf5')))
+        assert (data_dir is not None) != (filenames is not None), "either provide only data_dir or only filenames arg"
+
+        if data_dir is not None:
+            if partition is not None:
+                data_dir = os.path.join(data_dir, partition)
+            filenames = sorted(glob.glob(os.path.join(data_dir, '*.hdf5')))
+        else:
+            filenames = sorted(list(filenames))
+
+        # TODO check existance of every filename
 
         def _hdf5_creator(filename):
             try:
