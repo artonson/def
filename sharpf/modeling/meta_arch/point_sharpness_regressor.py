@@ -1,6 +1,7 @@
 import logging
 
 import hydra
+import matplotlib.pyplot as plt
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -14,6 +15,7 @@ from sharpf.utils.comm import get_batch_size
 from ..model.build import build_model
 from ...utils.abc_utils import LotsOfHdf5Files
 from ...utils.abc_utils.torch import CompositeTransform
+from ...utils.image import plot_to_image
 
 log = logging.getLogger(__name__)
 
@@ -44,6 +46,10 @@ class PointSharpnessRegressor(LightningModule):
 
     def training_step(self, batch, batch_idx):
         points, distances = batch['points'], batch['distances']
+        if not (0.0 <= distances.min().item() and distances.max().item() <= 1.0):
+            log.warning(
+                f"The violation of assumed range in train partition: min={distances.min().item()}, max={distances.max().item()}")
+
         preds = self.model(points)
         loss = hydra.utils.call(self.hparams.meta_arch.loss, preds, distances)
         result = TrainResult(minimize=loss)
@@ -52,23 +58,55 @@ class PointSharpnessRegressor(LightningModule):
 
     def _shared_eval_step(self, batch, batch_idx, prefix):
         points, distances = batch['points'], batch['distances']
+        if not (0.0 <= distances.min().item() and distances.max().item() <= 1.0):
+            log.warning(
+                f"The violation of assumed range in {prefix} partition: min={distances.min().item()}, max={distances.max().item()}")
+
         preds = self.model(points)  # (batch, n_points)
 
         mean_squared_errors = F.mse_loss(preds, distances, reduction='none').mean(dim=1)  # (batch)
         root_mean_squared_errors = torch.sqrt(mean_squared_errors)
-        # loss = hydra.utils.call(self.hparams.meta_arch.loss, preds, distances)
-        # self.logger[0].experiment.add_scalars('losses', {f'{prefix}_loss': loss})
+        rmse_hist = torch.histc(root_mean_squared_errors, bins=100, min=0.0, max=1.0)
+
         # TODO Consider pl.EvalResult, once there are good examples how to use it
-        return {'rmse_sum': root_mean_squared_errors.sum(),
-                'batch_size': torch.tensor(points.size(0), device=self.device)}
+        return {
+            'rmse_sum': root_mean_squared_errors.sum(),
+            'batch_size': torch.tensor(points.size(0), device=self.device),
+            'rmse_hist': rmse_hist
+        }
+
+    def _plot_rmse_hist(self, rmse_hist):
+        figure = plt.figure(figsize=(19.20, 10.80))
+        plt.bar(torch.linspace(0, 1, 101)[1:], rmse_hist, label='hist')
+        plt.xlabel('RMSE per patch value')
+        plt.ylabel('# of patches')
+        plt.xlim((0.0, 1.0))
+        plt.yscale('log')
+        plt.legend(loc='upper right')
+        return figure
 
     def _shared_eval_epoch_end(self, outputs, prefix):
+
+        # gather results across batches
         rmse_sum = 0
         size = 0
+        rmse_hist = 0
         for output in outputs:
             rmse_sum += output['rmse_sum']
             size += output['batch_size']
-        mean_rmse = gather_sum(rmse_sum) / gather_sum(size)
+            rmse_hist += output['rmse_hist']
+
+        # gather results across gpus
+        rmse_sum = gather_sum(rmse_sum)
+        size = gather_sum(size)
+        rmse_hist = gather_sum(rmse_hist)
+
+        # calculate metrics
+        mean_rmse = rmse_sum / size
+
+        # plot histogram
+        self.logger[0].experiment.add_image(f'{prefix}_rmse_hist', plot_to_image(self._plot_rmse_hist(rmse_hist.cpu())))
+
         logs = {f'{prefix}_mean_rmse': mean_rmse}
         return {f'{prefix}_mean_rmse': mean_rmse, 'log': logs}
 
