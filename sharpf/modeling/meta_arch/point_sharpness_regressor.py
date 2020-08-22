@@ -220,6 +220,9 @@ class PointSharpnessRegressor(LightningModule):
         batch_size = get_batch_size(self.hparams.data_loader[partition].total_batch_size)
 
         dataset = self._get_dataset(partition)
+        if dataset is None:
+            return None
+
         if isinstance(dataset, list):
             assert partition != 'train', 'PL does not support several train data loaders'
             assert len(dataset) > 1
