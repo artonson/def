@@ -1,6 +1,7 @@
 # @package _group_
 
-target: sharpf.modeling.DepthSegmentator
-monitor: val_balanced_accuracy #TODO: add balanced accuracy metric class
+pl_class:
+  _target_: sharpf.modeling.DepthSegmentator
+monitor: val_balanced_accuracy 
 loss:
-   target: torch.nn.functional.binary_cross_entropy_with_logits
+  _target_: torch.nn.functional.binary_cross_entropy_with_logits

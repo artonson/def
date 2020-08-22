@@ -209,7 +209,7 @@ class DepthDataset(LotsOfHdf5Files):
             output['distance_and_close_to_sharp'] = target
         if self.task == 'segmentation':
             target = torch.FloatTensor(close_to_sharp).unsqueeze(0)
-            output['close_to_sharp_mask] = target
+            output['close_to_sharp_mask'] = target
         elif self.task == 'regression':
             target = torch.FloatTensor(dist_mask).unsqueeze(0)
             output['distance_to_sharp'] = target

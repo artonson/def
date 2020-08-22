@@ -2,7 +2,7 @@
 model_name: PixelSegmentator
 params:
   feature_extractor:
-    target: sharpf.modeling.Unet
+    _target_: sharpf.modeling.Unet
     params:
       encoder_name: resnet50
       decoder_use_batchnorm: true
@@ -10,10 +10,10 @@ params:
       decoder_attention_type: null
       in_channels: 1
   segmentation_head:
-    - target: torch.nn.Conv2d
+    - _target_: torch.nn.Conv2d
       params:
         in_channels: 16
         out_channels: 1
         kernel_size: 3
         padding: 1
-    - target: torch.nn.Sigmoid
+    - _target_: torch.nn.Sigmoid

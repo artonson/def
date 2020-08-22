@@ -27,15 +27,9 @@ class DepthRegressor(LightningModule):
 
     def __init__(self, cfg):
         super().__init__()
-<<<<<<< HEAD
-        self.hparams = flatten_omegaconf(cfg)  # there should be better official way later
-        self.cfg = cfg
+        self.hparams = cfg  # there should be better official way later
         self.task = 'regression'
-        self.model = build_model(cfg.model)
-=======
-        self.hparams = cfg
         self.model = build_model(self.hparams.model)
->>>>>>> pl_hydra
         self.example_input_array = torch.rand(1, 1, 64, 64)
         self.data_dir = hydra.utils.to_absolute_path(self.hparams.data.data_dir)
 
@@ -50,7 +44,7 @@ class DepthRegressor(LightningModule):
         return self.model(x)
 
     def training_step(self, batch, batch_idx):
-        points, distances = batch['image'], batch['distances']
+        points, distances = batch['image'], batch['distance_to_sharp']
         points = points.unsqueeze(1) if points.dim() == 3 else points
         preds = self.forward(points)
         loss = hydra.utils.instantiate(self.hparams.meta_arch.loss, preds, distances)
@@ -59,7 +53,7 @@ class DepthRegressor(LightningModule):
         return result
 
     def _shared_eval_step(self, batch, batch_idx, prefix):
-        points, distances = batch['image'], batch['distances']
+        points, distances = batch['image'], batch['distance_to_sharp']
         points = points.unsqueeze(1) if points.dim() == 3 else points
         preds = self.forward(points)
 
@@ -101,7 +95,7 @@ class DepthRegressor(LightningModule):
     def _get_dataset(self, partition):
         if hasattr(self, f'{partition}_set') and getattr(self, f'{partition}_set') is not None:
             return getattr(self, f'{partition}_set')
-<<<<<<< HEAD
+
         transform = CompositeTransform([hydra.utils.instantiate(tf) for tf in self.cfg.transforms[partition]])
         return DepthDataset(
             data_dir=self.data_dir,
@@ -109,14 +103,6 @@ class DepthRegressor(LightningModule):
             data_label=self.cfg.data.data_label,
             target_label=self.cfg.data.target_label,
             task=self.task,
-=======
-        transform = CompositeTransform([hydra.utils.instantiate(tf) for tf in self.hparams.transforms[partition]])
-        return LotsOfHdf5Files(
-            data_dir=self.data_dir,
-            io=DepthMapIO,
-            data_label=self.hparams.data.data_label,
-            target_label=self.hparams.data.target_label,
->>>>>>> pl_hydra
             partition=partition,
             transform=transform,
             max_loaded_files=self.hparams.data.max_loaded_files
