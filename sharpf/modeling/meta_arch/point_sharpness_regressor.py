@@ -217,6 +217,7 @@ class PointSharpnessRegressor(LightningModule):
 
     def _get_dataloader(self, partition):
         num_workers = self.hparams.data_loader[partition].num_workers
+        pin_memory = self.hparams.data_loader[partition].pin_memory
         batch_size = get_batch_size(self.hparams.data_loader[partition].total_batch_size)
 
         dataset = self._get_dataset(partition)
@@ -229,10 +230,10 @@ class PointSharpnessRegressor(LightningModule):
             data_loaders = []
             for dataset_part in dataset:
                 data_loaders.append(
-                    DataLoader(dataset_part, batch_size=batch_size, num_workers=num_workers, pin_memory=True))
+                    DataLoader(dataset_part, batch_size=batch_size, num_workers=num_workers, pin_memory=pin_memory))
             return data_loaders
         else:
-            return DataLoader(dataset, batch_size=batch_size, num_workers=num_workers, pin_memory=True)
+            return DataLoader(dataset, batch_size=batch_size, num_workers=num_workers, pin_memory=pin_memory)
 
     def setup(self, stage: str):
         self.train_set = self._get_dataset('train') if stage == 'fit' else None

@@ -11,12 +11,15 @@ data_loader:
   train:
     total_batch_size: 16
     num_workers: 0  # depending on RAM capacity set this value carefully
+    pin_memory: true
   val:
     total_batch_size: 16
     num_workers: 0  # depending on RAM capacity set this value carefully
+    pin_memory: true
   test:
     total_batch_size: 16
     num_workers: 0  # depending on RAM capacity set this value carefully
+    pin_memory: true
 
 eval_only: false
 weights: null
