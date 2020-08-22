@@ -1,0 +1,69 @@
+{
+  "type": "sequential_pipeline",
+  "filters": [
+    {
+      "type": "mesh_scale_to_target_extent",
+      "target_extent": 10.0
+    },
+    {
+      "type": "mesh_scaling",
+      "short_curve_quantile": 0.25,
+      "base_n_points_per_short_curve": 8,
+      "base_resolution_3d": 0.125
+    },
+    {
+      "type": "centroid_selector",
+      "max_centroids": 48,
+      "centroid_mode": "poisson_disk"
+    },
+    {
+      "type": "parallel_pipeline",
+      "num_threads": 10,
+      "parallelize_by_key": "centroids",
+      "filters": [
+        {
+          "type": "random_euclidean_sphere",
+          "max_patches_per_mesh": 48,
+          "n_vertices": null,
+          "centroid": null,
+          "centroid_mode": "poisson_disk",
+          "radius_base": 10.0,
+          "radius_delta": 0.0,
+          "geodesic_patches": true,
+          "radius_scale_mode": "no_scale"
+        },
+        "sampling": {
+          "type": "poisson_disk",
+          "n_points": 4096,
+          "resolution_3d": 0.02,
+          "crop_center": true
+        },
+        "noise": {
+          "type": "many_noisers",
+          "subtype": "isotropic_gaussian",
+          "scale": [0.0]
+        },
+        "annotation": {
+          "type": "surface_based_aabb",
+          "distance_upper_bound": 1.0
+        },
+        "smell_coarse_surfaces_by_num_edges": {
+          "num_edges_threshold": 8
+        },
+        "smell_coarse_surfaces_by_angles": {
+          "max_angle_threshold_degrees": 15.0
+        },
+        "smell_deviating_resolution": {
+          "resolution_3d": 0.02,
+          "resolution_deviation_tolerance": 0.01
+        },
+        "smell_sharpness_discontinuities": {
+        },
+        "smell_bad_face_sampling": {
+          "min_points_per_face": 0.1,
+          "max_points_per_face": 10.0
+        }
+      ]
+    }
+  ]
+}

@@ -29,29 +29,13 @@ from sharpf.data.point_samplers import SAMPLER_BY_TYPE
 from sharpf.utils.abc_utils.abc.feature_utils import compute_features_nbhood, remove_boundary_features, get_curves_extents
 from sharpf.utils.py_utils.console import eprint_t
 from sharpf.utils.py_utils.os import add_suffix
-from sharpf.utils.py_utils.config import load_func_from_config
+from sharpf.utils.py_utils.config import load_func_from_config, Configurable
 from sharpf.utils.abc_utils.mesh.io import trimesh_load
 import sharpf.data.data_smells as smells
 
 
 LARGEST_PROCESSABLE_MESH_VERTICES = 20000
 
-
-def scale_mesh(mesh, features, shape_fabrication_extent, resolution_3d,
-               short_curve_quantile=0.05, n_points_per_short_curve=4):
-    # compute standard size spatial extent
-    mesh_extent = np.max(mesh.bounding_box.extents)
-    mesh = mesh.apply_scale(shape_fabrication_extent / mesh_extent)
-
-    # compute lengths of curves
-    sharp_curves_lengths = get_curves_extents(mesh, features)
-
-    least_len = np.quantile(sharp_curves_lengths, short_curve_quantile)
-    least_len_mm = resolution_3d * n_points_per_short_curve
-
-    mesh = mesh.apply_scale(least_len_mm / least_len)
-
-    return mesh
 
 
 # mm/pixel
@@ -60,8 +44,116 @@ MED_RES = 0.05
 LOW_RES = 0.125
 XLOW_RES = 0.25
 
+from abc import ABC, abstractmethod
+from typing import Mapping, MutableMapping, List
 
-def get_annotated_patches(item, config):
+
+class AbstractPipeline(ABC, Configurable):
+    def __init__(self):
+        self._filters = []
+
+    @abstractmethod
+    def run(self, data_item: MutableMapping) -> MutableMapping:
+        """Applies a pipeline by executing a sequence of stages/filters."""
+        pass
+
+    def add_filter(self, filter_obj):
+        self._filters.append(filter_obj)
+        return self
+
+
+class SequentialPipeline(AbstractPipeline):
+    @classmethod
+    def from_config(cls, config: Mapping) -> AbstractPipeline:
+        pass
+
+    @abstractmethod
+    def run(self, data_item: MutableMapping) -> MutableMapping:
+        """Applies a pipeline by executing a sequence of stages/filters."""
+        for _filter in self._filters:
+            data_item = _filter(data_item)
+        return data_item
+
+
+class ParallelPipeline(AbstractPipeline):
+    @classmethod
+    def from_config(cls, config: Mapping) -> AbstractPipeline:
+        pass
+
+    @abstractmethod
+    def run(self, data_item: MutableMapping) -> List[MutableMapping]:
+        """Applies a pipeline by executing a sequence of stages/filters."""
+        for _filter in self._filters:
+            data_item = _filter(data_item)
+        return data_item
+
+
+PIPELINE_BY_NAME = {
+    "sequential_pipeline": SequentialPipeline,
+    "parallel_pipeline": ParallelPipeline,
+}
+
+
+class AbstractFilter(ABC, Configurable):
+    @abstractmethod
+    def __call__(self, data_item: Mapping) -> Mapping:
+        """Applies a filter, in-place modification of the input data_item."""
+        pass
+
+
+class MeshScaler(AbstractFilter):
+    def __init__(
+            self,
+            shape_fabrication_extent,
+            short_curve_quantile,
+            resolution_3d,
+            n_points_per_short_curve
+    ):
+        self._shape_fabrication_extent = shape_fabrication_extent
+        self._short_curve_quantile = short_curve_quantile
+        self._resolution_3d = resolution_3d
+        self._n_points_per_short_curve = n_points_per_short_curve
+
+    def __call__(self, data_item: MutableMapping) -> MutableMapping:
+        mesh = data_item['mesh']
+        features = data_item['features']
+
+        # compute standard size spatial extent
+        mesh_extent = np.max(mesh.bounding_box.extents)
+        mesh = mesh.apply_scale(self._shape_fabrication_extent / mesh_extent)
+
+        # compute lengths of curves
+        sharp_curves_lengths = get_curves_extents(mesh, features)
+
+        least_len = np.quantile(sharp_curves_lengths, self._short_curve_quantile)
+        least_len_mm = self._resolution_3d * self._n_points_per_short_curve
+
+        data_item['mesh'] = mesh.apply_scale(least_len_mm / least_len)
+        return data_item
+
+
+def get_annotated_patches(abc_item, config):
+
+    # load the pipeline
+    pipeline = load_func_from_config(PIPELINE_BY_NAME, config)
+
+    # load the mesh and the feature curves annotations
+    mesh, _, _ = trimesh_load(abc_item.obj)
+    features = yaml.load(abc_item.feat, Loader=yaml.Loader)
+
+    # construct the initial data item
+    data_item = {
+        'mesh': mesh,
+        'features': features
+    }
+
+    try:
+        result = pipeline.run(data_item)
+    except DataGenerationException as e:
+        eprint_t(str(e))
+
+
+
     shape_fabrication_extent = config.get('shape_fabrication_extent', 10.0)
     base_n_points_per_short_curve = config.get('base_n_points_per_short_curve', 8)
     base_resolution_3d = config.get('base_resolution_3d', LOW_RES)
@@ -84,10 +176,6 @@ def get_annotated_patches(item, config):
     # we extract spheres of radius r, such that area of a (plane) disk with radius r
     # is equal to the total area of 3d points (as if we scanned a plane wall)
     nbhood_extractor.radius_base = np.sqrt(sampler.n_points) * 0.5 * sampler.resolution_3d
-
-    # load the mesh and the feature curves annotations
-    mesh, _, _ = trimesh_load(item.obj)
-    features = yaml.load(item.feat, Loader=yaml.Loader)
 
     processed_mesh = trimesh.base.Trimesh(vertices=mesh.vertices, faces=mesh.faces, process=True, validate=True)
     if processed_mesh.vertices.shape != mesh.vertices.shape or \
