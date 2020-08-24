@@ -186,6 +186,9 @@ class PointSharpnessRegressor(LightningModule):
 
         transform = CompositeTransform([hydra.utils.instantiate(tf) for tf in self.hparams.transforms[partition]])
 
+        if isinstance(dataset_params, ListConfig) and len(dataset_params) == 1:
+            dataset_params = dataset_params[0]
+
         if isinstance(dataset_params, ListConfig):
             datasets = []
             self.dataset_names[partition] = []
