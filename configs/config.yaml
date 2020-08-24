@@ -22,5 +22,10 @@ data_loader:
     pin_memory: true
 
 eval_only: false
-weights: null
+
+# if eval_only = true: test_wights must be the absolute path to weights
+# otherwise use `null` if you want to use the last checkpoint after training or `best` to choose the checkpoint
+# performing best on the validation set
+test_weights: best
+
 seed: 123
