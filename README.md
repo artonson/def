@@ -26,7 +26,7 @@ python train_net.py hydra.run.dir=experiments/my_exp trainer.gpus=4 trainer.max_
 
 ### Test the network
 ```bash
-python train_net.py <args> eval_only=true weights=<the weights/checkpoint path>
+python train_net.py <args> eval_only=true test_weights=<the weights/checkpoint path>
 ```
 
 ### Send the job to the Slurm server

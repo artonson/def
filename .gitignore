@@ -30,10 +30,11 @@ test_tube_exp/
 tests/tests_tt_dir/
 tests/save_dir
 default/
-data/
+/data/
 test_tube_logs/
 test_tube_data/
-datasets/
+/datasets/
+/experiments/
 model_weights/
 tests/save_dir
 tests/tests_tt_dir/

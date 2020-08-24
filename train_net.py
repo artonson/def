@@ -37,8 +37,6 @@ def main(cfg: DictConfig):
     seed_everything(cfg.seed)
 
     model = instantiate(cfg.meta_arch.pl_class, cfg=cfg)
-    if cfg.weights is not None:
-        model.load_state_dict(torch.load(cfg.weights)['state_dict'])
 
     # init loggers
     logger1 = TensorBoardLogger('tb_logs')
@@ -65,13 +63,11 @@ def main(cfg: DictConfig):
         callbacks=callbacks
     )
     if not cfg.eval_only:
+        assert cfg.test_weights is None or cfg.test_weights == 'best'
         trainer.fit(model)
-        trainer.test(ckpt_path='best')
+        trainer.test(ckpt_path=cfg.test_weights)
     else:
-        # trainer.test(model) alone without .fit() does not work in ddp mode:
-        # https://github.com/PyTorchLightning/pytorch-lightning/issues/2765
-        # https://github.com/PyTorchLightning/pytorch-lightning/issues/2683
-        assert cfg.weights is not None
+        model.load_state_dict(torch.load(cfg.test_weights)['state_dict'])
         trainer.test(model)
 
 

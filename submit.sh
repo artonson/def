@@ -5,7 +5,7 @@
 #SBATCH --ntasks-per-node=1
 #SBATCH --partition=gpu_small
 #SBATCH --exclusive
-#SBATCH --mem=160G
+#SBATCH --mem=300G
 #SBATCH --time=0-23:59:59
 
 # author: Ruslan Rakhimov
