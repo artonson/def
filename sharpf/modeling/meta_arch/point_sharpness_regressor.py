@@ -43,8 +43,11 @@ class PointSharpnessRegressor(LightningModule):
             log.info('Converting BatchNorm to SyncBatchNorm. Do not forget other batch-dimension dependent operations.')
             self.model = nn.SyncBatchNorm.convert_sync_batchnorm(self.model)
 
-    def forward(self, x):
-        return self.model(x)
+    def forward(self, x, clamp=True):
+        out = self.model(x)
+        if clamp:
+            out = out.clamp(0.0, 1.0)
+        return out
 
     def training_step(self, batch, batch_idx):
         points, distances = batch['points'], batch['distances']
@@ -52,7 +55,7 @@ class PointSharpnessRegressor(LightningModule):
             log.warning(
                 f"The violation of assumed range in train partition: min={distances.min().item()}, max={distances.max().item()}")
 
-        preds = self.model(points)
+        preds = self.forward(points, clamp=False)
         loss = hydra.utils.call(self.hparams.meta_arch.loss, preds, distances)
         result = TrainResult(minimize=loss)
         result.log('train_loss', loss, prog_bar=True)
@@ -64,7 +67,7 @@ class PointSharpnessRegressor(LightningModule):
             log.warning(
                 f"The violation of assumed range in eval partition: min={distances.min().item()}, max={distances.max().item()}")
 
-        preds = self.model(points)  # (batch, n_points)
+        preds = self.forward(points)  # (batch, n_points)
 
         mean_squared_errors = F.mse_loss(preds, distances, reduction='none').mean(dim=1)  # (batch)
         root_mean_squared_errors = torch.sqrt(mean_squared_errors)
