@@ -3,26 +3,19 @@ import logging
 import hydra
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from pytorch_lightning import TrainResult
 from pytorch_lightning.core.lightning import LightningModule
-from pytorch_lightning.metrics import tensor_metric
-from pytorch_lightning.metrics.sklearns import BalancedAccuracy
+from pytorch_lightning.metrics.functional import stat_scores
 from torch.utils.data import DataLoader
 
-from sharpf.utils.comm import get_batch_size
-from pytorch_lightning.metrics.functional import stat_scores
+from sharpf.utils.comm import get_batch_size, all_gather, synchronize
+from ..metrics import balanced_accuracy
 from ..model.build import build_model
 from ...data import DepthMapIO
 from ...utils.abc_utils.hdf5 import DepthDataset
 from ...utils.abc_utils.torch import CompositeTransform
 
 log = logging.getLogger(__name__)
-
-
-@tensor_metric()
-def gather_sum(x: torch.Tensor) -> torch.Tensor:
-    return x
 
 
 class DepthSegmentator(LightningModule):
@@ -42,51 +35,48 @@ class DepthSegmentator(LightningModule):
             log.info('Converting BatchNorm to SyncBatchNorm. Do not forget other batch-dimension dependent operations.')
             self.model = nn.SyncBatchNorm.convert_sync_batchnorm(self.model)
 
-    def forward(self, x):
+    def forward(self, x, as_mask=True):
+        out = self.model(x)
+        if as_mask:
+            return (out.sigmoid() > 0.5).long()
         return self.model(x)
 
     def training_step(self, batch, batch_idx):
         points, target = batch['image'], batch['close_to_sharp_mask']
         points = points.unsqueeze(1) if points.dim() == 3 else points
-        preds = self.forward(points)
+        preds = self.forward(points, as_mask=False)
         loss = hydra.utils.instantiate(self.hparams.meta_arch.loss, preds, target)
         result = TrainResult(minimize=loss)
         result.log('train_loss', loss, prog_bar=True)
         return result
 
     def _shared_eval_step(self, batch, batch_idx, prefix):
-        stat_names = ['tpr', 'tnr']
         points, target = batch['image'], batch['close_to_sharp_mask']
         points = points.unsqueeze(1) if points.dim() == 3 else points
-        preds = self.forward(points)
-
-        statistics = torch.Tensor(list(map(lambda a: stat_scores(a[0], a[1], class_index=1),
-                                           [preds, target]))).T.to(preds.device) # return: tp, fp, tn, fn, sup
-                                                                # dim: (5, batch)
-
-        tpr = statistics[0] / (statistics[0] + statistics[-2])  # 1(pred=1| true=1) / (1(pred=1| true=1) + 1(pred=0|true=1))
-        tnr = statistics[2] / (statistics[2] + statistics[1])  # 1(pred=0| true=0) / (1(pred=0| true=0) + 1(pred=1|true=0))
-
-        # loss = hydra.utils.instantiate(self.cfg.meta_arch.loss, preds, distances)
-        # self.logger[0].experiment.add_scalars('losses', {f'{prefix}_loss': loss})
-        # TODO Consider pl.EvalResult, once there are good examples how to use it
-        return {f'{stat_names[0]}': tpr,
-                f'{stat_names[1]}': tnr,
-                'batch_size': torch.tensor(points.size(0), device=self.device)}
+        preds = self.forward(points, as_mask=True)
+        stats = [list(stat_scores(preds[i], target[i], class_index=1)) for i in range(preds.size(0))]
+        tp, fp, tn, fn, sup = torch.Tensor(stats).to(preds.device).T.unsqueeze(1)  # each of size (1, batch)
+        return {'tp': tp, 'fp': fp, 'tn': tn, 'fn': fn, 'sup': sup}
 
     def _shared_eval_epoch_end(self, outputs, prefix):
-        stat_names = ['tpr', 'tnr']
-        metric_sum = 0
-        size = 0
-        for output in outputs:
-            metric_sum += sum((output[f'{stat_names[0]}'] + output[f'{stat_names[1]}']).double() / 2)
-            size += output['batch_size']
+        # gather across sub batches
+        tp = torch.cat([output['tp'] for output in outputs])
+        fp = torch.cat([output['fp'] for output in outputs])
+        tn = torch.cat([output['tn'] for output in outputs])
+        fn = torch.cat([output['fn'] for output in outputs])
 
-        metric_name = 'balanced_accuracy'
-        mean_metric = gather_sum(metric_sum) / gather_sum(size)
+        # gather results across gpus
+        synchronize()
+        tp = torch.cat(all_gather(tp))
+        fp = torch.cat(all_gather(fp))
+        tn = torch.cat(all_gather(tn))
+        fn = torch.cat(all_gather(fn))
 
-        logs = {f'{prefix}_mean_{metric_name}': mean_metric}
-        return {f'{prefix}_mean_{metric_name}': mean_metric, 'log': logs}
+        # calculate metrics
+        ba = balanced_accuracy(tp, fp, tn, fn)
+
+        logs = {f'{prefix}_balanced_accuracy': ba}
+        return {f'{prefix}_balanced_accuracy': ba, 'log': logs}
 
     def validation_step(self, batch, batch_idx):
         return self._shared_eval_step(batch, batch_idx, prefix='val')
