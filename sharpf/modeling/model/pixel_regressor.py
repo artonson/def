@@ -27,3 +27,25 @@ class PixelRegressor(nn.Module):
             "feature_extractor": hydra.utils.instantiate(cfg.feature_extractor),
             "regression_head": nn.Sequential(*[hydra.utils.instantiate(node) for node in cfg.regression_head])
         }
+
+# still believe that single class or abstract class for pixel-task model would be better
+@MODEL_REGISTRY.register()
+class PixelSegmentator(nn.Module):
+    @configurable
+    def __init__(self, feature_extractor, segmentation_head):
+        super().__init__()
+        self.feature_extractor = feature_extractor
+        self.segmentation_head = segmentation_head
+
+    def initialize(self):
+        initialize_head(self.segmentation_head)
+
+    def forward(self, x):
+        return self.segmentation_head(self.feature_extractor(x))
+
+    @classmethod
+    def from_config(cls, cfg: DictConfig):
+        return {
+            "feature_extractor": hydra.utils.instantiate(cfg.feature_extractor),
+            "segmentation_head": nn.Sequential(*[hydra.utils.instantiate(node) for node in cfg.segmentation_head])
+        }

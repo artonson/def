@@ -3,32 +3,27 @@ import logging
 import hydra
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from pytorch_lightning import TrainResult
 from pytorch_lightning.core.lightning import LightningModule
-from pytorch_lightning.metrics import tensor_metric
+from pytorch_lightning.metrics.functional import stat_scores
 from torch.utils.data import DataLoader
 
-from sharpf.utils.comm import get_batch_size
+from sharpf.utils.comm import get_batch_size, all_gather, synchronize
+from ..metrics import balanced_accuracy
 from ..model.build import build_model
 from ...data import DepthMapIO
-from ...utils.abc_utils.hdf5.dataset import LotsOfHdf5Files, DepthDataset
+from ...utils.abc_utils.hdf5 import DepthDataset
 from ...utils.abc_utils.torch import CompositeTransform
 
 log = logging.getLogger(__name__)
 
 
-@tensor_metric()
-def gather_sum(x: torch.Tensor) -> torch.Tensor:
-    return x
-
-
-class DepthRegressor(LightningModule):
+class DepthSegmentator(LightningModule):
 
     def __init__(self, cfg):
         super().__init__()
-        self.hparams = cfg  # there should be better official way later
-        self.task = 'regression'
+        self.hparams = cfg
+        self.task = 'segmentation'
         self.model = build_model(self.hparams.model)
         self.example_input_array = torch.rand(1, 1, 64, 64)
         self.data_dir = hydra.utils.to_absolute_path(self.hparams.data.data_dir)
@@ -40,40 +35,48 @@ class DepthRegressor(LightningModule):
             log.info('Converting BatchNorm to SyncBatchNorm. Do not forget other batch-dimension dependent operations.')
             self.model = nn.SyncBatchNorm.convert_sync_batchnorm(self.model)
 
-    def forward(self, x):
+    def forward(self, x, as_mask=True):
+        out = self.model(x)
+        if as_mask:
+            return (out.sigmoid() > 0.5).long()
         return self.model(x)
 
     def training_step(self, batch, batch_idx):
-        points, distances = batch['image'], batch['distance_to_sharp']
+        points, target = batch['image'], batch['close_to_sharp_mask']
         points = points.unsqueeze(1) if points.dim() == 3 else points
-        preds = self.forward(points)
-        loss = hydra.utils.instantiate(self.hparams.meta_arch.loss, preds, distances)
+        preds = self.forward(points, as_mask=False)
+        loss = hydra.utils.instantiate(self.hparams.meta_arch.loss, preds, target)
         result = TrainResult(minimize=loss)
         result.log('train_loss', loss, prog_bar=True)
         return result
 
     def _shared_eval_step(self, batch, batch_idx, prefix):
-        points, distances = batch['image'], batch['distance_to_sharp']
+        points, target = batch['image'], batch['close_to_sharp_mask']
         points = points.unsqueeze(1) if points.dim() == 3 else points
-        preds = self.forward(points)
-
-        mean_squared_errors = F.mse_loss(preds, distances, reduction='none').mean(dim=1)  # (batch)
-        root_mean_squared_errors = torch.sqrt(mean_squared_errors)
-        # loss = hydra.utils.call(self.hparams.meta_arch.loss, preds, distances)
-        # self.logger[0].experiment.add_scalars('losses', {f'{prefix}_loss': loss})
-        # TODO Consider pl.EvalResult, once there are good examples how to use it
-        return {'rmse_sum': root_mean_squared_errors.sum(),
-                'batch_size': torch.tensor(points.size(0), device=self.device)}
+        preds = self.forward(points, as_mask=True)
+        stats = [list(stat_scores(preds[i], target[i], class_index=1)) for i in range(preds.size(0))]
+        tp, fp, tn, fn, sup = torch.Tensor(stats).to(preds.device).T.unsqueeze(2)  # each of size (batch, 1)
+        return {'tp': tp, 'fp': fp, 'tn': tn, 'fn': fn, 'sup': sup}
 
     def _shared_eval_epoch_end(self, outputs, prefix):
-        rmse_sum = 0
-        size = 0
-        for output in outputs:
-            rmse_sum += output['rmse_sum']
-            size += output['batch_size']
-        mean_rmse = gather_sum(rmse_sum) / gather_sum(size)
-        logs = {f'{prefix}_mean_rmse': mean_rmse}
-        return {f'{prefix}_mean_rmse': mean_rmse, 'log': logs}
+        # gather across sub batches
+        tp = torch.cat([output['tp'] for output in outputs], dim=0)
+        fp = torch.cat([output['fp'] for output in outputs], dim=0)
+        tn = torch.cat([output['tn'] for output in outputs], dim=0)
+        fn = torch.cat([output['fn'] for output in outputs], dim=0)
+
+        # gather results across gpus
+        synchronize()
+        tp = torch.cat(all_gather(tp), dim=0)
+        fp = torch.cat(all_gather(fp), dim=0)
+        tn = torch.cat(all_gather(tn), dim=0)
+        fn = torch.cat(all_gather(fn), dim=0)
+
+        # calculate metrics
+        ba = balanced_accuracy(tp, fp, tn, fn)
+
+        logs = {f'{prefix}_balanced_accuracy': ba}
+        return {f'{prefix}_balanced_accuracy': ba, 'log': logs}
 
     def validation_step(self, batch, batch_idx):
         return self._shared_eval_step(batch, batch_idx, prefix='val')
@@ -95,17 +98,22 @@ class DepthRegressor(LightningModule):
     def _get_dataset(self, partition):
         if hasattr(self, f'{partition}_set') and getattr(self, f'{partition}_set') is not None:
             return getattr(self, f'{partition}_set')
+        transform = CompositeTransform([hydra.utils.instantiate(tf) for tf in self.hparams.transforms[partition]])
+        if 'normalisation' in self.hparams.transforms.keys():
+            normalisation = self.hparams.transforms['normalisation']
+        else:
+            normalisation = None
 
-        transform = CompositeTransform([hydra.utils.instantiate(tf) for tf in self.cfg.transforms[partition]])
         return DepthDataset(
             data_dir=self.data_dir,
             io=DepthMapIO,
-            data_label=self.cfg.data.data_label,
-            target_label=self.cfg.data.target_label,
+            data_label=self.hparams.data.data_label,
+            target_label=self.hparams.data.target_label,
             task=self.task,
             partition=partition,
             transform=transform,
-            max_loaded_files=self.hparams.data.max_loaded_files
+            max_loaded_files=self.hparams.data.max_loaded_files,
+            normalisation=normalisation
         )
 
     def _get_dataloader(self, partition):

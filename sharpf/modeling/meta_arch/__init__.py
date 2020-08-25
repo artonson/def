@@ -1,2 +1,3 @@
 from .point_sharpness_regressor import PointSharpnessRegressor
 from .depth_regressor import DepthRegressor
+from .depth_segmentator import DepthSegmentator
