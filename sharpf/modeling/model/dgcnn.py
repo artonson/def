@@ -2,8 +2,8 @@ import torch
 import torch.nn as nn
 from omegaconf import DictConfig
 
-from .build import MODEL_REGISTRY
 from sharpf.utils.config import configurable
+from .build import MODEL_REGISTRY
 from ..modules.point_blocks import PointOpBlock
 
 
@@ -17,11 +17,11 @@ class DGCNN(nn.Module):
         self.decoder_blocks = nn.ModuleList(decoder_blocks)
 
     def forward(self, points):
-        activations = {}
+        activations = []
         features = points
-        for idx, block in enumerate(self.encoder_blocks):
+        for block in self.encoder_blocks:
             features = block(features)
-            activations[idx] = features
+            activations.append(features)
         features = []
         for idx, block in enumerate(self.decoder_blocks):
             concatenated_features = torch.cat(
@@ -29,8 +29,7 @@ class DGCNN(nn.Module):
                 dim=2
             )
             features = [block(concatenated_features)]
-
-        features = features[0].squeeze(-1).squeeze(-1)
+        features = features[0].squeeze(-1)
         return features
 
     @classmethod
