@@ -14,6 +14,7 @@ from ..model.build import build_model
 from ...data import DepthMapIO
 from ...utils.abc_utils.hdf5.dataset import LotsOfHdf5Files, DepthDataset
 from ...utils.abc_utils.torch import CompositeTransform
+from ...visualization import IllustratorDepths
 
 log = logging.getLogger(__name__)
 
@@ -32,7 +33,7 @@ class DepthRegressor(LightningModule):
         self.model = build_model(self.hparams.model)
         self.example_input_array = torch.rand(1, 1, 64, 64)
         self.data_dir = hydra.utils.to_absolute_path(self.hparams.data.data_dir)
-
+        self.illustrator = IllustratorDepths(task=self.task)
         dist_backend = self.hparams.trainer.distributed_backend
         if (dist_backend is not None and 'ddp' in dist_backend) or (
                 dist_backend is None and self.hparams.trainer.gpus is not None and (
@@ -57,8 +58,13 @@ class DepthRegressor(LightningModule):
         points = points.unsqueeze(1) if points.dim() == 3 else points
         preds = self.forward(points)
 
-        mean_squared_errors = F.mse_loss(preds, distances, reduction='none').mean(dim=1)  # (batch)
+        mse_per_pix = F.mse_loss(preds, distances, reduction='none')  # preds.shape
+        mean_squared_errors = mse_per_pix.mean(dim=1)  # (batch)
+
         root_mean_squared_errors = torch.sqrt(mean_squared_errors)
+
+        self.illustrator.illustrate_to_file(self, preds, distances, mse_per_pix, type='all')
+
         # loss = hydra.utils.call(self.hparams.meta_arch.loss, preds, distances)
         # self.logger[0].experiment.add_scalars('losses', {f'{prefix}_loss': loss})
         # TODO Consider pl.EvalResult, once there are good examples how to use it
@@ -96,12 +102,12 @@ class DepthRegressor(LightningModule):
         if hasattr(self, f'{partition}_set') and getattr(self, f'{partition}_set') is not None:
             return getattr(self, f'{partition}_set')
 
-        transform = CompositeTransform([hydra.utils.instantiate(tf) for tf in self.cfg.transforms[partition]])
+        transform = CompositeTransform([hydra.utils.instantiate(tf) for tf in self.hparams.transforms[partition]])
         return DepthDataset(
             data_dir=self.data_dir,
             io=DepthMapIO,
-            data_label=self.cfg.data.data_label,
-            target_label=self.cfg.data.target_label,
+            data_label=self.hparams.data.data_label,
+            target_label=self.hparams.data.target_label,
             task=self.task,
             partition=partition,
             transform=transform,
