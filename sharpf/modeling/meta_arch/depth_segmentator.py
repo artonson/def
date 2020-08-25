@@ -55,22 +55,22 @@ class DepthSegmentator(LightningModule):
         points = points.unsqueeze(1) if points.dim() == 3 else points
         preds = self.forward(points, as_mask=True)
         stats = [list(stat_scores(preds[i], target[i], class_index=1)) for i in range(preds.size(0))]
-        tp, fp, tn, fn, sup = torch.Tensor(stats).to(preds.device).T.unsqueeze(1)  # each of size (1, batch)
+        tp, fp, tn, fn, sup = torch.Tensor(stats).to(preds.device).T.unsqueeze(2)  # each of size (batch, 1)
         return {'tp': tp, 'fp': fp, 'tn': tn, 'fn': fn, 'sup': sup}
 
     def _shared_eval_epoch_end(self, outputs, prefix):
         # gather across sub batches
-        tp = torch.cat([output['tp'] for output in outputs])
-        fp = torch.cat([output['fp'] for output in outputs])
-        tn = torch.cat([output['tn'] for output in outputs])
-        fn = torch.cat([output['fn'] for output in outputs])
+        tp = torch.cat([output['tp'] for output in outputs], dim=0)
+        fp = torch.cat([output['fp'] for output in outputs], dim=0)
+        tn = torch.cat([output['tn'] for output in outputs], dim=0)
+        fn = torch.cat([output['fn'] for output in outputs], dim=0)
 
         # gather results across gpus
         synchronize()
-        tp = torch.cat(all_gather(tp))
-        fp = torch.cat(all_gather(fp))
-        tn = torch.cat(all_gather(tn))
-        fn = torch.cat(all_gather(fn))
+        tp = torch.cat(all_gather(tp), dim=0)
+        fp = torch.cat(all_gather(fp), dim=0)
+        tn = torch.cat(all_gather(tn), dim=0)
+        fn = torch.cat(all_gather(fn), dim=0)
 
         # calculate metrics
         ba = balanced_accuracy(tp, fp, tn, fn)
