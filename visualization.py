@@ -19,6 +19,7 @@ def convert_dist(distance, m):
             rgba_dist[i, j] = m.to_rgba(distance[i, j])
     return rgba_dist
 
+
 class Illustrator:
 
     def __init__(self, task):
@@ -82,7 +83,6 @@ class IllustratorDepths(Illustrator):
         plot += points_true + points_pred + points_err + colorbar
 
         return plot
-
 
     def _illustrate_2d(self, data, pred, target, metric):
         fig = plt.figure(figsize=(10, 10))
@@ -148,7 +148,6 @@ class IllustratorDepths(Illustrator):
         grid[0].set_title('Metric per pix', fontsize=8.5)
 
         return fig
-
 
     def illustrate_to_file(self, batch_idx, data, preds, targets, metrics, type='all', name=None):
 
