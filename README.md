@@ -5,6 +5,7 @@
 singularity shell --bind /gpfs:/gpfs --nv /gpfs/gpfs0/3ddl/env/a1.sif
 pip install --no-cache-dir --use-feature=2020-resolver 'git+https://github.com/PytorchLightning/pytorch-lightning'
 pip install --no-cache-dir --use-feature=2020-resolver 'git+https://github.com/facebookresearch/hydra'
+pip install --no-cache-dir --use-feature=2020-resolver 'git+https://github.com/rwightman/pytorch-image-models'
 python setup.py build develop --user
 ```
 
