@@ -6,10 +6,10 @@ def balanced_accuracy(tp: torch.Tensor, fp: torch.Tensor, tn: torch.Tensor, fn: 
     Calculate balanced accuracy for one class based on provided statistics
 
     Args:
-        tp (Tensor): of shape (B, 1). True positive.
-        fo (Tensor): of shape (B, 1). False positive stats of a shape.
-        tn (Tensor): of shape (B, 1). True negative stats of a shape.
-        fn (Tensor): of shape (B, 1). False negative stats of a shape.
+        tp (Tensor): of shape (B, 1). True positive values.
+        fp (Tensor): of shape (B, 1). False positive values.
+        tn (Tensor): of shape (B, 1). True negative values.
+        fn (Tensor): of shape (B, 1). False negative values.
 
     Returns:
         torch.Tensor: balanced accuracy value
