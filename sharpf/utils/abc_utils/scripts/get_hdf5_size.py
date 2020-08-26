@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 
 import argparse
+from functools import partial
 import os
 import sys
+
+from torch.utils.data import DataLoader
 
 __dir__ = os.path.normpath(
     os.path.join(
@@ -10,22 +13,44 @@ __dir__ = os.path.normpath(
 )
 sys.path[1:1] = [__dir__]
 
-from sharpf.utils.abc_utils.hdf5.dataset import Hdf5File, LotsOfHdf5Files
-from sharpf.data.datasets.sharpf_io import PointCloudIO
+from sharpf.data.datasets.sharpf_io import PointCloudIO as IO, DepthMapIO
+from sharpf.utils.abc_utils.hdf5.dataset import Hdf5File, LotsOfHdf5Files, PreloadTypes
+from sharpf.utils.abc_utils.hdf5.io_struct import collate_mapping_with_io, select_items_by_predicates
 
 
 def main(options):
+    labels = ['has_sharp'] + options.true_keys + options.false_keys
 
     if None is not options.h5_input:
-        h5_file = Hdf5File(options.h5_input, PointCloudIO, labels='*', preload=False)
-        print('{} items in {}'.format(len(h5_file), h5_file.filename))
+        dataset = Hdf5File(options.h5_input, IO, labels=labels, preload=PreloadTypes.NEVER)
+        print('{} items in {}'.format(len(dataset), dataset.filename))
     else:
         assert None is not options.h5_input_dir
-        lots = LotsOfHdf5Files(options.h5_input_dir, PointCloudIO, labels='*')
+        dataset = LotsOfHdf5Files(options.h5_input_dir, IO, labels=labels, preload=PreloadTypes.NEVER)
         if not options.total_only:
-            for h5_file in lots.files:
-                print('{} items in {}'.format(len(h5_file), h5_file.filename))
-        print('Total {} items'.format(len(lots)))
+            for sub_dataset in dataset.files:
+                print('{} items in {}'.format(len(sub_dataset), sub_dataset.filename))
+        print('Total {} items'.format(len(dataset)))
+
+    if len(options.true_keys) > 0 or len(options.false_keys) > 0:
+        loader = DataLoader(
+            dataset,
+            num_workers=1,
+            batch_size=128,
+            shuffle=False,
+            collate_fn=partial(collate_mapping_with_io, io=IO),
+        )
+
+        filtered_num_items = 0
+        for batch in loader:
+            filtered_batch = select_items_by_predicates(
+                batch, true_keys=options.true_keys, false_keys=options.false_keys)
+            filtered_num_items += filtered_batch['has_sharp']
+
+        print('Filtered by TRUE [{}] and FALSE [{}]: {} items'.format(
+            ', '.join(options.true_keys),
+            ', '.join(options.false_keys),
+            filtered_num_items))
 
 
 def parse_options():
@@ -39,6 +64,10 @@ def parse_options():
     parser.add_argument('-t', '--total-only', dest='total_only', action='store_true', default=False,
                         help='print total only for directory.')
 
+    parser.add_argument('-tk', '--true-key', dest='true_keys', action='append', default=[],
+                        help='specify keys that must be TRUE to put into resulting HDF5 files (can me multiple).')
+    parser.add_argument('-fk', '--false-key', dest='false_keys', action='append', default=[],
+                        help='specify keys that must be FALSE to put into resulting HDF5 files (can me multiple).')
     args = parser.parse_args()
     return args
 
