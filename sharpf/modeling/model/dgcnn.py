@@ -29,7 +29,7 @@ class DGCNN(nn.Module):
                 dim=2
             )
             features = [block(concatenated_features)]
-        features = features[0].squeeze(-1)
+        features = features[0].squeeze(-1).squeeze(-1)
         return features
 
     @classmethod

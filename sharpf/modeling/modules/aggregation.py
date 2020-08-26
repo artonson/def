@@ -29,6 +29,7 @@ class GlobalMaxPooling(nn.Module):
         Args:
             x (Tensor): of shape (B, N, C, 1)
         Returns:
-            Tensor: of shape (B, N, C, 1).
+            Tensor: of shape (B, N, C).
         """
-        return x.max(dim=1)[0].expand_as(x).squeeze(-1)
+        x = x.squeeze(3)
+        return x.max(dim=1, keepdim=True)[0].expand_as(x)
