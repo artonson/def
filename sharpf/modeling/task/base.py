@@ -16,6 +16,7 @@ class BaseLightningModule(LightningModule):
         super().__init__()
         self.hparams = cfg
         self.evaluators = None
+        self.learning_rate = cfg.opt.lr
 
     def forward(self, *args, **kwargs):
         raise NotImplementedError
@@ -55,8 +56,11 @@ class BaseLightningModule(LightningModule):
             early_stop_on = None
 
         result = EvalResult(checkpoint_on=checkpoint_on, early_stop_on=early_stop_on)
-        for name, image in results['images'].items():
-            self.logger[0].experiment.add_image(name, image)
+        try:
+            for name, image in results['images'].items():
+                self.logger[0].experiment.add_image(name, image)
+        except TypeError as e:
+            print(f"Skipping TypeError: {e}")
         result.log_dict(results['scalars'])
         return result
 
@@ -80,7 +84,7 @@ class BaseLightningModule(LightningModule):
         return results
 
     def configure_optimizers(self):
-        optimizer = instantiate(self.hparams.opt, params=self.parameters())
+        optimizer = instantiate(self.hparams.opt, params=self.parameters(), lr=self.learning_rate)
         scheduler = instantiate(self.hparams.scheduler, optimizer=optimizer)
         return [optimizer], [scheduler]
 
