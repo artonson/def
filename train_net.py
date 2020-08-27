@@ -80,23 +80,14 @@ def main(cfg: DictConfig):
     if not cfg.eval_only:
         assert cfg.test_weights is None or cfg.test_weights == 'best'
 
-        train_dataloader = build_loaders(cfg, 'train')[0]
-        val_dataloaders = build_loaders(cfg, 'val')
-        test_dataloaders = build_loaders(cfg, 'test')
-
-        if cfg.test_weights == 'best':
-            assert val_dataloaders is not None
-
-        trainer.fit(model, train_dataloader, val_dataloaders)
-        trainer.test(test_dataloaders=test_dataloaders, ckpt_path=cfg.test_weights)
+        trainer.fit(model)
+        trainer.test(ckpt_path=cfg.test_weights)
     else:
         test_weights_path = hydra.utils.to_absolute_path(cfg.test_weights)
         assert os.path.exists(test_weights_path), f"{test_weights_path} does not exist"
         model.load_state_dict(torch.load(test_weights_path)['state_dict'])
 
-        test_dataloaders = build_loaders(cfg, 'test')
-
-        trainer.test(model, test_dataloaders=test_dataloaders)
+        trainer.test(model)
 
 
 if __name__ == "__main__":

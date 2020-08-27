@@ -7,9 +7,7 @@ train:
       task: regression
       io:
         _target_: sharpf.data.DepthMapIO
-      data_dir:
-        _target_: hydra.utils.to_absolute_path
-        path: data/abc/images/high/64k
+      data_dir: /trinity/home/r.rakhimov/sharp_features/data/abc/images/high/64k
       target_label: distances
       partition: train
       transform: ${transform.train}
@@ -21,9 +19,7 @@ val:
       task: regression
       io:
         _target_: sharpf.data.DepthMapIO
-      data_dir:
-        _target_: hydra.utils.to_absolute_path
-        path: data/abc/images/high/64k
+      data_dir: /trinity/home/r.rakhimov/sharp_features/data/abc/images/high/64k
       target_label: distances
       partition: val
       transform: ${transform.val}
@@ -36,9 +32,7 @@ test:
       task: regression
       io:
         _target_: sharpf.data.DepthMapIO
-      data_dir:
-        _target_: hydra.utils.to_absolute_path
-        path: data/abc/images/high/64k
+      data_dir: /trinity/home/r.rakhimov/sharp_features/data/abc/images/high/64k
       target_label: distances
       partition: test
       transform: ${transform.test}

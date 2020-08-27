@@ -4,6 +4,7 @@ import torch
 from pytorch_lightning import EvalResult
 from pytorch_lightning.core.lightning import LightningModule
 
+from sharpf.data import build_loaders
 from sharpf.utils.hydra import instantiate
 
 log = logging.getLogger(__name__)
@@ -82,3 +83,15 @@ class BaseLightningModule(LightningModule):
         optimizer = instantiate(self.hparams.opt, params=self.parameters())
         scheduler = instantiate(self.hparams.scheduler, optimizer=optimizer)
         return [optimizer], [scheduler]
+
+    def train_dataloader(self):
+        # defining it outside of pl module disables batch size auto scaling based on number of gpus
+        return build_loaders(self.hparams, 'train')[0]
+
+    def val_dataloader(self):
+        # defining it outside of pl module disables batch size auto scaling based on number of gpus
+        return build_loaders(self.hparams, 'val')
+
+    def test_dataloader(self):
+        # defining it outside of pl module disables batch size auto scaling based on number of gpus
+        return build_loaders(self.hparams, 'test')

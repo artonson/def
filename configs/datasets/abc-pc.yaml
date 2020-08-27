@@ -6,9 +6,7 @@ train:
       _target_: sharpf.utils.abc_utils.LotsOfHdf5Files
       io:
         _target_: sharpf.data.PointCloudIO
-      data_dir:
-        _target_: hydra.utils.to_absolute_path
-        path: data/abc/points/high/64k
+      data_dir: /trinity/home/r.rakhimov/sharp_features/data/abc/points/high/64k # fixme make user agnostic
       data_label: points
       target_label: distances
       partition: train
@@ -20,9 +18,7 @@ val:
       _target_: sharpf.utils.abc_utils.LotsOfHdf5Files
       io:
         _target_: sharpf.data.PointCloudIO
-      data_dir:
-        _target_: hydra.utils.to_absolute_path
-        path: data/abc/points/high/64k
+      data_dir: /trinity/home/r.rakhimov/sharp_features/data/abc/points/high/64k
       data_label: points
       target_label: distances
       partition: val
@@ -35,12 +31,10 @@ test:
       _target_: sharpf.utils.abc_utils.LotsOfHdf5Files
       io:
         _target_: sharpf.data.PointCloudIO
-      data_dir:
-        _target_: hydra.utils.to_absolute_path
-        path: data/abc/points/high/64k
+      data_dir: /trinity/home/r.rakhimov/sharp_features/data/abc/points/high/64k
       data_label: points
       target_label: distances
-      partition: test
+      partition: val
       transform: ${transform.test}
       max_loaded_files: 5
     evaluators: ${evaluators.test}
