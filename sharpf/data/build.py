@@ -36,6 +36,7 @@ def build_datasets(cfg, partition):
         dataset_name = dataset_param.dataset_name
         assert dataset_name not in datasets, f"dataset_name {dataset_name} is duplicated"
         datasets[dataset_name] = instantiate(dataset_param.dataset_class)
+        log.info(f"Dataset ({dataset_name}) contains {len(datasets[dataset_name])} elements")
 
     if partition == 'train' and len(datasets) > 1:
         key = 'concat_' + '_'.join(list(datasets.keys()))
