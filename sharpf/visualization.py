@@ -37,26 +37,26 @@ class Illustrator:
     def illustrate_to_file(self, batch_idx, data, preds, targets, metrics, name=None):
         pass
 
-
-class IllustratorPoints(Illustrator):
-
     def _illustrate_3d(self, data, pred, target, metric):
 
         plot = k3d.plot(grid_visible=False, axes_helper=0)
 
-        col_pred = get_colors(pred, cm.coolwarm_r)
-        col_true = get_colors(target, cm.coolwarm_r)
-        col_err = get_colors(metric, cm.jet)
+        col_pred = get_colors(pred.cpu().numpy(), cm.coolwarm_r)
+        col_true = get_colors(target.cpu().numpy(), cm.coolwarm_r)
+        col_err = get_colors(metric.cpu().numpy(), cm.jet)
 
-        points_true = k3d.points(data, col_true, point_size=0.05, shader='mesh')
-        points_pred = k3d.points(data, col_pred, point_size=0.05, shader='mesh')
-        points_err = k3d.points(data, col_err, point_size=0.05, shader='mesh')
+        points_true = k3d.points(data, col_true, point_size=0.1, shader='mesh')
+        points_pred = k3d.points(data, col_pred, point_size=0.1, shader='mesh')
+        points_err = k3d.points(data, col_err, point_size=0.1, shader='mesh')
         colorbar = k3d.line([[0, 0, 0], [0, 0, 0]], shader="mesh",
                             color_range=[0, 1], color_map=k3d.colormaps.matplotlib_color_maps.Jet)
 
         plot += points_true + points_pred + points_err + colorbar
 
         return plot
+
+
+class IllustratorPoints(Illustrator):
 
     def illustrate_to_file(self, batch_idx, data, preds, targets, metrics, name=None):
 
@@ -74,34 +74,21 @@ class IllustratorPoints(Illustrator):
 class IllustratorDepths(Illustrator):
 
     def _get_data_3d(self, data):
-        depth_pc = np.hstack((np.array(list(product(np.arange(data[0].shape[1]), np.arange(data[0].shape[0])))), data.reshape(-1, 1)))
-        data = torch.Tensor(depth_pc)
-        data -= data.mean(dim=1, keepdim=True)
-        data_3d = np.array(data.squeeze(0))
-        return data_3d
+        depth_pc = np.hstack((np.array(list(product(np.arange(data[0].shape[1]),
+                                                    np.arange(data[0].shape[0])))),
+                              data.reshape(-1, 1)))
+        depth_pc_tensor = torch.Tensor(depth_pc)
+        depth_pc_tensor -= depth_pc_tensor.mean(dim=1, keepdim=True)
+        points_scales = depth_pc_tensor.norm(dim=1).max(dim=0).values
+        depth_pc_tensor /= points_scales
 
-    def _illustrate_3d(self, data, pred, target, metric):
-        plot = k3d.plot()
-
-        col_tr = get_colors(target.cpu().numpy().reshape(-1), cm.coolwarm)
-        col_pr = get_colors(pred.cpu().numpy().reshape(-1), cm.coolwarm)
-        col_err = get_colors(metric.cpu().numpy().reshape(-1), cm.jet)
-
-        points_true = k3d.points(data, col_tr, point_size=0.05, shader='mesh')
-        points_pred = k3d.points(data, col_pr, point_size=0.05, shader='mesh')
-        points_err = k3d.points(data, col_err, point_size=0.05, shader='mesh')
-        colorbar = k3d.line([[0, 0, 0], [0, 0, 0]], shader="mesh",
-                            color_range=[0, 1], color_map=k3d.colormaps.matplotlib_color_maps.Jet)
-
-        plot += points_true + points_pred + points_err + colorbar
-
-        return plot
+        return np.array(depth_pc_tensor)
 
     def _illustrate_2d(self, data, pred, target, metric):
-        fig = plt.figure(figsize=(10, 10))
+        fig = plt.figure(figsize=(10, 10), dpi=200)
         grid = AxesGrid(fig, 111,  # similar to subplot(111)
                         nrows_ncols=(1, 4),
-                        axes_pad=0.5,  # pad between axes in inch.
+                        axes_pad=0.7,  # pad between axes in inch.
                         label_mode="1",
                         share_all=True,
                         cbar_location="right",
@@ -123,9 +110,9 @@ class IllustratorDepths(Illustrator):
         grid[0].set_title('Depth', fontsize=10)
 
         if self.task == 'regression':
-            ax_tg = grid[0].imshow(convert_dist(target.cpu().numpy(), m_dist), cmap=cmap_dist, vmin=0.0, vmax=1.0)
+            ax_tg = grid[1].imshow(convert_dist(target.cpu().numpy(), m_dist), cmap=cmap_dist, vmin=0.0, vmax=1.0)
         elif self.task == 'segmentation':
-            ax_tg = grid[0].imshow(target.cpu().numpy())
+            ax_tg = grid[1].imshow(target.cpu().numpy())
         else:
             # raise error
             ax_tg = None
@@ -134,12 +121,12 @@ class IllustratorDepths(Illustrator):
         cbar.ax.tick_params(labelsize=8)
         cbar.locator = ticker.MaxNLocator(5)
         cbar.update_ticks()
-        grid[0].set_title('GT', fontsize=10)
+        grid[1].set_title('GT', fontsize=10)
 
         if self.task == 'regression':
-            ax_pred = grid[0].imshow(convert_dist(pred.cpu().numpy(), m_dist), cmap=cmap_dist, vmin=0.0, vmax=1.0)
+            ax_pred = grid[2].imshow(convert_dist(pred.cpu().numpy(), m_dist), cmap=cmap_dist, vmin=0.0, vmax=1.0)
         elif self.task == 'segmentation':
-            ax_pred = grid[0].imshow(pred.cpu().numpy(), vmin=0.0, vmax=1.0)
+            ax_pred = grid[2].imshow(pred.cpu().numpy(), vmin=0.0, vmax=1.0)
         else:
             # raise error
             ax_pred = None
@@ -148,17 +135,17 @@ class IllustratorDepths(Illustrator):
         cbar.ax.tick_params(labelsize=8)
         cbar.locator = ticker.MaxNLocator(5)
         cbar.update_ticks()
-        grid[0].set_title('Prediction', fontsize=10)
+        grid[2].set_title('Prediction', fontsize=10)
 
         norm_metric = mpl.colors.Normalize(vmin=0, vmax=metric.max())
         cmap_metric = plt.get_cmap('viridis')
         m_metric = cm.ScalarMappable(norm=norm_metric, cmap=cmap_metric)
-        ax_metric = grid[0].imshow(convert_dist(metric.cpu().numpy(), m_metric), cmap=cmap_metric, vmin='0.0', vmax=metric.max())
+        ax_metric = grid[3].imshow(convert_dist(metric.cpu().numpy(), m_metric), cmap=cmap_metric, vmin='0.0', vmax=metric.max())
         cbar = fig.colorbar(ax_metric, cax=grid.cbar_axes[3], norm=norm_metric)
         cbar.ax.tick_params(labelsize=8)
         cbar.locator = ticker.MaxNLocator(6)
         cbar.update_ticks()
-        grid[0].set_title('Metric per pix', fontsize=8.5)
+        grid[3].set_title('Metric per pix', fontsize=8.5)
 
         return fig
 
@@ -172,9 +159,9 @@ class IllustratorDepths(Illustrator):
                 self.name = name
 
             plot_2d = self._illustrate_2d(data[sample][0], preds[sample][0], targets[sample][0], metrics[sample][0])
-            plot_2d.savefig(f'/trinity/home/g.bobrovskih/sharp_features_pl_hydra_orig/experiments/{self.name}.png')
+            plot_2d.savefig(f'./{self.name}.png')
 
             data_3d = self._get_data_3d(data[sample].cpu().numpy())
-            plot_3d = self._illustrate_3d(data_3d, preds[sample], targets[sample], metrics[sample])
-            with open(f'/trinity/home/g.bobrovskih/sharp_features_pl_hydra_orig/experiments/{self.name}.html', 'w') as f:
+            plot_3d = self._illustrate_3d(data_3d, preds[sample].reshape(-1), targets[sample].reshape(-1), metrics[sample].reshape(-1))
+            with open(f'./{self.name}.html', 'w') as f:
                 f.write(plot_3d.get_snapshot())

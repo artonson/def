@@ -16,6 +16,9 @@ from ...utils.abc_utils.hdf5.dataset import LotsOfHdf5Files, DepthDataset
 from ...utils.abc_utils.torch import CompositeTransform
 from ...visualization import IllustratorDepths
 
+import numpy as np
+from itertools import product
+
 log = logging.getLogger(__name__)
 
 
@@ -61,7 +64,11 @@ class DepthRegressor(LightningModule):
         mse_per_pix = F.mse_loss(preds, distances, reduction='none')  # preds.shape
         mean_squared_errors = mse_per_pix.mean(dim=1)  # (batch)
         root_mean_squared_errors = torch.sqrt(mean_squared_errors)
+        points_cpu = points.cpu().numpy()
+        depth_pc = np.hstack(
+            (np.array(list(product(np.arange(points_cpu[0][0].shape[1]), np.arange(points_cpu[0][0].shape[0])))), points_cpu[0].reshape(-1, 1)))
 
+        log.info('points shape ' + str(points.shape))
         self.illustrator.illustrate_to_file(batch_idx, points, preds, distances, mse_per_pix)
 
         # loss = hydra.utils.call(self.hparams.meta_arch.loss, preds, distances)
