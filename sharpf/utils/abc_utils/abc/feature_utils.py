@@ -193,6 +193,8 @@ def remove_boundary_features(mesh, features, how='none'):
             ]
             non_boundary = (curve_edges[:, None] != boundary_edges).any(2).all(1)
             non_boundary_vert_indices = np.unique(curve_edges[non_boundary])
+            if len(non_boundary_vert_indices) == 0:
+                continue
             non_boundary_curve['vert_indices'] = non_boundary_vert_indices
 
         non_boundary_curves.append(non_boundary_curve)
