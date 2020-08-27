@@ -60,10 +60,9 @@ class DepthRegressor(LightningModule):
 
         mse_per_pix = F.mse_loss(preds, distances, reduction='none')  # preds.shape
         mean_squared_errors = mse_per_pix.mean(dim=1)  # (batch)
-
         root_mean_squared_errors = torch.sqrt(mean_squared_errors)
 
-        self.illustrator.illustrate_to_file(self, preds, distances, mse_per_pix, type='all')
+        self.illustrator.illustrate_to_file(batch_idx, points, preds, distances, mse_per_pix)
 
         # loss = hydra.utils.call(self.hparams.meta_arch.loss, preds, distances)
         # self.logger[0].experiment.add_scalars('losses', {f'{prefix}_loss': loss})

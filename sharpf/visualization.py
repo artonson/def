@@ -1,6 +1,15 @@
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 import matplotlib.cm as cm
+import matplotlib.ticker as ticker
+from mpl_toolkits.axes_grid1 import AxesGrid
+import k3d
+from itertools import product
+import torch
+import numpy as np
+import msgpack
+
+# TODO: add saving data dir
 
 def get_colors(pred, cmap):
     hex_colors = []
@@ -25,7 +34,7 @@ class Illustrator:
     def __init__(self, task):
         self.task = task
 
-    def illustrate_to_file(self, batch_idx, data, preds, targets, metrics, type='all', name=None):
+    def illustrate_to_file(self, batch_idx, data, preds, targets, metrics, name=None):
         pass
 
 
@@ -49,30 +58,34 @@ class IllustratorPoints(Illustrator):
 
         return plot
 
-    def illustrate_to_file(self, batch_idx, data, preds, targets, metrics, type='all', name=None):
-
-        if type == 'all':
-            type = ['3d']
+    def illustrate_to_file(self, batch_idx, data, preds, targets, metrics, name=None):
 
         for sample in range(len(preds.size(0))):
             if name is None:
                 self.name = f'illustration-points_batch-{batch_idx}_idx-{sample}'
             else:
                 self.name = name
-            if '3d' in type or type == '3d':
-                plot_3d = self._illustrate_3d(data[sample], preds[sample], targets[sample], metrics[sample])
-                with open(f'../{name}.html', 'w') as f:
-                    f.write(plot_3d.get_snapshot())
+
+            plot_3d = self._illustrate_3d(data[sample], preds[sample], targets[sample], metrics[sample])
+            with open(f'experiments/{self.name}.html', 'w') as f:
+                f.write(plot_3d.get_snapshot())
 
 
 class IllustratorDepths(Illustrator):
 
+    def _get_data_3d(self, data):
+        depth_pc = np.hstack((np.array(list(product(np.arange(data[0].shape[1]), np.arange(data[0].shape[0])))), data.reshape(-1, 1)))
+        data = torch.Tensor(depth_pc)
+        data -= data.mean(dim=1, keepdim=True)
+        data_3d = np.array(data.squeeze(0))
+        return data_3d
+
     def _illustrate_3d(self, data, pred, target, metric):
         plot = k3d.plot()
 
-        col_tr = get_colors(target.reshape(-1), cm.coolwarm)
-        col_pr = get_colors(pred.reshape(-1), cm.coolwarm)
-        col_err = get_colors(metric, cm.jet)
+        col_tr = get_colors(target.cpu().numpy().reshape(-1), cm.coolwarm)
+        col_pr = get_colors(pred.cpu().numpy().reshape(-1), cm.coolwarm)
+        col_err = get_colors(metric.cpu().numpy().reshape(-1), cm.jet)
 
         points_true = k3d.points(data, col_tr, point_size=0.05, shader='mesh')
         points_pred = k3d.points(data, col_pr, point_size=0.05, shader='mesh')
@@ -101,7 +114,7 @@ class IllustratorDepths(Illustrator):
         cmap_dist = plt.get_cmap('coolwarm_r')
         m_dist = cm.ScalarMappable(norm=norm_dist, cmap=cmap_dist)
 
-        ax_data = grid[0].imshow(data)
+        ax_data = grid[0].imshow(data.cpu().numpy())
         cbar = fig.colorbar(ax_data, cax=grid.cbar_axes[0])
         cbar.set_ticks((data.min(), data.max()))
         cbar.ax.tick_params(labelsize=8)
@@ -110,9 +123,9 @@ class IllustratorDepths(Illustrator):
         grid[0].set_title('Depth', fontsize=10)
 
         if self.task == 'regression':
-            ax_tg = grid[0].imshow(convert_dist(target, m_dist), cmap=cmap_dist, vmin=0.0, vmax=1.0)
+            ax_tg = grid[0].imshow(convert_dist(target.cpu().numpy(), m_dist), cmap=cmap_dist, vmin=0.0, vmax=1.0)
         elif self.task == 'segmentation':
-            ax_tg = grid[0].imshow(target)
+            ax_tg = grid[0].imshow(target.cpu().numpy())
         else:
             # raise error
             ax_tg = None
@@ -124,9 +137,9 @@ class IllustratorDepths(Illustrator):
         grid[0].set_title('GT', fontsize=10)
 
         if self.task == 'regression':
-            ax_pred = grid[0].imshow(convert_dist(pred, m_dist), cmap=cmap_dist, vmin=0.0, vmax=1.0)
+            ax_pred = grid[0].imshow(convert_dist(pred.cpu().numpy(), m_dist), cmap=cmap_dist, vmin=0.0, vmax=1.0)
         elif self.task == 'segmentation':
-            ax_pred = grid[0].imshow(pred, vmin=0.0, vmax=1.0)
+            ax_pred = grid[0].imshow(pred.cpu().numpy(), vmin=0.0, vmax=1.0)
         else:
             # raise error
             ax_pred = None
@@ -140,8 +153,8 @@ class IllustratorDepths(Illustrator):
         norm_metric = mpl.colors.Normalize(vmin=0, vmax=metric.max())
         cmap_metric = plt.get_cmap('viridis')
         m_metric = cm.ScalarMappable(norm=norm_metric, cmap=cmap_metric)
-        ax_metric = grid[0].imshow(convert_dist(metric, m_metric), cmap=cmap_metric, vmin='0.0', vmax=metric.max())
-        cbar = fig.colorbar(ax_metric, cax=cax, norm=norm_metric)
+        ax_metric = grid[0].imshow(convert_dist(metric.cpu().numpy(), m_metric), cmap=cmap_metric, vmin='0.0', vmax=metric.max())
+        cbar = fig.colorbar(ax_metric, cax=grid.cbar_axes[3], norm=norm_metric)
         cbar.ax.tick_params(labelsize=8)
         cbar.locator = ticker.MaxNLocator(6)
         cbar.update_ticks()
@@ -149,24 +162,19 @@ class IllustratorDepths(Illustrator):
 
         return fig
 
-    def illustrate_to_file(self, batch_idx, data, preds, targets, metrics, type='all', name=None):
+    def illustrate_to_file(self, batch_idx, data, preds, targets, metrics, name=None):
 
-        if type == 'all':
-            type = ['3d', '2d']
+        for sample in range(int(preds.size(0))):
 
-        for sample in range(len(preds.size(0))):
             if name is None:
                 self.name = f'illustration-depths_task-{self.task}_batch-{batch_idx}_idx-{sample}'
             else:
                 self.name = name
 
-            if '2d' in type or type == '2d':
-                plot_2d = self._illustrate_2d(data[sample], preds[sample], targets[sample], metrics[sample])
-                plot_2d.savefig(f'../{name}.png')
+            plot_2d = self._illustrate_2d(data[sample][0], preds[sample][0], targets[sample][0], metrics[sample][0])
+            plot_2d.savefig(f'/trinity/home/g.bobrovskih/sharp_features_pl_hydra_orig/experiments/{self.name}.png')
 
-            if '3d' in type or type == '3d':
-                plot_3d = self._illustrate_3d(data[sample], preds[sample], targets[sample], metrics[sample])
-                with open(f'../{name}.html', 'w') as f:
-                    f.write(plot_3d.get_snapshot())
-
-
+            data_3d = self._get_data_3d(data[sample].cpu().numpy())
+            plot_3d = self._illustrate_3d(data_3d, preds[sample], targets[sample], metrics[sample])
+            with open(f'/trinity/home/g.bobrovskih/sharp_features_pl_hydra_orig/experiments/{self.name}.html', 'w') as f:
+                f.write(plot_3d.get_snapshot())
