@@ -44,7 +44,7 @@ def main(cfg: DictConfig):
     checkpoint_callback = ModelCheckpoint(save_last=True, save_top_k=1, verbose=True)
 
     # init early stopping callback
-    early_stop_callback = EarlyStopping(patience=1, verbose=True,
+    early_stop_callback = EarlyStopping(patience=10, verbose=True,
                                         mode=cfg.task.early_stop_mode) if cfg.task.early_stop_on is not None else None
 
     # init profiler
