@@ -1,5 +1,6 @@
 import torch.nn as nn
 
+from .. import logits_to_scalar
 from ...utils.init import initialize_head
 
 
@@ -15,3 +16,14 @@ class PixelRegressor(nn.Module):
 
     def forward(self, x):
         return self.regression_head(self.feature_extractor(x))
+
+
+class PixelRegressorHist(PixelRegressor):
+
+    def forward(self, x):
+        result = super().forward(x)
+        if not self.training:
+            result = result.permute(0, 2, 3, 1)  # (B, H, W, C)
+            result = logits_to_scalar(result)  # (B, H, W, 1)
+            result = result.permute(0, 3, 1, 2)  # (B, 1, H, W)
+        return result

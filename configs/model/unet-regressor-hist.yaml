@@ -1,0 +1,24 @@
+# @package _group_
+
+example_input_array:
+  _target_: torch.rand
+  size: [1, 1, 64, 64]
+
+_class:
+  _target_: sharpf.modeling.PixelRegressorHist
+  feature_extractor:
+    _target_: sharpf.modeling.Unet
+    encoder_name: resnet50
+    decoder_use_batchnorm: true
+    decoder_channels: [256, 128, 64, 32, 16]
+    in_channels: 1
+  regression_head:
+    _target_: sharpf.modeling.Sequential
+    modules:
+      - _target_: torch.nn.Dropout
+        p: 0.5
+      - _target_: torch.nn.Conv2d
+        in_channels: 16
+        out_channels: 244
+        kernel_size: 3
+        padding: 1

@@ -1,0 +1,67 @@
+# @package _group_
+
+# ref implementation: https://github.com/WangYueFt/dgcnn/blob/master/tensorflow/sem_seg/model.py
+
+example_input_array:
+  _target_: torch.rand
+  size: [1, 4096, 3]
+
+dropout_prob: 0.0
+
+_class:
+  _target_: sharpf.modeling.DGCNNHist
+  encoder_blocks:
+    - _target_: sharpf.modeling.PointOpBlock
+      neighbours:
+        _target_: sharpf.modeling.NeighbourKNN
+        k: 30
+      local_transform:
+        _target_: sharpf.modeling.LocalDynamicGraph
+      feature_extractor:
+        _target_: sharpf.modeling.StackedConv
+        channels: [6, 64, 64]
+      aggregation:
+        _target_: sharpf.modeling.AggregationMax
+    - _target_: sharpf.modeling.PointOpBlock
+      neighbours:
+        _target_: sharpf.modeling.NeighbourKNN
+        k: 30
+      local_transform:
+        _target_: sharpf.modeling.LocalDynamicGraph
+      feature_extractor:
+        _target_: sharpf.modeling.StackedConv
+        channels: [128, 64, 64]
+      aggregation:
+        _target_: sharpf.modeling.AggregationMax
+    - _target_: sharpf.modeling.PointOpBlock
+      neighbours:
+        _target_: sharpf.modeling.NeighbourKNN
+        k: 30
+      local_transform:
+        _target_: sharpf.modeling.LocalDynamicGraph
+      feature_extractor:
+        _target_: sharpf.modeling.StackedConv
+        channels: [128, 64, 64]
+      aggregation:
+        _target_: sharpf.modeling.AggregationMax
+  decoder_blocks:
+    - _target_: sharpf.modeling.PointOpBlock
+      in_features: [0, 1, 2]
+      feature_extractor:
+        _target_: sharpf.modeling.StackedConv
+        channels: [192, 4096]
+      aggregation:
+        _target_: sharpf.modeling.GlobalMaxPooling
+    - _target_: sharpf.modeling.PointOpBlock
+      in_features: [0, 1, 2]
+      feature_extractor:
+        _target_: sharpf.modeling.StackedConv
+        channels: [4288, 512, 256]
+        dropout_prob: ${model.dropout_prob}
+    - _target_: sharpf.modeling.PointOpBlock
+      feature_extractor:
+        _target_: sharpf.modeling.StackedConv
+        channels: [256, 244]
+        bn: false
+        relu: false
+        conv_bias: true

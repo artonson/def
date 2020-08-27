@@ -179,7 +179,7 @@ class DepthDataset(LotsOfHdf5Files):
             close_to_sharp = np.array((dist_mask != np.nan) & (dist_mask < 1.)).astype(float)
             output['close_to_sharp_mask'] = torch.FloatTensor(close_to_sharp).unsqueeze(0)
         if 'regression' in self.task:
-            output['distances'] = torch.FloatTensor(dist_mask).unsqueeze(0)
+            output['distances'] = torch.FloatTensor(dist_mask)
         assert len(output.keys()) > 1, f"{self.task}, {output.keys()}"
 
         return output

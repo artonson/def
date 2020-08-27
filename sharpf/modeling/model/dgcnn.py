@@ -1,6 +1,8 @@
 import torch
 import torch.nn as nn
 
+from sharpf.modeling import logits_to_scalar
+
 
 class DGCNN(nn.Module):
 
@@ -10,6 +12,12 @@ class DGCNN(nn.Module):
         self.decoder_blocks = nn.ModuleList(decoder_blocks)
 
     def forward(self, points):
+        """
+        Args:
+            points (Tensor): of shape (B, N, C_in)
+        Returns:
+            Tensor: of shape (B, N, C_out)
+        """
         activations = []
         features = points
         for block in self.encoder_blocks:
@@ -22,5 +30,21 @@ class DGCNN(nn.Module):
                 dim=2
             )
             features = [block(concatenated_features)]
-        features = features[0].squeeze(-1).squeeze(-1)
+        features = features[0].squeeze(3)
         return features
+
+
+class DGCNNHist(DGCNN):
+
+    def forward(self, points):
+        """
+        Args:
+            points (Tensor): of shape (B, N, C_in)
+        Returns:
+            Tensor: of shape (B, N, C_out)
+                if self.training=False then C_out=1 else C_out=number of logits
+        """
+        result = super().forward(points)
+        if not self.training:
+            result = logits_to_scalar(result)
+        return result

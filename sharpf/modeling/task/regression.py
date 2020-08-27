@@ -18,6 +18,10 @@ class SharpFeaturesRegressionTask(BaseLightningModule):
 
     def forward(self, x, clamp=True):
         out = self.model(x)
+        if out.ndim == 3:  # (B, N, 1) -> (B, N)
+            out = out.squeeze(2)
+        if out.ndim == 4:  # (B, 1, H, W) -> (B, H, W)
+            out = out.squeeze(1)
         if clamp:
             out = out.clamp(0.0, 1.0)
         return out
@@ -31,6 +35,11 @@ class SharpFeaturesRegressionTask(BaseLightningModule):
         points, distances = batch['points'], batch['distances']
         self._check_range(distances)
         preds = self.forward(points, clamp=False)
+        if preds.ndim == 4:
+            preds = preds.permute(0, 2, 3, 1)  # (B, H, W, C)
+            b, h, w, c = preds.size()
+            preds = preds.view(b, h * w, c)
+            distances = distances.view(b, h * w)
         loss = call(self.hparams.task.loss, preds, distances)
         result = TrainResult(minimize=loss)
         result.log('train_loss', loss, prog_bar=True, on_epoch=True, sync_dist=True)
