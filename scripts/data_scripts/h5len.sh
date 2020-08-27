@@ -1,13 +1,14 @@
 #!/bin/bash
 
-module load apps/singularity-3.2.0
+set -x
+set -e
 
 __usage="Usage: $0 -i input_dir"
 usage() { echo "$__usage" >&2; }
 
 # Get all the required options and set the necessary variables
 TOTALS=false
-while getopts "i:" opt
+while getopts "ti:" opt
 do
     case ${opt} in
         i) INPUT_DIR_HOST=$OPTARG;;
@@ -41,5 +42,9 @@ singularity exec \
   "${SIMAGE_FILENAME}" \
       bash -c \
       "python3 ${H5_LEN_SCRIPT} \\
-        --input-dir ${INPUT_DIR_CONTAINER}"
-        ${TOTALS_ARG}
+        --input-dir ${INPUT_DIR_CONTAINER} \\
+        ${TOTALS_ARG}"
+#      -fk has_smell_coarse_surfaces_by_num_faces \\
+#      -fk has_smell_coarse_surfaces_by_angles \\
+#      -fk has_smell_deviating_resolution \\
+#      -fk has_smell_sharpness_discontinuities

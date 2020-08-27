@@ -5,6 +5,7 @@ from functools import partial
 import os
 import sys
 
+import tqdm
 from torch.utils.data import DataLoader
 
 __dir__ = os.path.normpath(
@@ -22,11 +23,11 @@ def main(options):
     labels = ['has_sharp'] + options.true_keys + options.false_keys
 
     if None is not options.h5_input:
-        dataset = Hdf5File(options.h5_input, IO, labels=labels, preload=PreloadTypes.NEVER)
+        dataset = Hdf5File(options.h5_input, IO, labels=labels, preload=PreloadTypes.LAZY)
         print('{} items in {}'.format(len(dataset), dataset.filename))
     else:
         assert None is not options.h5_input_dir
-        dataset = LotsOfHdf5Files(options.h5_input_dir, IO, labels=labels, preload=PreloadTypes.NEVER)
+        dataset = LotsOfHdf5Files(options.h5_input_dir, IO, labels=labels, preload=PreloadTypes.LAZY)
         if not options.total_only:
             for sub_dataset in dataset.files:
                 print('{} items in {}'.format(len(sub_dataset), sub_dataset.filename))
@@ -42,9 +43,11 @@ def main(options):
         )
 
         filtered_num_items = 0
-        for batch in loader:
+        for batch in tqdm.tqdm(loader):
             filtered_batch = select_items_by_predicates(
-                batch, true_keys=options.true_keys, false_keys=options.false_keys)
+                batch,
+                true_keys=options.true_keys or None,
+                false_keys=options.false_keys or None)
             filtered_num_items += filtered_batch['has_sharp']
 
         print('Filtered by TRUE [{}] and FALSE [{}]: {} items'.format(
