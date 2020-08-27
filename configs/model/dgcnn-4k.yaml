@@ -2,86 +2,64 @@
 
 # ref implementation: https://github.com/WangYueFt/dgcnn/blob/master/tensorflow/sem_seg/model.py
 
-model_name: DGCNN
-params:
+example_input_array:
+  _target_: torch.rand
+  size: [1, 4096, 3]
+
+_class:
+  _target_: sharpf.modeling.DGCNN
   encoder_blocks:
-    - in_features: null
+    - _target_: sharpf.modeling.PointOpBlock
       neighbours:
         _target_: sharpf.modeling.NeighbourKNN
         k: 30
       local_transform:
         _target_: sharpf.modeling.LocalDynamicGraph
-      features:
+      feature_extractor:
         _target_: sharpf.modeling.StackedConv
         channels: [6, 64, 64]
       aggregation:
         _target_: sharpf.modeling.AggregationMax
-      interpolation:
-        _target_: torch.nn.Identity
-    - in_features: null
+    - _target_: sharpf.modeling.PointOpBlock
       neighbours:
         _target_: sharpf.modeling.NeighbourKNN
         k: 30
       local_transform:
         _target_: sharpf.modeling.LocalDynamicGraph
-      features:
+      feature_extractor:
         _target_: sharpf.modeling.StackedConv
         channels: [128, 64, 64]
       aggregation:
         _target_: sharpf.modeling.AggregationMax
-      interpolation:
-        _target_: torch.nn.Identity
-    - in_features: null
+    - _target_: sharpf.modeling.PointOpBlock
       neighbours:
         _target_: sharpf.modeling.NeighbourKNN
         k: 30
       local_transform:
         _target_: sharpf.modeling.LocalDynamicGraph
-      features:
+      feature_extractor:
         _target_: sharpf.modeling.StackedConv
         channels: [128, 64, 64]
       aggregation:
         _target_: sharpf.modeling.AggregationMax
-      interpolation:
-        _target_: torch.nn.Identity
   decoder_blocks:
-    - in_features: [0, 1, 2]
-      neighbours:
-        _target_: torch.nn.Identity
-      local_transform:
-        _target_: torch.nn.Identity
-      features:
+    - _target_: sharpf.modeling.PointOpBlock
+      in_features: [0, 1, 2]
+      feature_extractor:
         _target_: sharpf.modeling.StackedConv
         channels: [192, 4096]
       aggregation:
         _target_: sharpf.modeling.GlobalMaxPooling
-      interpolation:
-        _target_: torch.nn.Identity
-    - in_features: [0, 1, 2]
-      neighbours:
-        _target_: torch.nn.Identity
-      local_transform:
-        _target_: torch.nn.Identity
-      features:
+    - _target_: sharpf.modeling.PointOpBlock
+      in_features: [0, 1, 2]
+      feature_extractor:
         _target_: sharpf.modeling.StackedConv
         channels: [4288, 512, 256]
         dropout_prob: 0.5
-      aggregation:
-        _target_: torch.nn.Identity
-      interpolation:
-        _target_: torch.nn.Identity
-    - in_features: null
-      neighbours:
-        _target_: torch.nn.Identity
-      local_transform:
-        _target_: torch.nn.Identity
-      features:
+    - _target_: sharpf.modeling.PointOpBlock
+      feature_extractor:
         _target_: sharpf.modeling.StackedConv
         channels: [256, 1]
         bn: false
         relu: false
         conv_bias: true
-      aggregation:
-        _target_: torch.nn.Identity
-      interpolation:
-        _target_: torch.nn.Identity

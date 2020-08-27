@@ -1,0 +1,46 @@
+# @package _group_
+
+train:
+  - dataset_name: train
+    dataset_class:
+      _target_: sharpf.utils.abc_utils.DepthDataset
+      task: regression
+      io:
+        _target_: sharpf.data.DepthMapIO
+      data_dir:
+        _target_: hydra.utils.to_absolute_path
+        path: data/abc/images/high/64k
+      target_label: distances
+      partition: train
+      transform: ${transform.train}
+      max_loaded_files: 5
+val:
+  - dataset_name: val
+    dataset_class:
+      _target_: sharpf.utils.abc_utils.DepthDataset
+      task: regression
+      io:
+        _target_: sharpf.data.DepthMapIO
+      data_dir:
+        _target_: hydra.utils.to_absolute_path
+        path: data/abc/images/high/64k
+      target_label: distances
+      partition: val
+      transform: ${transform.val}
+      max_loaded_files: 5
+    evaluators: ${evaluators.val}
+test:
+  - dataset_name: test
+    dataset_class:
+      _target_: sharpf.utils.abc_utils.DepthDataset
+      task: regression
+      io:
+        _target_: sharpf.data.DepthMapIO
+      data_dir:
+        _target_: hydra.utils.to_absolute_path
+        path: data/abc/images/high/64k
+      target_label: distances
+      partition: test
+      transform: ${transform.test}
+      max_loaded_files: 5
+    evaluators: ${evaluators.test}

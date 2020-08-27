@@ -1,6 +1,5 @@
-from .meta_arch import PointSharpnessRegressor, DepthRegressor, DepthSegmentator
 from .metrics import balanced_accuracy
-from .model import MODEL_REGISTRY, build_model, DGCNN, Unet, PixelRegressor
+from .model import DGCNN, Unet, PixelRegressor, PixelSegmentator, Sequential
 from .modules import (
     AggregationMax,
     GlobalMaxPooling,
@@ -10,3 +9,4 @@ from .modules import (
     PointOpBlock,
     UnetDecoder
 )
+from .task import SharpFeaturesRegressionTask, SharpFeaturesSegmentationTask

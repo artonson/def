@@ -11,7 +11,6 @@ from ..py_utils.parallel import threaded_parallel
 
 log = logging.getLogger(__name__)
 
-high_res_quantile = 7.4776
 
 class Hdf5File(Dataset):
     def __init__(self, filename, io, data_label=None, target_label=None, labels=None, preload=True,
@@ -112,7 +111,8 @@ class LotsOfHdf5Files(Dataset):
         else:
             filenames = sorted(list(filenames))
 
-        # TODO check existance of every filename
+        for filename in filenames:
+            assert os.path.exists(filename)
 
         def _hdf5_creator(filename):
             try:
@@ -143,86 +143,43 @@ class LotsOfHdf5Files(Dataset):
             self.files[file_index_to_unload].unload()
         return item
 
+
 class DepthDataset(LotsOfHdf5Files):
 
-    def __init__(self, io, data_dir, data_label, target_label, task, partition=None,
-                 transform=None, normalisation=['quantile', 'standartize'], max_loaded_files=0):
-        super().__init__(data_dir=data_dir, io=io,
-                         data_label=data_label, target_label=target_label,
-                         labels=None,
+    def __init__(self, task, io, data_dir=None, filenames=None, target_label=None, labels=None,
+                 partition=None, transform=None, max_loaded_files=0):
+        super().__init__(io=io, data_dir=data_dir, filenames=filenames,
+                         data_label='image', target_label=target_label,
+                         labels=labels,
                          partition=partition,
-                         transform=transform,
+                         transform=None,
                          max_loaded_files=max_loaded_files)
-        self.data_dir = data_dir
         self.task = task
-        self.quality = self._get_quantity()
-        self.normalisation = normalisation
-
-    def _get_quantity(self):
-        data_dir_split = self.data_dir.split('_')
-        if 'high' in data_dir_split:
-            return 'high'
-        elif 'low' in data_dir_split:
-            return 'low'
-        elif 'med' in data_dir_split:
-            return 'med'
-
-    def quantile_normalize(self, data):
-        # mask -> min shift -> quantile
-
-        norm_data = np.copy(data)
-        mask_obj = np.where(norm_data != 0)
-        mask_back = np.where(norm_data == 0)
-        norm_data[mask_back] = norm_data.max() + 1.0  # new line
-        norm_data -= norm_data[mask_obj].min()
-
-        norm_data /= high_res_quantile
-
-        return norm_data
-
-    def standartize(self, data):
-        # zero mean, unit variance
-
-        standart_data = np.copy(data)
-        standart_data -= np.mean(standart_data)
-        std = np.linalg.norm(standart_data, axis=1).max()
-        if std > 0:
-            standart_data /= std
-
-        return standart_data
+        self.transform = transform
 
     def __getitem__(self, index):
 
+        # TODO it is possible to convert all these processing steps to transform objects, and then delete this class
+
         item = super().__getitem__(index)
         data, target = item['image'], item['distances']
+
         mask_1 = (np.copy(data) != 0.0).astype(float)  # mask for object
         mask_2 = np.where(data == 0)  # mask for background
-
-        if 'quantile' in self.normalisation:
-            data = self.quantile_normalize(data)
-        if 'standartize' in self.normalisation:
-            data = self.standartize(data)
-
         dist_new = np.copy(target)
         dist_mask = dist_new * mask_1  # select object points
         dist_mask[mask_2] = 1.0  # background points has max distance to sharp features
-        close_to_sharp = np.array((dist_mask != np.nan) & (dist_mask < 1.)).astype(float)
 
-        output = {}
+        if self.transform is not None:
+            data, target = self.transform(data, target)
 
-        if self.task == 'two-heads':
-            # regression + segmentation (or two-head network) has to targets:
-            # distance field and segmented close-to-sharp region of the object
-            target = torch.cat([torch.FloatTensor(dist_mask).unsqueeze(0), torch.FloatTensor(close_to_sharp).unsqueeze(0)], dim=0)
-            output['distance_and_close_to_sharp'] = target
-        if self.task == 'segmentation':
-            target = torch.FloatTensor(close_to_sharp).unsqueeze(0)
-            output['close_to_sharp_mask'] = target
-        elif self.task == 'regression':
-            target = torch.FloatTensor(dist_mask).unsqueeze(0)
-            output['distance_to_sharp'] = target
+        output = {'points': torch.FloatTensor(data).unsqueeze(0)}
 
-        data = torch.FloatTensor(data).unsqueeze(0)
-        output['image'] = data
+        if 'segmentation' in self.task:
+            close_to_sharp = np.array((dist_mask != np.nan) & (dist_mask < 1.)).astype(float)
+            output['close_to_sharp_mask'] = torch.FloatTensor(close_to_sharp).unsqueeze(0)
+        if 'regression' in self.task:
+            output['distances'] = torch.FloatTensor(dist_mask).unsqueeze(0)
+        assert len(output.keys()) > 1, f"{self.task}, {output.keys()}"
 
         return output

@@ -22,7 +22,7 @@ ln -s /gpfs/gpfs0/3ddl/sharp_features/eccv_data/images/dataset_config_high_res_c
 
 ### Train & test the network
 ```bash
-python train_net.py hydra.run.dir=experiments/my_exp trainer.gpus=4 trainer.max_epochs=10 model=dgcnn-4k data=abc-pointcloud transforms=pc-basic meta_arch=point-sharpness-regressor
+python train_net.py hydra.run.dir=experiments/my_exp trainer.gpus=4 trainer.max_epochs=10 model=dgcnn-4k datasets=abc-pointcloud transforms=pc-basic task=regression evaluators=regression
 ```
 
 ### Test the network

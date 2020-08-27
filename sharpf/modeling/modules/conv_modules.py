@@ -20,7 +20,6 @@ class StackedConv(nn.Module):
             conv_bias=False,
     ):
         super().__init__()
-        channels = list(channels)
         self.channels = channels
         self.kernel_size = kernel_size
         self.bn = bn

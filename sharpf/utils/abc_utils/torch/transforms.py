@@ -81,3 +81,42 @@ class RandomSubsamplePoints(AbstractTransform):
         i_subset = np.random.choice(
             np.arange(n_points), size=self.n_points, replace=False, p=p.numpy())
         return data[i_subset], target[i_subset]
+
+
+class QuantileNormalize(AbstractTransform):
+
+    def __init__(self, quantile):
+        self.quantile = quantile
+
+    def __call__(self, data, target):
+        # mask -> min shift -> quantile
+
+        norm_data = np.copy(data)
+        mask_obj = np.where(norm_data != 0)
+        mask_back = np.where(norm_data == 0)
+        norm_data[mask_back] = norm_data.max() + 1.0  # new line
+        norm_data -= norm_data[mask_obj].min()
+
+        norm_data /= self.quantile
+
+        return norm_data, target
+
+
+class HighResQuantileNormalize(QuantileNormalize):
+
+    def __init__(self):
+        super().__init__(7.4776)
+
+
+class Standardize(AbstractTransform):
+
+    def __call__(self, data, target):
+        # zero mean, unit variance
+
+        standart_data = np.copy(data)
+        standart_data -= np.mean(standart_data)
+        std = np.linalg.norm(standart_data, axis=1).max()
+        if std > 0:
+            standart_data /= std
+
+        return standart_data, target

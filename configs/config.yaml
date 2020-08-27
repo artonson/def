@@ -1,8 +1,9 @@
 defaults:
-  - data: abc-pc
+  - datasets: abc-pc
   - model: dgcnn-4k
-  - transforms: pc-basic
-  - meta_arch: point-sharpness-regressor
+  - transform: pc-basic
+  - task: regression
+  - evaluators: regression
   - trainer: trainer
   - scheduler: step
   - opt: adam
@@ -23,7 +24,7 @@ data_loader:
 
 eval_only: false
 
-# if eval_only = true: test_wights must be the absolute path to weights
+# if eval_only = true: test_weights must be the absolute path to weights
 # otherwise use `null` if you want to use the last checkpoint after training or `best` to choose the checkpoint
 # performing best on the validation set
 test_weights: best

@@ -1,7 +1,0 @@
-# @package _group_
-
-pl_class:
-  _target_: sharpf.modeling.DepthSegmentator
-monitor: val_balanced_accuracy 
-loss:
-  _target_: torch.nn.functional.binary_cross_entropy_with_logits

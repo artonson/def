@@ -1,0 +1,11 @@
+# @package _group_
+
+pl_class:
+  _target_: sharpf.modeling.SharpFeaturesRegressionTask
+
+loss:
+  _target_: torch.nn.functional.mse_loss
+
+checkpoint_on: mean_rmse/val
+early_stop_on: ${task.checkpoint_on}
+early_stop_mode: min
