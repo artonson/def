@@ -4,7 +4,7 @@ pl_class:
   _target_: sharpf.modeling.SharpFeaturesRegressionTask
 
 loss:
-  _target_: torch.nn.functional.mse_loss
+  _target_: sharpf.modeling.kl_div_loss
 
 checkpoint_on: mean_rmse/val
 early_stop:
