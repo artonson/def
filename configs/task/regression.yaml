@@ -7,5 +7,8 @@ loss:
   _target_: torch.nn.functional.mse_loss
 
 checkpoint_on: mean_rmse/val
-early_stop_on: ${task.checkpoint_on}
-early_stop_mode: min
+early_stop:
+  value: ${task.checkpoint_on}
+  mode: min
+  min_delta: 0.001
+  patience: 5

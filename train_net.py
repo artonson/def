@@ -1,11 +1,10 @@
 import logging
 import os
 
-from sharpf.data import build_loaders
-
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 import hydra
+import torch
 from omegaconf import OmegaConf
 from hydra.utils import instantiate
 from omegaconf import DictConfig
@@ -13,12 +12,9 @@ from pytorch_lightning import seed_everything, Trainer
 from pytorch_lightning.callbacks import LearningRateLogger, ModelCheckpoint, EarlyStopping
 from pytorch_lightning.loggers import TensorBoardLogger
 from pytorch_lightning.profiler import SimpleProfiler
-import torch
 
 from sharpf.utils.callbacks import FitDurationCallback
 from sharpf.utils.collect_env import collect_env_info
-
-from configs import trainer, optimizer, scheduler
 
 log = logging.getLogger(__name__)
 
@@ -38,14 +34,22 @@ def main(cfg: DictConfig):
     logger1 = TensorBoardLogger('tb_logs')
 
     # init useful callbacks
-    callbacks = [LearningRateLogger(), FitDurationCallback()] if not cfg.eval_only else None
+    callbacks = None
+    if not cfg.eval_only:
+        callbacks = [LearningRateLogger(), FitDurationCallback()]
 
     # init checkpoint callback
-    checkpoint_callback = ModelCheckpoint(save_last=True, save_top_k=1, verbose=True)
+    checkpoint_callback = None
+    if not cfg.eval_only:
+        checkpoint_callback = ModelCheckpoint(save_last=True, save_top_k=1, verbose=True)
 
     # init early stopping callback
-    early_stop_callback = EarlyStopping(patience=10, verbose=True,
-                                        mode=cfg.task.early_stop_mode) if cfg.task.early_stop_on is not None else None
+    early_stop_callback = None
+    if not cfg.eval_only and cfg.task.early_stop.value is not None:
+        early_stop_callback = EarlyStopping(
+            patience=cfg.task.early_stop.patience,
+            verbose=True,
+            mode=cfg.task.early_stop.mode)
 
     # init profiler
     profiler_output_filename = 'profile.txt'

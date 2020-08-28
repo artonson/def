@@ -51,7 +51,7 @@ class BaseLightningModule(LightningModule):
 
         if partition == 'val' and 'early_stop_on' in self.hparams.task and self.hparams.task.early_stop_on in results[
             'scalars']:
-            early_stop_on = torch.tensor(results['scalars'][self.hparams.task.early_stop_on])
+            early_stop_on = torch.tensor(results['scalars'][self.hparams.task.early_stop.value])
         else:
             early_stop_on = None
 
