@@ -6,7 +6,6 @@ example_input_array:
   _target_: torch.rand
   size: [1, 4096, 3]
 
-dropout_prob: 0.0
 
 _class:
   _target_: sharpf.modeling.DGCNNHist
@@ -57,7 +56,7 @@ _class:
       feature_extractor:
         _target_: sharpf.modeling.StackedConv
         channels: [4288, 512, 256]
-        dropout_prob: ${model.dropout_prob}
+        dropout_prob: 0.0
     - _target_: sharpf.modeling.PointOpBlock
       feature_extractor:
         _target_: sharpf.modeling.StackedConv

@@ -16,7 +16,7 @@ _class:
     _target_: sharpf.modeling.Sequential
     modules:
       - _target_: torch.nn.Dropout
-        p: 0.5
+        p: 0.0
       - _target_: torch.nn.Conv2d
         in_channels: 16
         out_channels: 244
