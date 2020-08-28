@@ -24,7 +24,14 @@ RUN apt-get clean \
     tmux \
     screen \
     htop \
-    p7zip-full
+    p7zip-full \
+    libeigen3-dev \
+    libgmp-dev \
+    libgmpxx4ldbl \
+    libmpfr-dev \
+    libboost-dev \
+    libboost-thread-dev \
+    libtbb-dev
 
 
 # Create a non-root user and switch to it.
@@ -85,3 +92,11 @@ COPY --chown=user contrib/pythonaabb /home/user/code/pythonaabb
 RUN cd /home/user/code/pythonaabb && pip install .
 RUN git clone https://github.com/Toblerity/rtree.git /home/user/code/rtree \
  && cd /home/user/code/rtree && python setup.py install
+
+RUN git clone https://github.com/PyMesh/PyMesh.git /home/user/code/pymesh \
+ && cd /home/user/code/pymesh \
+ && git submodule update --init \
+ && export PYMESH_PATH=`pwd` \
+ && pip install -r /home/user/code/pymesh/python/requirements.txt \
+ && python setup.py build \
+ && python setup.py install --user

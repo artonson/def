@@ -63,7 +63,16 @@ DepthMapIO = io.HDF5IO({
         'num_sharp_curves': io.Int8('num_sharp_curves'),
         'num_surfaces': io.Int8('num_surfaces'),
         'camera_pose': io.Float64('camera_pose'),
-        'mesh_scale': io.Float64('mesh_scale')
+        'mesh_scale': io.Float64('mesh_scale'),
+        'has_smell_coarse_surfaces_by_num_faces': io.Bool('has_smell_coarse_surfaces_by_num_faces'),
+        'has_smell_coarse_surfaces_by_angles': io.Bool('has_smell_coarse_surfaces_by_angles'),
+        'has_smell_deviating_resolution': io.Bool('has_smell_deviating_resolution'),
+        'has_smell_sharpness_discontinuities': io.Bool('has_smell_sharpness_discontinuities'),
+        'has_smell_bad_face_sampling': io.Bool('has_smell_bad_face_sampling'),
+        'has_smell_mismatching_surface_annotation': io.Bool('has_smell_mismatching_surface_annotation'),
+        'has_smell_raycasting_background': io.Bool('has_smell_raycasting_background'),
+        'has_smell_depth_discontinuity': io.Bool('has_smell_depth_discontinuity'),
+        'has_smell_mesh_self_intersections': io.Bool('has_smell_mesh_self_intersections'),
     },
     len_label='has_sharp',
     compression='lzf')

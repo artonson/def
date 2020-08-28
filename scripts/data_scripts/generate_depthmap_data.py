@@ -10,6 +10,7 @@ import traceback
 from joblib import Parallel, delayed
 import numpy as np
 import yaml
+import trimesh
 
 __dir__ = os.path.normpath(
     os.path.join(
@@ -30,6 +31,7 @@ from sharpf.utils.py_utils.console import eprint_t
 from sharpf.utils.py_utils.os import add_suffix
 from sharpf.utils.py_utils.config import load_func_from_config
 from sharpf.utils.abc_utils.mesh.io import trimesh_load
+import sharpf.data.data_smells as smells
 
 
 def scale_mesh(mesh, features, shape_fabrication_extent, resolution_3d,
@@ -69,9 +71,29 @@ def get_annotated_patches(item, config):
     noiser = load_func_from_config(NOISE_BY_TYPE, config['noise'])
     annotator = load_func_from_config(ANNOTATOR_BY_TYPE, config['annotation'])
 
+    smell_coarse_surfaces_by_num_edges = smells.SmellCoarseSurfacesByNumEdges.from_config(config['smell_coarse_surfaces_by_num_edges'])
+    smell_coarse_surfaces_by_angles = smells.SmellCoarseSurfacesByAngles.from_config(config['smell_coarse_surfaces_by_angles'])
+    smell_deviating_resolution = smells.SmellDeviatingResolution.from_config(config['smell_deviating_resolution'])
+    smell_sharpness_discontinuities = smells.SmellSharpnessDiscontinuities.from_config(config['smell_sharpness_discontinuities'])
+    smell_bad_face_sampling = smells.SmellBadFaceSampling.from_config(config['smell_bad_face_sampling'])
+    smell_raycasting_background = smells.SmellRaycastingBackground.from_config(config['smell_raycasting_background'])
+    smell_depth_discontinuity = smells.SmellDepthDiscontinuity.from_config(config['smell_depth_discontinuity'])
+    smell_mesh_self_intersections = smells.SmellMeshSelfIntersections.from_config(config['smell_mesh_self_intersections'])
+
     # load the mesh and the feature curves annotations
-    mesh = trimesh_load(item.obj)
+    mesh, _, _ = trimesh_load(item.obj)
     features = yaml.load(item.feat, Loader=yaml.Loader)
+
+    processed_mesh = trimesh.base.Trimesh(vertices=mesh.vertices, faces=mesh.faces, process=True, validate=True)
+    if processed_mesh.vertices.shape != mesh.vertices.shape or \
+            processed_mesh.faces.shape != mesh.faces.shape or not mesh.is_watertight:
+        raise DataGenerationException('Will not process mesh {}: likely the mesh is broken'.format(item.item_id))
+
+    has_smell_mismatching_surface_annotation = any([
+        np.array(np.unique(mesh.faces[surface['face_indices']]) != np.sort(surface['vert_indices'])).all()
+        for surface in features['surfaces']
+    ])
+    has_smell_mesh_self_intersections = smell_mesh_self_intersections.run(mesh)
 
     # fix mesh fabrication size in physical mm
     mesh, mesh_scale = scale_mesh(mesh, features, shape_fabrication_extent, base_resolution_3d,
@@ -97,6 +119,13 @@ def get_annotated_patches(item, config):
         nbhood, mesh_vertex_indexes, mesh_face_indexes = \
             feature_utils.submesh_from_hit_surfaces(mesh, features, mesh_face_indexes)
 
+        has_smell_coarse_surfaces_by_num_edges = smell_coarse_surfaces_by_num_edges.run(mesh, mesh_face_indexes, features)
+        has_smell_coarse_surfaces_by_angles = smell_coarse_surfaces_by_angles.run(mesh, mesh_face_indexes, features)
+        has_smell_deviating_resolution = smell_deviating_resolution.run(points)
+        has_smell_bad_face_sampling = smell_bad_face_sampling.run(nbhood, points)
+        has_smell_raycasting_background = smell_raycasting_background.run(image)
+        has_smell_depth_discontinuity = smell_depth_discontinuity.run(image)
+
         # create annotations: condition the features onto the nbhood
         nbhood_features = feature_utils.compute_features_nbhood(mesh, features, mesh_vertex_indexes, mesh_face_indexes)
 
@@ -116,6 +145,8 @@ def get_annotated_patches(item, config):
             except DataGenerationException as e:
                 eprint_t(str(e))
                 continue
+
+            has_smell_sharpness_discontinuities = smell_sharpness_discontinuities.run(points, distances)
 
             # convert everything to images
             ray_indexes = np.where(image.ravel() != 0)[0]
@@ -140,7 +171,16 @@ def get_annotated_patches(item, config):
                 'num_sharp_curves': num_sharp_curves,
                 'num_surfaces': num_surfaces,
                 'camera_pose': camera_pose.camera_to_world_4x4,
-                'mesh_scale': mesh_scale
+                'mesh_scale': mesh_scale,
+                'has_smell_coarse_surfaces_by_num_faces': has_smell_coarse_surfaces_by_num_edges,
+                'has_smell_coarse_surfaces_by_angles': has_smell_coarse_surfaces_by_angles,
+                'has_smell_deviating_resolution': has_smell_deviating_resolution,
+                'has_smell_sharpness_discontinuities': has_smell_sharpness_discontinuities,
+                'has_smell_bad_face_sampling': has_smell_bad_face_sampling,
+                'has_smell_mismatching_surface_annotation': has_smell_mismatching_surface_annotation,
+                'has_smell_raycasting_background': has_smell_raycasting_background,
+                'has_smell_depth_discontinuity': has_smell_depth_discontinuity,
+                'has_smell_mesh_self_intersections': has_smell_mesh_self_intersections,
             }
             yield configuration, patch_info
 

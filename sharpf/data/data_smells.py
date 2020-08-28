@@ -3,6 +3,7 @@ import os
 import warnings
 
 import numpy as np
+import pymesh
 from scipy.spatial import cKDTree
 
 from sharpf.utils.abc_utils.abc.feature_utils import (
@@ -113,3 +114,36 @@ class SmellBadFaceSampling(DataSmell):
     def run(self, nbhood, points):
         sampling_density = len(points) / len(nbhood.faces)
         return not (self.min_points_per_face <= sampling_density <= self.max_points_per_face)
+
+
+class SmellRaycastingBackground(DataSmell):
+    @classmethod
+    def from_config(cls, config): return cls()
+
+    def run(self, image):
+        return np.any(image == 0)
+
+
+class SmellDepthDiscontinuity(DataSmell):
+    def __init__(self, depth_discontinuity_threshold):
+        self._depth_discontinuity_threshold = depth_discontinuity_threshold
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(config['depth_discontinuity_threshold'])
+
+    def run(self, image):
+
+        np.diff(image, axis=0)
+        return np.any(image == 0)
+
+
+class SmellMeshSelfIntersections(DataSmell):
+    @classmethod
+    def from_config(cls, config): return cls()
+
+    def run(self, mesh):
+        self_intersections = pymesh.detect_self_intersection(mesh)
+
+        np.diff(image, axis=0)
+        return np.any(image == 0)
