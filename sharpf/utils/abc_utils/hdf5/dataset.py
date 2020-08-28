@@ -136,12 +136,16 @@ class LotsOfHdf5Files(Dataset):
     def __getitem__(self, index):
         file_index = np.searchsorted(self.cum_num_items, index, side='right')
         relative_index = index - self.cum_num_items[file_index] if file_index > 0 else index
-        item = self.files[file_index][relative_index]
+
+        file = self.files[file_index]
+
         loaded_file_indexes = [i for i, f in enumerate(self.files) if f.is_loaded()]
-        if len(loaded_file_indexes) > self.max_loaded_files:
-            file_index_to_unload = np.random.choice(loaded_file_indexes)
-            self.files[file_index_to_unload].unload()
-        return item
+        if self.max_loaded_files > 0:
+            if file_index not in loaded_file_indexes and len(loaded_file_indexes) == self.max_loaded_files:
+                file_index_to_unload = np.random.choice(loaded_file_indexes)
+                self.files[file_index_to_unload].unload()
+
+        return file[relative_index]
 
 
 class DepthDataset(LotsOfHdf5Files):
