@@ -50,7 +50,7 @@ class RegressionEvaluator(DatasetEvaluator):
         synchronize()
         rmse_sum = torch.cat(all_gather(self._rmse_sum.view(1))).sum()
         size = torch.cat(all_gather(self._size.view(1))).sum()
-        rmse_hist = torch.cat(all_gather(self._rmse_hist))
+        rmse_hist = torch.stack(all_gather(self._rmse_hist), dim=0).sum(dim=0)
 
         # calculate metrics
         mean_rmse = rmse_sum / size
