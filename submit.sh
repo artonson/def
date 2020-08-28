@@ -1,7 +1,7 @@
 #!/bin/bash -l
-#SBATCH --job-name=sharpf
+#SBATCH --job-name=bce
 #SBATCH --nodes=1
-#SBATCH --gres=gpu:4
+#SBATCH --gpus=4
 #SBATCH --ntasks-per-node=1
 #SBATCH --partition=gpu_small
 #SBATCH --exclusive
@@ -17,7 +17,7 @@ args="$@"
 cd ${PROJECT_ROOT}
 srun singularity exec --bind /gpfs:/gpfs --nv ${SIMAGE_PATH} bash -c "
   NUM_GPUS=$(nvidia-smi --query-gpu=name --format=csv,noheader | wc -l) &&
-  python train_net.py ${args} trainer.gpus=\${NUM_GPUS} trainer.distributed_backend=ddp_spawn
+  python train_net.py ${args} model=dgcnn-4k-sigmoid task.loss._target_=torch.nn.functional.binary_cross_entropy hydra.run.dir=experiments/loss/bce scheduler=exponential scheduler.gamma=0.9 trainer.gpus=\${NUM_GPUS} trainer.distributed_backend=ddp_spawn
 "
 cd ${SLURM_SUBMIT_DIR}
 exit 0
