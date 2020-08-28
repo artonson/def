@@ -6,35 +6,61 @@ train:
       _target_: sharpf.utils.abc_utils.LotsOfHdf5Files
       io:
         _target_: sharpf.data.PointCloudIO
-      data_dir: /trinity/home/r.rakhimov/sharp_features/data/abc/points/high/64k # fixme make user agnostic
+      filenames: [
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/train/train_0.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/train/train_1.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/train/train_2.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/train/train_3.hdf5'
+      ]
       data_label: points
       target_label: distances
-      partition: train
       transform: ${transform.train}
-      max_loaded_files: 5
+      max_loaded_files: 4
 val:
+  - dataset_name: train
+    dataset_class:
+      _target_: sharpf.utils.abc_utils.LotsOfHdf5Files
+      io:
+        _target_: sharpf.data.PointCloudIO
+      filenames: [
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/train/train_0.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/train/train_1.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/train/train_2.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/train/train_3.hdf5'
+      ]
+      data_label: points
+      target_label: distances
+      transform: ${transform.val}
+      max_loaded_files: 4
+    evaluators: ${evaluators.val}
   - dataset_name: val
     dataset_class:
       _target_: sharpf.utils.abc_utils.LotsOfHdf5Files
       io:
         _target_: sharpf.data.PointCloudIO
-      data_dir: /trinity/home/r.rakhimov/sharp_features/data/abc/points/high/64k
+      filenames: [
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/val/train_0.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/val/train_1.hdf5'
+      ]
       data_label: points
       target_label: distances
-      partition: val
       transform: ${transform.val}
-      max_loaded_files: 5
+      max_loaded_files: 2
     evaluators: ${evaluators.val}
 test:
+  - ${datasets.val.0}
+  - ${datasets.val.1}
   - dataset_name: test
     dataset_class:
       _target_: sharpf.utils.abc_utils.LotsOfHdf5Files
       io:
         _target_: sharpf.data.PointCloudIO
-      data_dir: /trinity/home/r.rakhimov/sharp_features/data/abc/points/high/64k
+      filenames: [
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/test/train_0.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/test/train_1.hdf5'
+      ]
       data_label: points
       target_label: distances
-      partition: val
       transform: ${transform.test}
-      max_loaded_files: 5
+      max_loaded_files: 2
     evaluators: ${evaluators.test}
