@@ -34,7 +34,7 @@ test:
         _target_: sharpf.data.DepthMapIO
       data_dir: /trinity/home/r.rakhimov/sharp_features/data/abc/images/high/64k
       target_label: distances
-      partition: test
+      partition: val
       transform: ${transform.test}
       max_loaded_files: 5
     evaluators: ${evaluators.test}
