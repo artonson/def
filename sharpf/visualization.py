@@ -1,16 +1,17 @@
-import matplotlib.pyplot as plt
+import os
+import torch
+import msgpack
+import numpy as np
+
+import k3d
 import matplotlib as mpl
 import matplotlib.cm as cm
 import matplotlib.ticker as ticker
 from mpl_toolkits.axes_grid1 import AxesGrid
-import k3d
+import matplotlib.pyplot as plt
 from itertools import product
-import torch
-import numpy as np
-import msgpack
-import trimesh.transformations as tt
 
-# TODO: add saving data dir
+import trimesh.transformations as tt
 
 def get_colors(pred, cmap):
     hex_colors = []
@@ -200,8 +201,9 @@ class IllustratorPoints:
             else:
                 self.name = name
 
+            dr = os.getcwd()
             plot_3d = self._illustrate_3d(data[sample], preds[sample], targets[sample], metrics[sample])
-            with open(f'experiments/{self.name}.html', 'w') as f:
+            with open(f'{dr}/{self.name}.html', 'w') as f:
                 f.write(plot_3d.get_snapshot())
 
 
@@ -319,14 +321,14 @@ class IllustratorDepths:
     def illustrate_to_file(self, batch_idx, data, preds, targets, metrics, batch=None, name=None):
 
         for sample in range(int(preds.size(0))):
-            self.log.info(str(sample))
             if name is None:
                 self.name = f'illustration-depths_task-{self.task}_batch-{batch_idx}_idx-{sample}'
             else:
                 self.name = name
 
+            dr = os.getcwd()
             plot_2d = self._illustrate_2d(data[sample][0], preds[sample][0], targets[sample][0], metrics[sample][0])
-            plot_2d.savefig(f'/trinity/home/g.bobrovskih/sharp_features_pl_hydra_orig/experiments/{self.name}.png')
+            plot_2d.savefig(f'{dr}/{self.name}.png')
 
             camera_pose = CameraPose(batch['camera_pose'][sample].cpu().numpy())
             data_3d = self._get_data_3d(data[sample].cpu().numpy())
@@ -335,5 +337,5 @@ class IllustratorDepths:
                                           targets[sample].reshape(-1),
                                           metrics[sample].reshape(-1),
                                           camera_pose)
-            with open(f'/trinity/home/g.bobrovskih/sharp_features_pl_hydra_orig/experiments/{self.name}.html', 'w') as f:
+            with open(f'{dr}/{self.name}.html', 'w') as f:
                 f.write(plot_3d.get_snapshot())
