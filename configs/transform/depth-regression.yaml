@@ -1,0 +1,22 @@
+# @package _group_
+
+high_res_quantile: 7.4776
+
+train:
+  _target_: sharpf.utils.abc_utils.torch.CompositeTransform
+  transforms:
+    - _target_: sharpf.utils.abc_utils.torch.ToTensor
+      keys: ['image','distances']
+      type: torch.FloatTensor
+    - _target_: sharpf.utils.abc_utils.torch.PreprocessDepth
+      quantile: ${transform.high_res_quantile}
+    - _target_: sharpf.utils.abc_utils.torch.PreprocessDistances
+    - _target_: sharpf.utils.abc_utils.torch.DeleteKeys
+      keys: ['background_mask']
+    - _target_: sharpf.utils.abc_utils.torch.RenameKeys
+      old_keys: ['image']
+      new_keys: ['points']
+
+val: ${transform.train}
+
+test: ${transform.train}

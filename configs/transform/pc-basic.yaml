@@ -3,21 +3,40 @@
 train:
   _target_: sharpf.utils.abc_utils.torch.CompositeTransform
   transforms:
-    - _target_: sharpf.utils.abc_utils.torch.TypeCast
+    - _target_: sharpf.utils.abc_utils.torch.ToTensor
+      keys: ['points', 'distances']
+      type: torch.FloatTensor
     - _target_: sharpf.utils.abc_utils.torch.Center
+      keys: ['points']
+      dim: 0
     - _target_: sharpf.utils.abc_utils.torch.NormalizeL2
+      keys: ['points']
+      dim: 1
     - _target_: sharpf.utils.abc_utils.torch.Random3DRotation
+      keys: ['points']
 
 val:
   _target_: sharpf.utils.abc_utils.torch.CompositeTransform
   transforms:
-    - _target_: sharpf.utils.abc_utils.torch.TypeCast
+    - _target_: sharpf.utils.abc_utils.torch.ToTensor
+      keys: ['points', 'distances']
+      type: torch.FloatTensor
     - _target_: sharpf.utils.abc_utils.torch.Center
+      keys: ['points']
+      dim: 0
     - _target_: sharpf.utils.abc_utils.torch.NormalizeL2
+      keys: ['points']
+      dim: 1
 
 test:
   _target_: sharpf.utils.abc_utils.torch.CompositeTransform
   transforms:
-    - _target_: sharpf.utils.abc_utils.torch.TypeCast
+    - _target_: sharpf.utils.abc_utils.torch.ToTensor
+      keys: ['points', 'distances']
+      type: torch.FloatTensor
     - _target_: sharpf.utils.abc_utils.torch.Center
+      keys: ['points']
+      dim: 0
     - _target_: sharpf.utils.abc_utils.torch.NormalizeL2
+      keys: ['points']
+      dim: 1
