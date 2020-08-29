@@ -14,6 +14,7 @@ from ..model.build import build_model
 from ...data import DepthMapIO
 from ...utils.abc_utils.hdf5 import DepthDataset
 from ...utils.abc_utils.torch import CompositeTransform
+from ...visualization import IllustratorDepths
 
 log = logging.getLogger(__name__)
 
@@ -27,6 +28,7 @@ class DepthSegmentator(LightningModule):
         self.model = build_model(self.hparams.model)
         self.example_input_array = torch.rand(1, 1, 64, 64)
         self.data_dir = hydra.utils.to_absolute_path(self.hparams.data.data_dir)
+        self.illustrator = IllustratorDepths(task=self.task, log=log)
 
         dist_backend = self.hparams.trainer.distributed_backend
         if (dist_backend is not None and 'ddp' in dist_backend) or (
@@ -56,6 +58,9 @@ class DepthSegmentator(LightningModule):
         preds = self.forward(points, as_mask=True)
         stats = [list(stat_scores(preds[i], target[i], class_index=1)) for i in range(preds.size(0))]
         tp, fp, tn, fn, sup = torch.Tensor(stats).to(preds.device).T.unsqueeze(2)  # each of size (batch, 1)
+
+        self.illustrator.illustrate_to_file(batch_idx, points, preds, distances, mse_per_pix, batch)
+
         return {'tp': tp, 'fp': fp, 'tn': tn, 'fn': fn, 'sup': sup}
 
     def _shared_eval_epoch_end(self, outputs, prefix):

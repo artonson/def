@@ -17,6 +17,7 @@ from ..model.build import build_model
 from ...utils.abc_utils import LotsOfHdf5Files
 from ...utils.abc_utils.torch import CompositeTransform
 from ...utils.image import plot_to_image
+from ...visualization import IllustratorPoints
 
 log = logging.getLogger(__name__)
 
@@ -35,6 +36,7 @@ class PointSharpnessRegressor(LightningModule):
         self.example_input_array = torch.rand(1, 4096, 3)
         self.dataset_names = {}
         self.num_dataloaders = {}
+        self.illustrator = IllustratorPoints(log)
 
         dist_backend = self.hparams.trainer.distributed_backend
         if (dist_backend is not None and 'ddp' in dist_backend) or (
@@ -69,9 +71,12 @@ class PointSharpnessRegressor(LightningModule):
 
         preds = self.forward(points)  # (batch, n_points)
 
-        mean_squared_errors = F.mse_loss(preds, distances, reduction='none').mean(dim=1)  # (batch)
+        mse_per_point = F.mse_loss(preds, distances, reduction='none')
+        mean_squared_errors = mean_per_point.mean(dim=1)  # (batch)
         root_mean_squared_errors = torch.sqrt(mean_squared_errors)
         rmse_hist = torch.histc(root_mean_squared_errors, bins=100, min=0.0, max=1.0)
+
+        self.illustrator.illustrate_to_file(batch_idx, points, preds, distances, mse_per_point, batch)
 
         return {
             'rmse_sum': root_mean_squared_errors.sum(),

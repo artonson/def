@@ -36,7 +36,8 @@ class DepthRegressor(LightningModule):
         self.model = build_model(self.hparams.model)
         self.example_input_array = torch.rand(1, 1, 64, 64)
         self.data_dir = hydra.utils.to_absolute_path(self.hparams.data.data_dir)
-        self.illustrator = IllustratorDepths(task=self.task)
+        self.illustrator = IllustratorDepths(task=self.task, log=log)
+
         dist_backend = self.hparams.trainer.distributed_backend
         if (dist_backend is not None and 'ddp' in dist_backend) or (
                 dist_backend is None and self.hparams.trainer.gpus is not None and (
@@ -64,12 +65,8 @@ class DepthRegressor(LightningModule):
         mse_per_pix = F.mse_loss(preds, distances, reduction='none')  # preds.shape
         mean_squared_errors = mse_per_pix.mean(dim=1)  # (batch)
         root_mean_squared_errors = torch.sqrt(mean_squared_errors)
-        points_cpu = points.cpu().numpy()
-        depth_pc = np.hstack(
-            (np.array(list(product(np.arange(points_cpu[0][0].shape[1]), np.arange(points_cpu[0][0].shape[0])))), points_cpu[0].reshape(-1, 1)))
 
-        log.info('points shape ' + str(points.shape))
-        self.illustrator.illustrate_to_file(batch_idx, points, preds, distances, mse_per_pix)
+        self.illustrator.illustrate_to_file(batch_idx, points, preds, distances, mse_per_pix, batch)
 
         # loss = hydra.utils.call(self.hparams.meta_arch.loss, preds, distances)
         # self.logger[0].experiment.add_scalars('losses', {f'{prefix}_loss': loss})

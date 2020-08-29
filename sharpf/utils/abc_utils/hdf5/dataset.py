@@ -143,13 +143,14 @@ class LotsOfHdf5Files(Dataset):
             self.files[file_index_to_unload].unload()
         return item
 
+
 class DepthDataset(LotsOfHdf5Files):
 
     def __init__(self, io, data_dir, data_label, target_label, task, partition=None,
                  transform=None, normalisation=['quantile', 'standartize'], max_loaded_files=0):
         super().__init__(data_dir=data_dir, io=io,
                          data_label=data_label, target_label=target_label,
-                         labels=None,
+                         labels=['item_id', 'camera_pose', 'mesh_scale'],
                          partition=partition,
                          transform=transform,
                          max_loaded_files=max_loaded_files)
@@ -224,5 +225,8 @@ class DepthDataset(LotsOfHdf5Files):
 
         data = torch.FloatTensor(data).unsqueeze(0)
         output['image'] = data
+        output['item_id'] = item['item_id']
+        output['camera_pose'] = item['camera_pose']
+        output['mesh_scale'] = item['mesh_scale']
 
         return output
