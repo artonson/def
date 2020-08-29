@@ -49,9 +49,9 @@ class BaseLightningModule(LightningModule):
         else:
             checkpoint_on = None
 
-        if partition == 'val' and 'early_stop_on' in self.hparams.task and self.hparams.task.early_stop_on in results[
-            'scalars']:
-            early_stop_on = torch.tensor(results['scalars'][self.hparams.task.early_stop.value])
+        early_stop_key = self.hparams.task.early_stop.value
+        if partition == 'val' and early_stop_key is not None and early_stop_key in results['scalars']:
+            early_stop_on = torch.tensor(results['scalars'][early_stop_key])
         else:
             early_stop_on = None
 
