@@ -4,7 +4,7 @@ example_input_array:
   _target_: torch.rand
   size: [1, 1, 64, 64]
 
-_class:
+model_class:
   _target_: sharpf.modeling.PixelRegressorHist
   a: 0.0
   b: 1.0
@@ -23,6 +23,6 @@ _class:
         p: 0.0
       - _target_: torch.nn.Conv2d
         in_channels: 16
-        out_channels: ${logits:${model._class.discretization},${model._class.margin}}
+        out_channels: ${logits:${model.model_class.discretization},${model.model_class.margin}}
         kernel_size: 3
         padding: 1

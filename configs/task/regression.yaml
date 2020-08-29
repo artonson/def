@@ -5,10 +5,10 @@ pl_class:
 
 loss:
   _target_: sharpf.modeling.kl_div_loss
-  a: ${model._class.a}
-  b: ${model._class.b}
-  discretization: ${model._class.discretization}
-  margin: ${model._class.margin}
+  a: ${model.model_class.a}
+  b: ${model.model_class.b}
+  discretization: ${model.model_class.discretization}
+  margin: ${model.model_class.margin}
 
 checkpoint_on: mean_rmse/val
 early_stop:

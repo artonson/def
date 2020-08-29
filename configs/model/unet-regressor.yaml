@@ -4,7 +4,7 @@ example_input_array:
   _target_: torch.rand
   size: [1, 1, 64, 64]
 
-_class:
+model_class:
   _target_: sharpf.modeling.PixelRegressor
   feature_extractor:
     _target_: sharpf.modeling.Unet

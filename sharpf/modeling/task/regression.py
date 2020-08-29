@@ -13,7 +13,7 @@ class SharpFeaturesRegressionTask(BaseLightningModule):
 
     def __init__(self, cfg):
         super().__init__(cfg)
-        self.model = instantiate(self.hparams.model._class)
+        self.model = instantiate(self.hparams.model.model_class)
         self.example_input_array = instantiate(self.hparams.model.example_input_array)
 
     def forward(self, x, clamp=True):

@@ -7,7 +7,7 @@ example_input_array:
   size: [1, 4096, 3]
 
 
-_class:
+model_class:
   _target_: sharpf.modeling.DGCNNHist
   a: 0.0
   b: 1.0
@@ -66,7 +66,7 @@ _class:
         _target_: sharpf.modeling.StackedConv
         channels:
           - 256
-          - ${logits:${model._class.discretization},${model._class.margin}}
+          - ${logits:${model.model_class.discretization},${model.model_class.margin}}
         bn: false
         relu: false
         conv_bias: true

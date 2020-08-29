@@ -7,7 +7,7 @@ example_input_array:
   size: [1, 4096, 3]
 
 
-_class:
+model_class:
   _target_: sharpf.modeling.DGCNN
   encoder_blocks:
     - _target_: sharpf.modeling.PointOpBlock
