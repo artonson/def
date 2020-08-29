@@ -9,6 +9,10 @@ example_input_array:
 
 _class:
   _target_: sharpf.modeling.DGCNNHist
+  a: 0.0
+  b: 1.0
+  discretization: 240
+  margin: 2
   encoder_blocks:
     - _target_: sharpf.modeling.PointOpBlock
       neighbours:
@@ -60,7 +64,9 @@ _class:
     - _target_: sharpf.modeling.PointOpBlock
       feature_extractor:
         _target_: sharpf.modeling.StackedConv
-        channels: [256, 244]
+        channels:
+          - 256
+          - ${logits:${model._class.discretization},${model._class.margin}}
         bn: false
         relu: false
         conv_bias: true

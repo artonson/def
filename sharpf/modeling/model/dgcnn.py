@@ -36,6 +36,14 @@ class DGCNN(nn.Module):
 
 class DGCNNHist(DGCNN):
 
+    def __init__(self, a: float, b: float, discretization: int, margin: int, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        assert discretization > 0 and margin >= 0 and a < b
+        self.a = a
+        self.b = b
+        self.discretization = discretization
+        self.margin = margin
+
     def forward(self, points):
         """
         Args:
@@ -46,5 +54,5 @@ class DGCNNHist(DGCNN):
         """
         result = super().forward(points)
         if not self.training:
-            result = logits_to_scalar(result)
+            result = logits_to_scalar(result, self.a, self.b, self.discretization, self.margin)
         return result

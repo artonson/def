@@ -16,6 +16,8 @@ from pytorch_lightning.profiler import SimpleProfiler
 from sharpf.utils.callbacks import FitDurationCallback
 from sharpf.utils.collect_env import collect_env_info
 
+from configs import trainer, optimizer, scheduler, resolvers
+
 log = logging.getLogger(__name__)
 
 
