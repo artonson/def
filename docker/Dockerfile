@@ -13,7 +13,6 @@ RUN apt-get clean \
     nano \
     g++ \
     make \
-    cmake \
     build-essential \
     software-properties-common \
     apt-transport-https \
@@ -32,6 +31,9 @@ RUN apt-get clean \
     libboost-dev \
     libboost-thread-dev \
     libtbb-dev
+
+RUN wget https://github.com/Kitware/CMake/releases/download/v3.17.4/cmake-3.17.4-Linux-x86_64.sh \
+ && sh cmake-3.17.4-Linux-x86_64.sh --skip-license --prefix=/usr
 
 
 # Create a non-root user and switch to it.
