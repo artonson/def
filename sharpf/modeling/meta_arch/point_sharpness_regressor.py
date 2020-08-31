@@ -72,7 +72,7 @@ class PointSharpnessRegressor(LightningModule):
         preds = self.forward(points)  # (batch, n_points)
 
         mse_per_point = F.mse_loss(preds, distances, reduction='none')
-        mean_squared_errors = mean_per_point.mean(dim=1)  # (batch)
+        mean_squared_errors = mse_per_point.mean(dim=1)  # (batch)
         root_mean_squared_errors = torch.sqrt(mean_squared_errors)
         rmse_hist = torch.histc(root_mean_squared_errors, bins=100, min=0.0, max=1.0)
 

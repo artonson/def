@@ -183,9 +183,10 @@ class IllustratorPoints:
         col_true = get_colors(target.cpu().numpy(), cm.coolwarm_r)
         col_err = get_colors(metric.cpu().numpy(), cm.jet)
 
-        points_true = k3d.points(data, col_true, point_size=0.02, shader='mesh', name='ground truth')
-        points_pred = k3d.points(data, col_pred, point_size=0.02, shader='mesh', name='prediction')
-        points_err = k3d.points(data, col_err, point_size=0.02, shader='mesh', name='metric values')
+        data_numpy = data.cpu().numpy()
+        points_true = k3d.points(data_numpy, col_true, point_size=0.02, shader='mesh', name='ground truth')
+        points_pred = k3d.points(data_numpy, col_pred, point_size=0.02, shader='mesh', name='prediction')
+        points_err = k3d.points(data_numpy, col_err, point_size=0.02, shader='mesh', name='metric values')
         colorbar = k3d.line([[0, 0, 0], [0, 0, 0]], shader="mesh",
                             color_range=[0, 1], color_map=k3d.colormaps.matplotlib_color_maps.Jet)
 
@@ -195,15 +196,21 @@ class IllustratorPoints:
 
     def illustrate_to_file(self, batch_idx, data, preds, targets, metrics, batch=None, name=None):
 
-        for sample in range(len(preds.size(0))):
+        for sample in range(preds.size(0)):
             if name is None:
                 self.name = f'illustration-points_batch-{batch_idx}_idx-{sample}'
             else:
                 self.name = name
 
             dr = os.getcwd()
-            plot_3d = self._illustrate_3d(data[sample], preds[sample], targets[sample], metrics[sample])
-            with open(f'{dr}/{self.name}.html', 'w') as f:
+            plot_3d = self._illustrate_3d(data[sample],
+                                          preds[sample],
+                                          targets[sample],
+                                          metrics[sample])
+
+            if not os.path.exists(f'{dr}/visuals'):
+                os.mkdir(f'{dr}/visuals')
+            with open(f'{dr}/visuals/{self.name}.html', 'w') as f:
                 f.write(plot_3d.get_snapshot())
 
 
@@ -346,5 +353,8 @@ class IllustratorDepths:
                                           target_numpy.ravel()[non_zero_idx],
                                           metrics_numpy.ravel()[non_zero_idx],
                                           camera_pose)
-            with open(f'{dr}/{self.name}.html', 'w') as f:
+
+            if not os.path.exists(f'{dr}/visuals'):
+                os.mkdir(f'{dr}/visuals')
+            with open(f'{dr}/visuals/{self.name}.html', 'w') as f:
                 f.write(plot_3d.get_snapshot())
