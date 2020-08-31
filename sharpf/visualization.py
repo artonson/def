@@ -339,8 +339,10 @@ class IllustratorDepths:
                 self.name = name
 
             dr = os.getcwd()
+            if not os.path.exists(f'{dr}/visuals'):
+                os.mkdir(f'{dr}/visuals')
             plot_2d = self._illustrate_2d(data[sample][0], preds[sample][0], targets[sample][0], metrics[sample][0])
-            plot_2d.savefig(f'{dr}/{self.name}.png')
+            plot_2d.savefig(f'{dr}/visuals/{self.name}.png')
 
             camera_pose = CameraPose(batch['camera_pose'][sample].cpu().numpy())
             data_3d, non_zero_idx = self._get_data_3d(data[sample].cpu().numpy())
@@ -354,7 +356,6 @@ class IllustratorDepths:
                                           metrics_numpy.ravel()[non_zero_idx],
                                           camera_pose)
 
-            if not os.path.exists(f'{dr}/visuals'):
-                os.mkdir(f'{dr}/visuals')
+
             with open(f'{dr}/visuals/{self.name}.html', 'w') as f:
                 f.write(plot_3d.get_snapshot())
