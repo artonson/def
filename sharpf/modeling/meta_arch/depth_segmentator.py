@@ -60,8 +60,9 @@ class DepthSegmentator(LightningModule):
         tp, fp, tn, fn, sup = torch.Tensor(stats).to(preds.device).T.unsqueeze(2)  # each of size (batch, 1)
 
         # TODO: add per-pix metric for illustration
-
-        self.illustrator.illustrate_to_file(batch_idx, points, preds, distances, metric, batch)
+        metric = abs(preds - target)  # difference metric
+        log.info(str(points.shape))
+        self.illustrator.illustrate_to_file(batch_idx, points, preds, target, metric, batch)
 
         return {'tp': tp, 'fp': fp, 'tn': tn, 'fn': fn, 'sup': sup}
 

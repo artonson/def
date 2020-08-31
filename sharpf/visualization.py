@@ -36,7 +36,7 @@ def image_to_points(image, rays_origins):
     points[:, 0] = rays_origins[i, 0]
     points[:, 1] = rays_origins[i, 1]
     points[:, 2] = image.ravel()[i]
-    return points
+    return points, i
 
 def rotate_to_world_origin(camera_origin):
     # construct a 3x3 rotation matrix to a coordinate frame where:
@@ -215,6 +215,8 @@ class IllustratorDepths:
 
     def _get_data_3d(self, data):
         image_height, image_width = data.shape[1], data.shape[2]
+        self.log.info(str(image_height))
+        self.log.info(str(image_width))
         resolution_3d = 0.02
         screen_aspect_ratio = 1
 
@@ -230,21 +232,24 @@ class IllustratorDepths:
             np.zeros_like(rays_origins[:, [0]])
         ], axis=1)
 
-        return image_to_points(data, rays_origins)
+        data_3d, non_zero_idx = image_to_points(data, rays_origins)
+
+        return data_3d, non_zero_idx
 
     def _illustrate_3d(self, data, pred, target, metric, camera_pose):
 
         plot = k3d.plot(grid_visible=False, axes_helper=0)
 
-        col_pred = get_colors(pred.cpu().numpy(), cm.coolwarm_r)
-        col_true = get_colors(target.cpu().numpy(), cm.coolwarm_r)
-        col_err = get_colors(metric.cpu().numpy(), cm.jet)
+        col_pred = get_colors(pred, cm.coolwarm_r)
+        col_true = get_colors(target, cm.coolwarm_r)
+        col_err = get_colors(metric, cm.jet)
 
-        points_true = k3d.points(camera_pose.camera_to_world(data, translate=True),
+        data_world = camera_pose.camera_to_world(data, translate=False)
+        points_true = k3d.points(data_world - np.mean(data_world, axis=0),
                                  col_true, point_size=0.02, shader='mesh', name='ground truth')
-        points_pred = k3d.points(camera_pose.camera_to_world(data, translate=True),
+        points_pred = k3d.points(data_world - np.mean(data_world, axis=0),
                                  col_pred, point_size=0.02, shader='mesh', name='prediction')
-        points_err = k3d.points(camera_pose.camera_to_world(data, translate=True),
+        points_err = k3d.points(data_world - np.mean(data_world, axis=0),
                                 col_err, point_size=0.02, shader='mesh', name='metric values')
         colorbar = k3d.line([[0, 0, 0], [0, 0, 0]], shader="mesh",
                             color_range=[0, 1], color_map=k3d.colormaps.matplotlib_color_maps.Jet)
@@ -331,11 +336,15 @@ class IllustratorDepths:
             plot_2d.savefig(f'{dr}/{self.name}.png')
 
             camera_pose = CameraPose(batch['camera_pose'][sample].cpu().numpy())
-            data_3d = self._get_data_3d(data[sample].cpu().numpy())
+            data_3d, non_zero_idx = self._get_data_3d(data[sample].cpu().numpy())
+            preds_numpy = preds[sample][0].cpu().numpy()
+            target_numpy = targets[sample][0].cpu().numpy()
+            metrics_numpy = metrics[sample][0].cpu().numpy()
+
             plot_3d = self._illustrate_3d(data_3d,
-                                          preds[sample].reshape(-1),
-                                          targets[sample].reshape(-1),
-                                          metrics[sample].reshape(-1),
+                                          preds_numpy.ravel()[non_zero_idx],
+                                          target_numpy.ravel()[non_zero_idx],
+                                          metrics_numpy.ravel()[non_zero_idx],
                                           camera_pose)
             with open(f'{dr}/{self.name}.html', 'w') as f:
                 f.write(plot_3d.get_snapshot())
