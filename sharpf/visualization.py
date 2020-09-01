@@ -194,24 +194,32 @@ class IllustratorPoints:
 
         return plot
 
-    def illustrate_to_file(self, batch_idx, data, preds, targets, metrics, batch=None, name=None):
+    def _illustrate_to_file(self, data, pred, target, metric):
+        dr = os.getcwd()
+        plot_3d = self._illustrate_3d(data, pred, target, metric)
 
+        if not os.path.exists(f'{dr}/visuals'):
+            os.mkdir(f'{dr}/visuals')
+        with open(f'{dr}/visuals/{self.name}.html', 'w') as f:
+            f.write(plot_3d.get_snapshot())
+
+    def illustrate_to_file(self, batch_idx, data, preds, targets, metrics, batch=None, name=None):
         for sample in range(preds.size(0)):
             if name is None:
                 self.name = f'illustration-points_batch-{batch_idx}_idx-{sample}'
             else:
                 self.name = name
 
-            dr = os.getcwd()
-            plot_3d = self._illustrate_3d(data[sample],
-                                          preds[sample],
-                                          targets[sample],
-                                          metrics[sample])
+            self._illustrate_to_file(data[sample], preds[sample], targets[sample], metrics[sample])
 
-            if not os.path.exists(f'{dr}/visuals'):
-                os.mkdir(f'{dr}/visuals')
-            with open(f'{dr}/visuals/{self.name}.html', 'w') as f:
-                f.write(plot_3d.get_snapshot())
+    def draw_best_k(self, data, preds, targets, metrics, k, batch=None, name=None):
+        samples = np.argsort(metrics)[::-1][:k]
+        for sample in samples:
+            if name is None:
+                self.name = f'illustration-points_batch-best_{k}-{sample}'
+            else:
+                self.name = name
+            self._illustrate_to_file(data[sample], preds[sample], targets[sample], metrics[sample], batch)
 
 
 class IllustratorDepths:
@@ -330,6 +338,28 @@ class IllustratorDepths:
 
         return fig
 
+    def _illustrate_to_file(self, data, pred, target, metric, camera):
+        dr = os.getcwd()
+        if not os.path.exists(f'{dr}/visuals'):
+            os.mkdir(f'{dr}/visuals')
+        plot_2d = self._illustrate_2d(data[0], pred[0], target[0], metric[0])
+        plot_2d.savefig(f'{dr}/visuals/{self.name}.png')
+
+        camera_pose = CameraPose(camera.cpu().numpy())
+        data_3d, non_zero_idx = self._get_data_3d(data[sample].cpu().numpy())
+        preds_numpy = pred[0].cpu().numpy()
+        target_numpy = target[0].cpu().numpy()
+        metrics_numpy = metric[0].cpu().numpy()
+
+        plot_3d = self._illustrate_3d(data_3d,
+                                      preds_numpy.ravel()[non_zero_idx],
+                                      target_numpy.ravel()[non_zero_idx],
+                                      metrics_numpy.ravel()[non_zero_idx],
+                                      camera_pose)
+
+        with open(f'{dr}/visuals/{self.name}.html', 'w') as f:
+            f.write(plot_3d.get_snapshot())
+
     def illustrate_to_file(self, batch_idx, data, preds, targets, metrics, batch=None, name=None):
 
         for sample in range(int(preds.size(0))):
@@ -338,24 +368,13 @@ class IllustratorDepths:
             else:
                 self.name = name
 
-            dr = os.getcwd()
-            if not os.path.exists(f'{dr}/visuals'):
-                os.mkdir(f'{dr}/visuals')
-            plot_2d = self._illustrate_2d(data[sample][0], preds[sample][0], targets[sample][0], metrics[sample][0])
-            plot_2d.savefig(f'{dr}/visuals/{self.name}.png')
+            self._illustrate_to_file(data[sample], preds[sample], targets[sample], metrics[sample], batch['camera_pose'][sample])
 
-            camera_pose = CameraPose(batch['camera_pose'][sample].cpu().numpy())
-            data_3d, non_zero_idx = self._get_data_3d(data[sample].cpu().numpy())
-            preds_numpy = preds[sample][0].cpu().numpy()
-            target_numpy = targets[sample][0].cpu().numpy()
-            metrics_numpy = metrics[sample][0].cpu().numpy()
-
-            plot_3d = self._illustrate_3d(data_3d,
-                                          preds_numpy.ravel()[non_zero_idx],
-                                          target_numpy.ravel()[non_zero_idx],
-                                          metrics_numpy.ravel()[non_zero_idx],
-                                          camera_pose)
-
-
-            with open(f'{dr}/visuals/{self.name}.html', 'w') as f:
-                f.write(plot_3d.get_snapshot())
+    def draw_best_k(self, data, preds, targets, metrics, k, batch=None, name=None):
+        samples = np.argsort(metrics)[::-1][:k]
+        for sample in samples:
+            if name is None:
+                self.name = f'illustration-points_batch-best_{k}-{sample}'
+            else:
+                self.name = name
+            self._illustrate_to_file(data[sample], preds[sample], targets[sample], metrics[sample], batch, name)
