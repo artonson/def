@@ -32,12 +32,12 @@ class SharpFeaturesSegmentationTask(BaseLightningModule):
 
     def _shared_eval_step(self, batch, batch_idx, dataloader_idx, partition):
         if self.evaluators is None:
-            self.evaluators = build_evaluators(self.hparams, partition)
+            self.evaluators = build_evaluators(self.hparams, partition, self)
             if self.evaluators is None:
                 return EvalResult()
 
         points, target = batch['points'], batch['close_to_sharp_mask']
-        preds = self.forward(points, as_mask=True)
+        outputs = {'pred_mask': self.forward(points, as_mask=True)}
         evaluator_idx = dataloader_idx if not dataloader_idx is None else 0
-        self.evaluators[evaluator_idx].process(batch, {'pred_mask': preds})
+        self.evaluators[evaluator_idx].process(batch, outputs)
         return EvalResult()

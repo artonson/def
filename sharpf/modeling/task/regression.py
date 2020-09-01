@@ -47,13 +47,13 @@ class SharpFeaturesRegressionTask(BaseLightningModule):
 
     def _shared_eval_step(self, batch, batch_idx, dataloader_idx, partition):
         if self.evaluators is None:
-            self.evaluators = build_evaluators(self.hparams, partition)
+            self.evaluators = build_evaluators(self.hparams, partition, self)
             if self.evaluators is None:
                 return EvalResult()
 
         points, distances = batch['points'], batch['distances']
         self._check_range(distances)
-        outputs = self.forward(points)
+        outputs = {'pred_distances': self.forward(points)}
         evaluator_idx = dataloader_idx if not dataloader_idx is None else 0
-        self.evaluators[evaluator_idx].process(batch, {'pred_distances': outputs})
+        self.evaluators[evaluator_idx].process(batch, outputs)
         return EvalResult()

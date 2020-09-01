@@ -1,3 +1,8 @@
+import weakref
+
+from pytorch_lightning.core.lightning import LightningModule
+
+
 class DatasetEvaluator:
     """
     Base class for a dataset evaluator.
@@ -6,8 +11,9 @@ class DatasetEvaluator:
     and produce evaluation results in the end (by :meth:`evaluate`).
     """
 
-    def __init__(self, dataset_name=""):
+    def __init__(self, pl_module: LightningModule, dataset_name: str = ""):
         self.dataset_name = dataset_name
+        self.pl_module = weakref.ref(pl_module) if pl_module is not None else None
 
     def reset(self):
         """
@@ -63,12 +69,15 @@ class DatasetEvaluators(DatasetEvaluator):
             evaluators (list): the evaluators to combine.
         """
         self._evaluators = evaluators
+        pl_module = None
         dataset_name = ""
         if len(self._evaluators) > 0:
             dataset_name = self._evaluators[0].dataset_name
+            pl_module = self._evaluators[0].pl_module
             for i in range(1, len(self._evaluators)):
+                assert pl_module == self._evaluators[i].pl_module
                 assert dataset_name == self._evaluators[i].dataset_name
-        super().__init__(dataset_name)
+        super().__init__(pl_module, dataset_name)
 
     def reset(self):
         for evaluator in self._evaluators:
