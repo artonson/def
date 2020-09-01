@@ -169,7 +169,7 @@ class CameraPose:
         composed_camera_to_world_4x4 = np.dot(self._camera_to_world_4x4, other_pose.camera_to_world_4x4, )
         return CameraPose(composed_camera_to_world_4x4)
 
-# dgcnn visualization
+
 class IllustratorPoints:
 
     def __init__(self, log):
@@ -221,7 +221,7 @@ class IllustratorPoints:
                 self.name = name
             self._illustrate_to_file(data[sample], preds[sample], targets[sample], metrics[sample], batch)
 
-# cnn visualization
+
 class IllustratorDepths:
 
     def __init__(self, task, log):
