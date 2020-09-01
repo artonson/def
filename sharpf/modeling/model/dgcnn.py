@@ -29,8 +29,11 @@ class DGCNN(nn.Module):
                 features + [activations[feat] for feat in block.in_features],
                 dim=2
             )
-            features = [block(concatenated_features)]
-        features = features[0].squeeze(3)
+            concatenated_features = block(concatenated_features)
+            if concatenated_features.ndim == 4:
+                concatenated_features = concatenated_features.squeeze(3)
+            features = [concatenated_features]
+        features = features[0]
         return features
 
 

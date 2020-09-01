@@ -8,6 +8,8 @@ from .modules import (
     LocalDynamicGraph,
     NeighbourKNN,
     PointOpBlock,
-    UnetDecoder
+    UnetDecoder,
+    neighbour_knn,
+    local_dynamic_graph
 )
 from .task import SharpFeaturesRegressionTask, SharpFeaturesSegmentationTask
