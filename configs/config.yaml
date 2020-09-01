@@ -1,8 +1,9 @@
 defaults:
-  - data: abc-pc
-  - model: dgcnn-4k
-  - transforms: pc-basic
-  - meta_arch: point-sharpness-regressor
+  - datasets: abc-pc
+  - model: dgcnn-4k-hist
+  - transform: pc-basic
+  - task: regression
+  - evaluators: regression
   - trainer: trainer
   - scheduler: step
   - opt: adam
@@ -11,19 +12,19 @@ data_loader:
   train:
     total_batch_size: 32
     num_workers: 3  # depending on RAM capacity set this value carefully
-    pin_memory: true
+    pin_memory: false
   val:
     total_batch_size: 32
     num_workers: 3  # depending on RAM capacity set this value carefully
-    pin_memory: true
+    pin_memory: false
   test:
     total_batch_size: 32
-    num_workers: 3 # depending on RAM capacity set this value carefully
-    pin_memory: true
+    num_workers: 3  # depending on RAM capacity set this value carefully
+    pin_memory: false
 
 eval_only: false
 
-# if eval_only = true: test_wights must be the absolute path to weights
+# if eval_only = true: test_weights must be the absolute path to weights
 # otherwise use `null` if you want to use the last checkpoint after training or `best` to choose the checkpoint
 # performing best on the validation set
 test_weights: best

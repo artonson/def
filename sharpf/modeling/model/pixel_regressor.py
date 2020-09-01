@@ -1,15 +1,11 @@
-import hydra
 import torch.nn as nn
-from omegaconf import DictConfig
 
-from sharpf.utils.config import configurable
-from .build import MODEL_REGISTRY
+from .. import logits_to_scalar
 from ...utils.init import initialize_head
 
 
-@MODEL_REGISTRY.register()
 class PixelRegressor(nn.Module):
-    @configurable
+
     def __init__(self, feature_extractor, regression_head):
         super().__init__()
         self.feature_extractor = feature_extractor
@@ -21,31 +17,21 @@ class PixelRegressor(nn.Module):
     def forward(self, x):
         return self.regression_head(self.feature_extractor(x))
 
-    @classmethod
-    def from_config(cls, cfg: DictConfig):
-        return {
-            "feature_extractor": hydra.utils.instantiate(cfg.feature_extractor),
-            "regression_head": nn.Sequential(*[hydra.utils.instantiate(node) for node in cfg.regression_head])
-        }
 
-# still believe that single class or abstract class for pixel-task model would be better
-@MODEL_REGISTRY.register()
-class PixelSegmentator(nn.Module):
-    @configurable
-    def __init__(self, feature_extractor, segmentation_head):
-        super().__init__()
-        self.feature_extractor = feature_extractor
-        self.segmentation_head = segmentation_head
+class PixelRegressorHist(PixelRegressor):
 
-    def initialize(self):
-        initialize_head(self.segmentation_head)
+    def __init__(self, a: float, b: float, discretization: int, margin: int, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        assert discretization > 0 and margin >= 0 and a < b
+        self.a = a
+        self.b = b
+        self.discretization = discretization
+        self.margin = margin
 
     def forward(self, x):
-        return self.segmentation_head(self.feature_extractor(x))
-
-    @classmethod
-    def from_config(cls, cfg: DictConfig):
-        return {
-            "feature_extractor": hydra.utils.instantiate(cfg.feature_extractor),
-            "segmentation_head": nn.Sequential(*[hydra.utils.instantiate(node) for node in cfg.segmentation_head])
-        }
+        result = super().forward(x)
+        if not self.training:
+            result = result.permute(0, 2, 3, 1)  # (B, H, W, C)
+            result = logits_to_scalar(result, self.a, self.b, self.discretization, self.margin)  # (B, H, W, 1)
+            result = result.permute(0, 3, 1, 2)  # (B, 1, H, W)
+        return result

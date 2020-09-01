@@ -1,13 +1,15 @@
-from .meta_arch import PointSharpnessRegressor, DepthRegressor, DepthSegmentator
+from .loss import kl_div_loss, logits_to_scalar
 from .metrics import balanced_accuracy
-from .model import MODEL_REGISTRY, build_model, DGCNN, Unet, PixelRegressor
+from .model import DGCNN, DGCNNHist, Unet, PixelRegressor, PixelRegressorHist, PixelSegmentator, Sequential
 from .modules import (
     AggregationMax,
-    AggregationMaxPooling,
+    GlobalMaxPooling,
     StackedConv,
     LocalDynamicGraph,
-    NeighbourBase,
     NeighbourKNN,
     PointOpBlock,
-    UnetDecoder
+    UnetDecoder,
+    neighbour_knn,
+    local_dynamic_graph
 )
+from .task import SharpFeaturesRegressionTask, SharpFeaturesSegmentationTask

@@ -5,4 +5,6 @@ from .transformations import (
     random_3d_rotation_matrix, random_scale_matrix)
 from .transforms import (
     NormalizeL2, Random3DRotation, RandomScale, AbstractTransform,
-    CompositeTransform, RandomSubsamplePoints, TypeCast, Center)
+    CompositeTransform, ToTensor, Center,
+    PreprocessDepth, PreprocessDistances, ComputeCloseToSharpMask, DeleteKeys, RenameKeys
+)

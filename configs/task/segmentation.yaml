@@ -1,0 +1,14 @@
+# @package _group_
+
+pl_class:
+  _target_: sharpf.modeling.SharpFeaturesSegmentationTask
+
+loss:
+  _target_: torch.nn.functional.binary_cross_entropy_with_logits
+
+checkpoint_on: balanced_accuracy/val
+early_stop:
+  value: ${task.checkpoint_on}
+  mode: max
+  min_delta: 0.001
+  patience: 5

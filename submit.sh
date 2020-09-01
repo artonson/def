@@ -1,7 +1,7 @@
 #!/bin/bash -l
 #SBATCH --job-name=sharpf
 #SBATCH --nodes=1
-#SBATCH --gres=gpu:4
+#SBATCH --gpus=4
 #SBATCH --ntasks-per-node=1
 #SBATCH --partition=gpu_small
 #SBATCH --exclusive

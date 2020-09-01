@@ -1,0 +1,18 @@
+# @package _group_
+
+pl_class:
+  _target_: sharpf.modeling.SharpFeaturesRegressionTask
+
+loss:
+  _target_: sharpf.modeling.kl_div_loss
+  a: ${model.model_class.a}
+  b: ${model.model_class.b}
+  discretization: ${model.model_class.discretization}
+  margin: ${model.model_class.margin}
+
+checkpoint_on: mean_rmse/val
+early_stop:
+  value: ${task.checkpoint_on}
+  mode: min
+  min_delta: 0.001
+  patience: 5

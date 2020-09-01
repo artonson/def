@@ -1,0 +1,45 @@
+# @package _group_
+
+train:
+  - dataset_name: train
+    dataset_class:
+      _target_: sharpf.utils.abc_utils.LotsOfHdf5Files
+      io:
+        _target_: sharpf.data.DepthMapIO
+      filenames: [
+        '/gpfs/gpfs0/3ddl/sharp_features/eccv_data/images/dataset_config_high_res_clean.json_64x64/train/batched_16k/train_1.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/eccv_data/images/dataset_config_high_res_clean.json_64x64/train/batched_16k/train_2.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/eccv_data/images/dataset_config_high_res_clean.json_64x64/train/batched_16k/train_3.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/eccv_data/images/dataset_config_high_res_clean.json_64x64/train/batched_16k/train_4.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/eccv_data/images/dataset_config_high_res_clean.json_64x64/train/batched_16k/train_5.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/eccv_data/images/dataset_config_high_res_clean.json_64x64/train/batched_16k/train_6.hdf5'
+      ]
+      labels: ['image', 'distances']
+      transform: ${transform.train}
+      max_loaded_files: 6
+val:
+  - dataset_name: val
+    dataset_class:
+      _target_: sharpf.utils.abc_utils.LotsOfHdf5Files
+      io:
+        _target_: sharpf.data.DepthMapIO
+      filenames: [
+        '/gpfs/gpfs0/3ddl/sharp_features/eccv_data/images/dataset_config_high_res_clean.json_64x64/val/batched_16k/train_0.hdf5'
+      ]
+      labels: ['image', 'distances']
+      transform: ${transform.val}
+      max_loaded_files: 1
+    evaluators: ${evaluators.val}
+test:
+  - dataset_name: test
+    dataset_class:
+      _target_: sharpf.utils.abc_utils.LotsOfHdf5Files
+      io:
+        _target_: sharpf.data.DepthMapIO
+      filenames: [
+        '/gpfs/gpfs0/3ddl/sharp_features/eccv_data/images/dataset_config_high_res_clean.json_64x64/val/batched_16k/train_0.hdf5'
+      ]
+      labels: ['image', 'distances']
+      transform: ${transform.test}
+      max_loaded_files: 1
+    evaluators: ${evaluators.test}
