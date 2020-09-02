@@ -127,7 +127,7 @@ def get_annotated_patches(item, config):
         has_smell_depth_discontinuity = smell_depth_discontinuity.run(image)
 
         # create annotations: condition the features onto the nbhood
-        nbhood_features = feature_utils.compute_features_nbhood(mesh, features, mesh_vertex_indexes, mesh_face_indexes)
+        nbhood_features = feature_utils.compute_features_nbhood(mesh, features, mesh_face_indexes, mesh_vertex_indexes=mesh_vertex_indexes)
 
         # remove vertices lying on the boundary (sharp edges found in 1 face only)
         nbhood_features = feature_utils.remove_boundary_features(nbhood, nbhood_features, how='edges')

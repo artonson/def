@@ -3,7 +3,6 @@ import os
 import warnings
 
 import numpy as np
-import pymesh
 from scipy.spatial import cKDTree
 
 from sharpf.utils.abc_utils.abc.feature_utils import (
@@ -17,6 +16,10 @@ from sharpf.utils.geometry import mean_mmd
 class DataSmell(ABC):
     @abstractmethod
     def run(self, *args): pass
+
+    @classmethod
+    def from_config(cls, config):
+        return cls()
 
 
 class SmellCoarseSurfacesByNumEdges(DataSmell):
@@ -87,9 +90,6 @@ class SmellDeviatingResolution(DataSmell):
 
 
 class SmellSharpnessDiscontinuities(DataSmell):
-    @classmethod
-    def from_config(cls, config): return cls()
-
     def run(self, points, distances):
         # validate for Lipshitz condition:
         # if for two points x_i and x_j (nearest neighbours of each other)
@@ -109,7 +109,7 @@ class SmellBadFaceSampling(DataSmell):
     @classmethod
     def from_config(cls, config):
         return cls(config['min_points_per_face'],
-                   config['max_points_per_face'],)
+                   config['max_points_per_face'], )
 
     def run(self, nbhood, points):
         sampling_density = len(points) / len(nbhood.faces)
@@ -117,9 +117,6 @@ class SmellBadFaceSampling(DataSmell):
 
 
 class SmellRaycastingBackground(DataSmell):
-    @classmethod
-    def from_config(cls, config): return cls()
-
     def run(self, image):
         return np.any(image == 0)
 
@@ -133,17 +130,13 @@ class SmellDepthDiscontinuity(DataSmell):
         return cls(config['depth_discontinuity_threshold'])
 
     def run(self, image):
-
-        np.diff(image, axis=0)
-        return np.any(image == 0)
+        import skimage.filters as f
+        s = f.sobel(image, mask=image != 0)
+        return np.any(s > self._depth_discontinuity_threshold)
 
 
 class SmellMeshSelfIntersections(DataSmell):
-    @classmethod
-    def from_config(cls, config): return cls()
-
     def run(self, mesh):
+        import pymesh
         self_intersections = pymesh.detect_self_intersection(mesh)
-
-        np.diff(image, axis=0)
-        return np.any(image == 0)
+        return len(self_intersections) > 0

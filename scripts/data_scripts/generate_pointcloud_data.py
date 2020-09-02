@@ -121,7 +121,7 @@ def get_annotated_patches(item, config):
         has_smell_coarse_surfaces_by_angles = smell_coarse_surfaces_by_angles.run(mesh, mesh_face_indexes, features)
 
         # create annotations: condition the features onto the nbhood
-        nbhood_features = compute_features_nbhood(mesh, features, mesh_face_indexes, mesh_vertex_indexes)
+        nbhood_features = compute_features_nbhood(mesh, features, mesh_face_indexes, mesh_vertex_indexes=mesh_vertex_indexes)
 
         # remove vertices lying on the boundary (sharp edges found in 1 face only)
         nbhood_features = remove_boundary_features(nbhood, nbhood_features, how='edges')
