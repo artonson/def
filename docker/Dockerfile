@@ -101,4 +101,4 @@ RUN git clone https://github.com/PyMesh/PyMesh.git /home/user/code/pymesh \
  && export PYMESH_PATH=`pwd` \
  && pip install -r /home/user/code/pymesh/python/requirements.txt \
  && python setup.py build \
- && python setup.py install --user
+ && python setup.py install
