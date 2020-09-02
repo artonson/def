@@ -12,7 +12,7 @@ log = logging.getLogger(__name__)
 
 
 class Hdf5File(Dataset):
-    def __init__(self, filename, io, labels, transform=None, preload=True):
+    def __init__(self, filename, io, labels, transform=None, preload=True, return_index=False):
         """Represents HDF5 dataset contained in a single HDF5 file.
 
         :param filename: name of the file
@@ -20,12 +20,14 @@ class Hdf5File(Dataset):
         :param labels: a list of HDF5 dataset labels to read off the file ('*' for ALL keys)
         :param transform: callable implementing data + target transform (e.g., adding noise)
         :param preload: if True, data is read off disk in constructor; otherwise load lazily
+        :param return_index: if True, return index of the element too
         """
         self.filename = os.path.normpath(os.path.realpath(filename))
 
         self.transform = transform
         self.items = None  # this is where the data internally is read to
         self.io = io
+        self.return_index = return_index
 
         with h5py.File(self.filename, 'r') as f:
             self.num_items = self._get_length(f)
@@ -35,6 +37,8 @@ class Hdf5File(Dataset):
                 for label in labels:
                     assert label in f.keys()
                 self.labels = set(labels)
+            if return_index:
+                assert 'index' not in self.labels
 
         if preload:
             self.reload()
@@ -56,6 +60,8 @@ class Hdf5File(Dataset):
             self.reload()
 
         item = {label: self.items[label][index] for label in self.labels}
+        if self.return_index:
+            item['index'] = index
 
         if self.transform is not None:
             item = self.transform(item)
@@ -74,7 +80,8 @@ class Hdf5File(Dataset):
 
 
 class LotsOfHdf5Files(Dataset):
-    def __init__(self, io, labels, filenames=None, data_dir=None, partition=None, transform=None, max_loaded_files=0):
+    def __init__(self, io, labels, filenames=None, data_dir=None, partition=None, transform=None, max_loaded_files=0,
+                 return_index=False):
         assert (data_dir is not None) != (filenames is not None), "either provide only data_dir or only filenames arg"
         assert max_loaded_files >= 0
 
@@ -90,7 +97,8 @@ class LotsOfHdf5Files(Dataset):
 
         def _hdf5_creator(filename):
             try:
-                return Hdf5File(filename, io, labels, transform, preload=False)
+                # return_index=False because we are not interested in a relative index
+                return Hdf5File(filename, io, labels, transform, preload=False, return_index=False)
             except OSError as e:
                 raise OSError(f"Unable to open {filename}") from e
             except KeyError as e:
@@ -101,6 +109,7 @@ class LotsOfHdf5Files(Dataset):
         self.cum_num_items = np.cumsum([len(f) for f in self.files])
         self.current_file_idx = 0
         self.max_loaded_files = max_loaded_files
+        self.return_index = return_index
 
     def __len__(self):
         if len(self.cum_num_items) > 0:
@@ -120,5 +129,8 @@ class LotsOfHdf5Files(Dataset):
                 self.files[file_index_to_unload].unload()
 
         item = file[relative_index]
+        if self.return_index:
+            assert 'index' not in item
+            item['index'] = index
 
         return item
