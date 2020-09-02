@@ -1,9 +1,9 @@
 import logging
+from typing import Optional
 
 from pytorch_lightning import TrainResult, EvalResult
 
 from . import BaseLightningModule
-from ...evaluation import build_evaluators
 from ...utils.hydra import instantiate, call
 
 log = logging.getLogger(__name__)
@@ -24,6 +24,7 @@ class SharpFeaturesRegressionTask(BaseLightningModule):
             out = out.squeeze(1)
         if clamp:
             out = out.clamp(0.0, 1.0)
+        # todo: I think model should output dict
         return out
 
     def _check_range(self, tensor, left=0.0, right=1.0):
@@ -31,7 +32,7 @@ class SharpFeaturesRegressionTask(BaseLightningModule):
         if not (left <= min_value and max_value <= right):
             log.warning(f"The violation of assumed range in train partition: min={min_value}, max={max_value}")
 
-    def training_step(self, batch, batch_idx):
+    def training_step(self, batch, batch_idx: int):
         points, distances = batch['points'], batch['distances']
         self._check_range(distances)
         preds = self.forward(points, clamp=False)
@@ -45,15 +46,10 @@ class SharpFeaturesRegressionTask(BaseLightningModule):
         result.log('train_loss', loss, prog_bar=True, on_epoch=True, sync_dist=True)
         return result
 
-    def _shared_eval_step(self, batch, batch_idx, dataloader_idx, partition):
-        if self.evaluators is None:
-            self.evaluators = build_evaluators(self.hparams, partition, self)
-            if self.evaluators is None:
-                return EvalResult()
-
+    def _shared_eval_step(self, batch, batch_idx: int, dataloader_idx: Optional[int], partition: str):
         points, distances = batch['points'], batch['distances']
         self._check_range(distances)
         outputs = {'pred_distances': self.forward(points)}
-        evaluator_idx = dataloader_idx if not dataloader_idx is None else 0
-        self.evaluators[evaluator_idx].process(batch, outputs)
+        evaluator = self._get_evaluator(dataloader_idx, partition)
+        evaluator.process(batch, outputs)
         return EvalResult()

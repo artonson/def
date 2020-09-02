@@ -1,9 +1,9 @@
 import logging
+from typing import Optional
 
 from pytorch_lightning import TrainResult, EvalResult
 
 from . import BaseLightningModule
-from ...evaluation import build_evaluators
 from ...utils.hydra import call, instantiate
 
 log = logging.getLogger(__name__)
@@ -22,7 +22,7 @@ class SharpFeaturesSegmentationTask(BaseLightningModule):
             return (out.sigmoid() > 0.5).long()
         return self.model(x)
 
-    def training_step(self, batch, batch_idx):
+    def training_step(self, batch, batch_idx: int):
         points, target = batch['points'], batch['close_to_sharp_mask']
         preds = self.forward(points, as_mask=False)
         loss = call(self.hparams.task.loss, preds, target)
@@ -30,14 +30,9 @@ class SharpFeaturesSegmentationTask(BaseLightningModule):
         result.log('train_loss', loss, prog_bar=True, on_epoch=True, sync_dist=True)
         return result
 
-    def _shared_eval_step(self, batch, batch_idx, dataloader_idx, partition):
-        if self.evaluators is None:
-            self.evaluators = build_evaluators(self.hparams, partition, self)
-            if self.evaluators is None:
-                return EvalResult()
-
+    def _shared_eval_step(self, batch, batch_idx: int, dataloader_idx: Optional[int], partition: str):
         points, target = batch['points'], batch['close_to_sharp_mask']
         outputs = {'pred_mask': self.forward(points, as_mask=True)}
-        evaluator_idx = dataloader_idx if not dataloader_idx is None else 0
-        self.evaluators[evaluator_idx].process(batch, outputs)
+        evaluator = self._get_evaluator(dataloader_idx, partition)
+        evaluator.process(batch, outputs)
         return EvalResult()

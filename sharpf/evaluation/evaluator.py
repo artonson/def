@@ -1,6 +1,8 @@
 import weakref
+from typing import Optional, List
 
-from pytorch_lightning.core.lightning import LightningModule
+import torch.nn as nn
+from torch.utils.data import Dataset
 
 
 class DatasetEvaluator:
@@ -11,9 +13,10 @@ class DatasetEvaluator:
     and produce evaluation results in the end (by :meth:`evaluate`).
     """
 
-    def __init__(self, pl_module: LightningModule, dataset_name: str = ""):
+    def __init__(self, model: Optional[nn.Module], dataset: Optional[Dataset], dataset_name: Optional[str]):
         self.dataset_name = dataset_name
-        self.pl_module = weakref.ref(pl_module) if pl_module is not None else None
+        self.model = weakref.ref(model) if model is not None else None  # to call forward method
+        self.dataset = dataset
 
     def reset(self):
         """
@@ -63,21 +66,24 @@ class DatasetEvaluators(DatasetEvaluator):
     all of its :class:`DatasetEvaluator`.
     """
 
-    def __init__(self, evaluators):
+    def __init__(self, evaluators: List[DatasetEvaluator]):
         """
         Args:
             evaluators (list): the evaluators to combine.
         """
         self._evaluators = evaluators
-        pl_module = None
-        dataset_name = ""
+        model = None
+        dataset = None
+        dataset_name = None
         if len(self._evaluators) > 0:
+            model = self._evaluators[0].model
+            dataset = self._evaluators[0].dataset
             dataset_name = self._evaluators[0].dataset_name
-            pl_module = self._evaluators[0].pl_module
             for i in range(1, len(self._evaluators)):
-                assert pl_module == self._evaluators[i].pl_module
+                assert model == self._evaluators[i].model
+                assert dataset == self._evaluators[i].dataset
                 assert dataset_name == self._evaluators[i].dataset_name
-        super().__init__(pl_module, dataset_name)
+        super().__init__(model, dataset, dataset_name)
 
     def reset(self):
         for evaluator in self._evaluators:

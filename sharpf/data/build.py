@@ -1,7 +1,7 @@
 import logging
-from collections import OrderedDict
+from typing import List, Tuple
 
-from omegaconf import ListConfig
+from omegaconf import DictConfig, ListConfig
 from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 
@@ -11,60 +11,49 @@ from sharpf.utils.hydra import instantiate
 log = logging.getLogger(__name__)
 
 
-class ConcatDataset(Dataset):
-    def __init__(self, *datasets):
-        self.datasets = datasets
-
-    def __getitem__(self, i):
-        return tuple(d[i] for d in self.datasets)
-
-    def __len__(self):
-        return min(len(d) for d in self.datasets)
-
-
-def build_datasets(cfg, partition):
+def build_datasets(cfg: DictConfig, partition: str) -> List[Tuple[DictConfig, Dataset]]:
     assert partition in ['train', 'val', 'test']
     if partition not in cfg.datasets:
-        return None
+        return []
 
     datasets_params = cfg.datasets[partition]
     assert isinstance(datasets_params, ListConfig)
 
-    datasets = OrderedDict()
+    if partition == 'train':
+        assert len(datasets_params) == 1, 'multiple train datasets is not supported yet'
+
+    datasets = []
+    _dataset_names = []
 
     for dataset_param in datasets_params:
-        dataset_name = dataset_param.dataset_name
-        assert dataset_name not in datasets, f"dataset_name {dataset_name} is duplicated"
-        datasets[dataset_name] = instantiate(dataset_param.dataset_class)
-        log.info(f"Dataset ({dataset_name}) contains {len(datasets[dataset_name])} elements")
-
-    if partition == 'train' and len(datasets) > 1:
-        key = 'concat_' + '_'.join(list(datasets.keys()))
-        return {key: ConcatDataset(datasets)}
+        assert dataset_param.dataset_name not in _dataset_names
+        dataset = instantiate(dataset_param.dataset_class)
+        log.info(f"Dataset ({dataset_param.dataset_name}) contains {len(dataset)} elements")
+        datasets.append((dataset_param, dataset))
+        _dataset_names.append(dataset_param.dataset_name)
 
     return datasets
 
 
-def build_loaders(cfg, partition):
+def build_loaders(cfg: DictConfig, datasets: List[Tuple[DictConfig, Dataset]], partition: str):
+    if len(datasets) == 0:
+        return None
+
     assert partition in ['train', 'val', 'test']
+    if partition == 'train':
+        assert len(datasets) == 1
 
     num_workers = cfg.data_loader[partition].num_workers
     pin_memory = cfg.data_loader[partition].pin_memory
     batch_size = get_batch_size(cfg.data_loader[partition].total_batch_size)
 
-    datasets = build_datasets(cfg, partition)
-    if datasets is None:
-        return None
-
     data_loaders = []
     shuffle = partition == 'train'
     drop_last = partition == 'train'
 
-    for dataset_name, dataset in datasets.items():
-        data_loaders.append(DataLoader(dataset, batch_size=batch_size, num_workers=num_workers, pin_memory=pin_memory,
-                                       shuffle=shuffle, drop_last=drop_last))
-
-    if partition == 'train':
-        assert len(data_loaders) == 1
+    for dataset_param, dataset in datasets:
+        data_loaders.append(
+            DataLoader(dataset, batch_size=batch_size, num_workers=num_workers, pin_memory=pin_memory, shuffle=shuffle,
+                       drop_last=drop_last))
 
     return data_loaders

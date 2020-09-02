@@ -16,8 +16,8 @@ class RegressionEvaluator(DatasetEvaluator):
     Evaluate regression metrics.
     """
 
-    def __init__(self, input_key, output_key, dataset_name):
-        super().__init__(dataset_name)
+    def __init__(self, input_key, output_key, *args, **kwargs):
+        super().__init__(*args, **kwargs)
         self.input_key = input_key
         self.output_key = output_key
         self.reset()
