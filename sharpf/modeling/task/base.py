@@ -54,7 +54,7 @@ class BaseLightningModule(LightningModule):
 
         # merge results from different evaluators
         for i in range(len(self.evaluators)):
-            evaluator = self.evaluators[i]
+            evaluator = self.evaluators[partition][i]
             results_i = evaluator.evaluate()
             if results_i is None:
                 continue
