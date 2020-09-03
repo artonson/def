@@ -53,7 +53,7 @@ class BaseLightningModule(LightningModule):
         results = {'scalars': {}, 'images': {}}
 
         # merge results from different evaluators
-        for i in range(len(self.evaluators)):
+        for i in range(len(self.evaluators[partition])):
             evaluator = self.evaluators[partition][i]
             results_i = evaluator.evaluate()
             if results_i is None:
@@ -119,7 +119,7 @@ class BaseLightningModule(LightningModule):
         return loaders[0]
 
     def val_dataloader(self):
-        self.datasets['val'] = build_datasets(self.hparams, 'train')
+        self.datasets['val'] = build_datasets(self.hparams, 'val')
         return build_loaders(self.hparams, self.datasets['val'], 'val')
 
     def test_dataloader(self):
