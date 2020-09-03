@@ -36,7 +36,7 @@ def main(options):
     if len(options.true_keys) > 0 or len(options.false_keys) > 0:
         loader = DataLoader(
             dataset,
-            num_workers=1,
+            num_workers=10,
             batch_size=128,
             shuffle=False,
             collate_fn=partial(collate_mapping_with_io, io=IO),
@@ -48,7 +48,7 @@ def main(options):
                 batch,
                 true_keys=options.true_keys or None,
                 false_keys=options.false_keys or None)
-            filtered_num_items += filtered_batch['has_sharp']
+            filtered_num_items += len(filtered_batch['has_sharp'])
 
         print('Filtered by TRUE [{}] and FALSE [{}]: {} items'.format(
             ', '.join(options.true_keys),
