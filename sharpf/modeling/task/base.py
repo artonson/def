@@ -3,6 +3,7 @@ from typing import Optional, Dict, List, Tuple
 
 import torch
 from omegaconf import DictConfig
+from omegaconf import OmegaConf
 from pytorch_lightning import EvalResult
 from pytorch_lightning.core.lightning import LightningModule
 from torch.utils.data import Dataset
@@ -10,6 +11,7 @@ from torch.utils.data import Dataset
 from sharpf.data import build_loaders, build_datasets
 from sharpf.utils.hydra import instantiate
 from ...evaluation import build_evaluators, DatasetEvaluator
+from ...optim import get_params_for_optimizer
 
 log = logging.getLogger(__name__)
 
@@ -107,7 +109,13 @@ class BaseLightningModule(LightningModule):
         return self._shared_eval_epoch_end(outputs, 'test')
 
     def configure_optimizers(self):
-        optimizer = instantiate(self.hparams.opt, params=self.parameters(), lr=self.learning_rate)
+        params = get_params_for_optimizer(self.model, self.learning_rate, self.hparams.opt.weight_decay,
+                                          self.hparams.opt.weight_decay_norm)
+        opt_param = OmegaConf.to_container(self.hparams.opt, resolve=True)
+        del opt_param['weight_decay']
+        del opt_param['weight_decay_norm']
+        opt_param = DictConfig(opt_param)
+        optimizer = instantiate(opt_param, params=params, lr=self.learning_rate)
         scheduler = instantiate(self.hparams.scheduler, optimizer=optimizer)
         # todo add possibility to turn off scheduler
         return [optimizer], [scheduler]
