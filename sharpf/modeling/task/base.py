@@ -116,9 +116,10 @@ class BaseLightningModule(LightningModule):
         del opt_param['weight_decay_norm']
         opt_param = DictConfig(opt_param)
         optimizer = instantiate(opt_param, params=params, lr=self.learning_rate)
-        scheduler = instantiate(self.hparams.scheduler, optimizer=optimizer)
-        # todo add possibility to turn off scheduler
-        return [optimizer], [scheduler]
+        if 'scheduler' in self.hparams:
+            scheduler = instantiate(self.hparams.scheduler, optimizer=optimizer)
+            return [optimizer], [scheduler]
+        return optimizer
 
     def train_dataloader(self):
         self.datasets['train'] = build_datasets(self.hparams, 'train')
