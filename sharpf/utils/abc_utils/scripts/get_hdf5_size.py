@@ -14,13 +14,14 @@ __dir__ = os.path.normpath(
 )
 sys.path[1:1] = [__dir__]
 
-from sharpf.data.datasets.sharpf_io import PointCloudIO as IO, DepthMapIO
+from sharpf.data.datasets.sharpf_io import PointCloudIO, DepthMapIO as IO
 from sharpf.utils.abc_utils.hdf5.dataset import Hdf5File, LotsOfHdf5Files, PreloadTypes
 from sharpf.utils.abc_utils.hdf5.io_struct import collate_mapping_with_io, select_items_by_predicates
 
 
 def main(options):
     labels = ['has_sharp'] + options.true_keys + options.false_keys
+    # labels = '*'
 
     if None is not options.h5_input:
         dataset = Hdf5File(options.h5_input, IO, labels=labels, preload=PreloadTypes.LAZY)
@@ -34,6 +35,7 @@ def main(options):
         print('Total {} items'.format(len(dataset)))
 
     if len(options.true_keys) > 0 or len(options.false_keys) > 0:
+    # if None is not options.true_keys > 0 or None is not options.false_keys:
         loader = DataLoader(
             dataset,
             num_workers=10,
@@ -69,7 +71,7 @@ def parse_options():
 
     parser.add_argument('-tk', '--true-key', dest='true_keys', action='append', default=[],
                         help='specify keys that must be TRUE to put into resulting HDF5 files (can me multiple).')
-    parser.add_argument('-fk', '--false-key', dest='false_keys', action='append', default=[],
+    parser.add_argument('-fk', '--false-key', dest='false_keys', action='append', default=[], 
                         help='specify keys that must be FALSE to put into resulting HDF5 files (can me multiple).')
     args = parser.parse_args()
     return args

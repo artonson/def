@@ -106,7 +106,7 @@ def save_depth_maps(patches, filename):
         DepthMapIO.write(f, 'num_surfaces', patches['num_surfaces'].numpy())
         DepthMapIO.write(f, 'camera_pose', patches['camera_pose'].numpy())
         DepthMapIO.write(f, 'mesh_scale', patches['mesh_scale'].numpy())
-        has_smell_keys = [key for key in PointCloudIO.datasets.keys()
+        has_smell_keys = [key for key in DepthMapIO.datasets.keys()
                           if key.startswith('has_smell')]
         for key in has_smell_keys:
             DepthMapIO.write(f, key, patches[key].numpy().astype(np.bool))

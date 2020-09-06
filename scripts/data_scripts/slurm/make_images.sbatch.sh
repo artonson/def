@@ -11,7 +11,7 @@
 #SBATCH --mem-per-cpu=8g
 #SBATCH --oversubscribe
 
-module load apps/singularity-3.2.0
+# module load apps/singularity-3.2.0
 
 __usage="
 Usage: $0 -c chunk -o output_dir -d data_dir -l logs_dir -f config_file [-v]

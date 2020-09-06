@@ -92,6 +92,7 @@ class Hdf5File(Dataset):
         if None is not self.target_label:
             item.update({self.target_label: target})
 
+        #print(item)
         return item
 
     def reload(self):
