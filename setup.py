@@ -6,7 +6,8 @@ __version__ = '0.0.1'
 url = 'https://github.com/artonson/sharp_features'
 install_requires = [
     'hydra-core',
-    'pytorch-lightning'
+    'pytorch-lightning',
+    'msgpack-python'
 ]
 
 setup(name='sharpf',
