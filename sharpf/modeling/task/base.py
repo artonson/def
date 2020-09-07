@@ -38,15 +38,23 @@ class BaseLightningModule(LightningModule):
     def checkpoint_on(self, results: Dict[str, float]):
         checkpoint_on = None
         if 'checkpoint_on' in self.hparams.task and self.hparams.task.checkpoint_on is not None:
-            assert self.hparams.task.checkpoint_on in results
-            checkpoint_on = torch.tensor(results[self.hparams.task.checkpoint_on])
+            if self.hparams.task.checkpoint_on in results:
+                checkpoint_on = torch.tensor(results[self.hparams.task.checkpoint_on])
+            elif self.is_overfit_batches():
+                log.warning('You forgot to change checkpoint_on value?')
+            else:
+                raise ValueError
         return checkpoint_on
 
     def early_stop_on(self, results: Dict[str, float]):
         early_stop_on = None
         if 'early_stop' in self.hparams.task and self.hparams.task.early_stop.value is not None:
-            assert self.hparams.task.early_stop.value in results
-            early_stop_on = torch.tensor(results[self.hparams.task.early_stop.value])
+            if self.hparams.task.checkpoint_on in results:
+                early_stop_on = torch.tensor(results[self.hparams.task.early_stop.value])
+            elif self.is_overfit_batches():
+                log.warning('You forgot to change early stop value?')
+            else:
+                raise ValueError
         return early_stop_on
 
     def _shared_eval_epoch_end(self, outputs, partition: str):
@@ -77,7 +85,7 @@ class BaseLightningModule(LightningModule):
             result = EvalResult()
 
         # log scalars
-        result.log_dict(results['scalars'])
+        result.log_dict(results['scalars'], prog_bar=True)
 
         # log images
         for name, image in results['images'].items():
@@ -123,9 +131,15 @@ class BaseLightningModule(LightningModule):
 
     def train_dataloader(self):
         self.datasets['train'] = build_datasets(self.hparams, 'train')
+        if self.is_overfit_batches():
+            self.datasets['val'] = self.datasets['train']
+            self.datasets['test'] = self.datasets['train']
         loaders = build_loaders(self.hparams, self.datasets['train'], 'train')
         assert len(loaders) == 1, "There must be only one train dataloader"
         return loaders[0]
+
+    def is_overfit_batches(self) -> bool:
+        return self.hparams.trainer.overfit_batches != 0.0
 
     def val_dataloader(self):
         self.datasets['val'] = build_datasets(self.hparams, 'val')
