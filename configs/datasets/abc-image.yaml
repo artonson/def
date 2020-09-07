@@ -26,9 +26,10 @@ val:
       filenames: [
         '/gpfs/gpfs0/3ddl/sharp_features/eccv_data/images/dataset_config_high_res_clean.json_64x64/val/batched_16k/train_0.hdf5'
       ]
-      labels: ['image', 'distances']
+      labels: ['image', 'distances', 'item_id', 'camera_poses']
       transform: ${transform.val}
       max_loaded_files: 1
+      return_index: True
     evaluators: ${evaluators.val}
 test:
   - dataset_name: test
@@ -39,7 +40,8 @@ test:
       filenames: [
         '/gpfs/gpfs0/3ddl/sharp_features/eccv_data/images/dataset_config_high_res_clean.json_64x64/val/batched_16k/train_0.hdf5'
       ]
-      labels: ['image', 'distances']
+      labels: ['image', 'distances', 'item_id', 'camera_pose']
       transform: ${transform.test}
       max_loaded_files: 1
+      return_index: True
     evaluators: ${evaluators.test}

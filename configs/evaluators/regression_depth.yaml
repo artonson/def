@@ -1,0 +1,23 @@
+# @package _group_
+
+val:
+  - _target_: sharpf.evaluation.RegressionEvaluator
+    input_key: distances
+    output_key: pred_distances
+
+  - _target_: sharpf.visualization.IllustratorDepths
+    input_key: distances
+    output_key: pred_distances
+    golden_set_ids: [1, 2, 3]
+    k: 5
+
+test:
+  - _target_: sharpf.evaluation.RegressionEvaluator
+    input_key: distances
+    output_key: pred_distances
+
+  - _target_: sharpf.visualization.IllustratorDepths
+      input_key: distances
+      output_key: pred_distances
+      golden_set_ids: [1, 2, 3]
+      k: 5

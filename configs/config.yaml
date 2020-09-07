@@ -10,15 +10,15 @@ defaults:
 
 data_loader:
   train:
-    total_batch_size: 32
+    total_batch_size: 4
     num_workers: 3  # depending on RAM capacity set this value carefully
     pin_memory: false
   val:
-    total_batch_size: 32
+    total_batch_size: 4
     num_workers: 3  # depending on RAM capacity set this value carefully
     pin_memory: false
   test:
-    total_batch_size: 32
+    total_batch_size: 4
     num_workers: 3  # depending on RAM capacity set this value carefully
     pin_memory: false
 
