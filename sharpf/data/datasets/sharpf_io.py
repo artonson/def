@@ -11,6 +11,8 @@ class PointCloudIO():
                     'has_sharp': io.Bool('has_sharp'),
                     'item_id': io.AsciiString('item_id'),
                     'normals': io.Float64('normals'),
+                    'normals_estimation_10': io.Float64('normals_estimation_10'),
+                    'normals_estimation_100': io.Float64('normals_estimation_100'),
                     'num_sharp_curves': io.Int8('num_sharp_curves'),
                     'num_surfaces': io.Int8('num_surfaces'),
                     'orig_face_indexes': io.VarInt32('orig_face_indexes'),
