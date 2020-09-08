@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --job-name=sharpf-data
+#SBATCH --job-name=sharpf-shuffle
 #SBATCH --output=logs/make_canonical_datasets_%A.out
 #SBATCH --error=logs/make_canonical_datasets_%A.err
 #SBATCH --time=12:00:00
@@ -10,7 +10,7 @@
 #SBATCH --mem-per-cpu=16g
 #SBATCH --oversubscribe
 
-module load apps/singularity-3.2.0
+#module load apps/singularity-3.2.0
 
 __usage="
 Usage: $0 -i input_dir -o output_dir [-v]

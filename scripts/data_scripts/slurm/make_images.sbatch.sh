@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --job-name=sharpf-images
+#SBATCH --job-name=sharpf-gen-images
 #SBATCH --output=logs/sharpf-images_%A_%a.out
 #SBATCH --error=logs/sharpf-images_%A_%a.err
 #SBATCH --array=1-100
