@@ -1,0 +1,61 @@
+# @package _group_
+
+train:
+  - dataset_name: train
+    dataset_class:
+      _target_: sharpf.utils.abc_utils.LotsOfHdf5Files
+      io:
+        _target_: sharpf.data.PointCloudIO
+      filenames: [
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/train_with_voronoi/train_0.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/train_with_voronoi/train_1.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/train_with_voronoi/train_2.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/train_with_voronoi/train_3.hdf5'
+      ]
+      labels: ['points', 'distances', 'normals']
+      transform: ${transform.train}
+      max_loaded_files: 4
+val:
+  - dataset_name: val
+    dataset_class:
+      _target_: sharpf.utils.abc_utils.LotsOfHdf5Files
+      io:
+        _target_: sharpf.data.PointCloudIO
+      filenames: [
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/val_with_voronoi/train_0.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/val_with_voronoi/train_1.hdf5'
+      ]
+      labels: ['points', 'distances', 'normals']
+      transform: ${transform.val}
+      max_loaded_files: 2
+    evaluators: ${evaluators.val}
+test:
+  - dataset_name: train
+    dataset_class:
+      _target_: sharpf.utils.abc_utils.LotsOfHdf5Files
+      io:
+        _target_: sharpf.data.PointCloudIO
+      filenames: [
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/train_with_voronoi/train_0.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/train_with_voronoi/train_1.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/train_with_voronoi/train_2.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/train_with_voronoi/train_3.hdf5'
+      ]
+      labels: ['points', 'distances', 'normals']
+      transform: ${transform.test}
+      max_loaded_files: 4
+    evaluators: ${evaluators.test}
+  - ${datasets.val.0}
+  - dataset_name: test
+    dataset_class:
+      _target_: sharpf.utils.abc_utils.LotsOfHdf5Files
+      io:
+        _target_: sharpf.data.PointCloudIO
+      filenames: [
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/test_with_voronoi/train_0.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/test_with_voronoi/train_1.hdf5'
+      ]
+      labels: ['points', 'distances', 'normals']
+      transform: ${transform.test}
+      max_loaded_files: 2
+    evaluators: ${evaluators.test}
