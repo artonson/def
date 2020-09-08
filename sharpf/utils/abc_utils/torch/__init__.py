@@ -6,5 +6,6 @@ from .transformations import (
 from .transforms import (
     NormalizeL2, Random3DRotation, RandomScale, AbstractTransform,
     CompositeTransform, ToTensor, Center,
-    PreprocessDepth, PreprocessDistances, ComputeCloseToSharpMask, DeleteKeys, RenameKeys
+    PreprocessDepth, PreprocessDistances, ComputeCloseToSharpMask, DeleteKeys, RenameKeys,
+    Concatenate
 )

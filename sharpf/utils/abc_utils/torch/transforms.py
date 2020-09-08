@@ -148,6 +148,21 @@ class RenameKeys(AbstractTransform):
             item[new_key] = item[old_key]
         return item
 
+
+class Concatenate(AbstractTransform):
+
+    def __init__(self, in_keys, out_key, dim):
+        super().__init__(None)
+        self.in_keys = in_keys
+        self.out_key = out_key
+        self.dim = dim
+
+    def __call__(self, item):
+        if 'voronoi' in self.in_keys:
+            item['voronoi'] = item['voronoi'].unsqueeze(1)
+        item[self.out_key] = torch.cat([item[in_key] for in_key in self.in_keys], dim=self.dim)
+        return item
+
 # class RandomSubsamplePoints(AbstractTransform):
 #     def __init__(self, n_points, theta=1.0):
 #         self.n_points = n_points
