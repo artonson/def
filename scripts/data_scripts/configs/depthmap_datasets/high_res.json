@@ -8,7 +8,7 @@
     "sequences": [
       {
         "type": "sphere_to_origin",
-        "n_images": 10
+        "n_images": 36
       },
       {
         "type": "xy_translation",

@@ -267,7 +267,7 @@ def make_patches(options):
         config = json.load(config_file)
 
     MAX_SEC_PER_PATCH = 100
-    max_patches_per_mesh = config.get('max_patches_per_mesh', 32)
+    max_patches_per_mesh = config.get('max_patches_per_mesh', 1500)
     parallel = Parallel(n_jobs=options.n_jobs, backend='multiprocessing',
                         timeout=chunk_size * max_patches_per_mesh * MAX_SEC_PER_PATCH)
     delayed_iterable = (delayed(generate_patches)(obj_filename, feat_filename, data_slice, config, out_filename)

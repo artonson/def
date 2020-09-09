@@ -31,6 +31,6 @@ export TEST_START_CHUNK="22"
 export TEST_END_CHUNK="22"
 
 
-JOB_IDS_1=$( ./cluster_generate_data )
+JOB_IDS_1=$( ./cluster_generate_data.sh )
 
-JOB_IDS_2=$( ./cluster_symlinks_n_shuffle.sh ${JOB_IDS_1})
+JOB_IDS_2=$( ./cluster_symlinks_n_shuffle.sh "$( echo ${JOB_IDS_1} | tr ' ' ':' )" )
