@@ -19,6 +19,7 @@
     {
       "type": "parallel_pipeline",
       "num_threads": 10,
+      "backend": "multiprocessing",
       "parallelize_by_key": "centroids",
       "filters": [
         {

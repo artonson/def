@@ -101,7 +101,23 @@ class AbstractFilter(ABC, Configurable):
         pass
 
 
-class MeshScaler(AbstractFilter):
+class MeshFilter(AbstractFilter):
+    def __call__(self, data_item: MutableMapping) -> MutableMapping:
+        assert 'mesh' in data_item, 'cannot operate on data item'
+        return data_item
+
+
+def require_keys(*keys):
+    def inner(func):
+        '''
+           do operations with func
+        '''
+        return func
+
+    return inner  # this is the fun_obj mentioned in the above content
+
+
+class MeshScaler(MeshFilter):
     def __init__(
             self,
             shape_fabrication_extent,
@@ -115,6 +131,8 @@ class MeshScaler(AbstractFilter):
         self._n_points_per_short_curve = n_points_per_short_curve
 
     def __call__(self, data_item: MutableMapping) -> MutableMapping:
+        data_item = super().__call__(data_item)
+
         mesh = data_item['mesh']
         features = data_item['features']
 
