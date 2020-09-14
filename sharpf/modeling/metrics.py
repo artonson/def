@@ -18,4 +18,4 @@ def balanced_accuracy(tp: torch.Tensor, fp: torch.Tensor, tn: torch.Tensor, fn: 
     tnr = tn / (tn + fp)  # (B, 1)
     tpr = torch.where(torch.isnan(tpr), tnr, tpr)  # (B, 1)
     tnr = torch.where(torch.isnan(tnr), tpr, tnr)  # (B, 1)
-    return 0.5 * torch.mean(tpr + tnr)
+    return 0.5 * (tpr + tnr)

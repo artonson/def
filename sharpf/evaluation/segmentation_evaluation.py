@@ -58,7 +58,7 @@ class SegmentationEvaluator(DatasetEvaluator):
         fn = torch.cat(all_gather(self._fn), dim=0)
 
         # calculate metrics
-        ba = balanced_accuracy(tp, fp, tn, fn)
+        ba = torch.mean(balanced_accuracy(tp, fp, tn, fn))
 
         scalars = {f'balanced_accuracy/{self.dataset_name}': ba}
 

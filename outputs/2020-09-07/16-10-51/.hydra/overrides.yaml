@@ -1,0 +1,4 @@
+- trainer.gpus=1
+- model=unet-regressor
+- evaluators=regression_depth
+- trainer.fast_dev_run=true

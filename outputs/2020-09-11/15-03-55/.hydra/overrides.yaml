@@ -1,0 +1,6 @@
+- trainer.gpus=1
+- model=unet-regressor-hist
+- datasets=abc-image
+- transform=depth-regression
+- evaluators=regression_depth
+- eval_only=true

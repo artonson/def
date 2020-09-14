@@ -89,10 +89,10 @@ class LotsOfHdf5Files(Dataset):
             if partition is not None:
                 data_dir = os.path.join(data_dir, partition)
             assert os.path.exists(data_dir)
-            filenames = sorted(glob.glob(os.path.join(data_dir, '*.hdf5')))
+            self.filenames = sorted(glob.glob(os.path.join(data_dir, '*.hdf5')))
         else:
-            filenames = sorted(list(filenames))
-            for filename in filenames:
+            self.filenames = sorted(list(filenames))
+            for filename in self.filenames:
                 assert os.path.exists(filename)
 
         def _hdf5_creator(filename):
@@ -116,62 +116,26 @@ class LotsOfHdf5Files(Dataset):
             return self.cum_num_items[-1]
         return 0
 
+    def get_from_filename(self, filename, index):
+        file = self.files[np.where(self.filenames == filename)]
+        loaded_file_indexes = [i for i, f in enumerate(self.files) if f.is_loaded()]
+        if self.max_loaded_files > 0:
+            if file_index not in loaded_file_indexes and len(loaded_file_indexes) == self.max_loaded_files:
+                file_index_to_unload = np.random.choice(loaded_file_indexes)
+                self.files[file_index_to_unload].unload()
+
+        item = file[index]
+        if self.return_index:
+            assert 'index' not in item
+            item['index'] = index
+
+        return item
+
     def __getitem__(self, index):
         file_index = np.searchsorted(self.cum_num_items, index, side='right')
         relative_index = index - self.cum_num_items[file_index] if file_index > 0 else index
 
-<<<<<<< HEAD
-
-class DepthDataset(LotsOfHdf5Files):
-
-    def __init__(self, io, data_dir, data_label, target_label, task, partition=None,
-                 transform=None, normalisation=['quantile', 'standartize'], max_loaded_files=0):
-        super().__init__(data_dir=data_dir, io=io,
-                         data_label=data_label, target_label=target_label,
-                         labels=['item_id', 'camera_pose', 'mesh_scale'],
-                         partition=partition,
-                         transform=transform,
-                         max_loaded_files=max_loaded_files)
-        self.data_dir = data_dir
-        self.task = task
-        self.quality = self._get_quantity()
-        self.normalisation = normalisation
-
-    def _get_quantity(self):
-        data_dir_split = self.data_dir.split('_')
-        if 'high' in data_dir_split:
-            return 'high'
-        elif 'low' in data_dir_split:
-            return 'low'
-        elif 'med' in data_dir_split:
-            return 'med'
-
-    def quantile_normalize(self, data):
-        # mask -> min shift -> quantile
-
-        norm_data = np.copy(data)
-        mask_obj = np.where(norm_data != 0)
-        mask_back = np.where(norm_data == 0)
-        norm_data[mask_back] = norm_data.max() + 1.0  # new line
-        norm_data -= norm_data[mask_obj].min()
-
-        norm_data /= high_res_quantile
-
-        return norm_data
-
-    def standartize(self, data):
-        # zero mean, unit variance
-
-        standart_data = np.copy(data)
-        standart_data -= np.mean(standart_data)
-        std = np.linalg.norm(standart_data, axis=1).max()
-        if std > 0:
-            standart_data /= std
-
-        return standart_data
-=======
         file = self.files[file_index]
->>>>>>> origin/pl_hydra
 
         loaded_file_indexes = [i for i, f in enumerate(self.files) if f.is_loaded()]
         if self.max_loaded_files > 0:
@@ -184,43 +148,4 @@ class DepthDataset(LotsOfHdf5Files):
             assert 'index' not in item
             item['index'] = index
 
-<<<<<<< HEAD
-        item = super().__getitem__(index)
-        data, target = item['image'], item['distances']
-        mask_1 = (np.copy(data) != 0.0).astype(float)  # mask for object
-        mask_2 = np.where(data == 0)  # mask for background
-
-        if 'quantile' in self.normalisation:
-            data = self.quantile_normalize(data)
-        if 'standartize' in self.normalisation:
-            data = self.standartize(data)
-
-        dist_new = np.copy(target)
-        dist_mask = dist_new * mask_1  # select object points
-        dist_mask[mask_2] = 1.0  # background points has max distance to sharp features
-        close_to_sharp = np.array((dist_mask != np.nan) & (dist_mask < 1.)).astype(float)
-
-        output = {}
-
-        if self.task == 'two-heads':
-            # regression + segmentation (or two-head network) has to targets:
-            # distance field and segmented close-to-sharp region of the object
-            target = torch.cat([torch.FloatTensor(dist_mask).unsqueeze(0), torch.FloatTensor(close_to_sharp).unsqueeze(0)], dim=0)
-            output['distance_and_close_to_sharp'] = target
-        if self.task == 'segmentation':
-            target = torch.FloatTensor(close_to_sharp).unsqueeze(0)
-            output['close_to_sharp_mask'] = target
-        elif self.task == 'regression':
-            target = torch.FloatTensor(dist_mask).unsqueeze(0)
-            output['distance_to_sharp'] = target
-
-        data = torch.FloatTensor(data).unsqueeze(0)
-        output['image'] = data
-        output['item_id'] = item['item_id']
-        output['camera_pose'] = item['camera_pose']
-        output['mesh_scale'] = item['mesh_scale']
-
-        return output
-=======
         return item
->>>>>>> origin/pl_hydra

@@ -1,0 +1,321 @@
+data_loader:
+  train:
+    total_batch_size: 4
+    num_workers: 3
+    pin_memory: false
+  val:
+    total_batch_size: 4
+    num_workers: 3
+    pin_memory: false
+  test:
+    total_batch_size: 4
+    num_workers: 3
+    pin_memory: false
+eval_only: false
+test_weights: best
+seed: 123
+datasets:
+  train:
+  - dataset_name: train
+    dataset_class:
+      _target_: sharpf.utils.abc_utils.LotsOfHdf5Files
+      io:
+        _target_: sharpf.data.PointCloudIO
+      filenames:
+      - /gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/train/train_0.hdf5
+      - /gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/train/train_1.hdf5
+      - /gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/train/train_2.hdf5
+      - /gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/train/train_3.hdf5
+      labels:
+      - points
+      - distances
+      transform: ${transform.train}
+      max_loaded_files: 4
+  val:
+  - dataset_name: val
+    dataset_class:
+      _target_: sharpf.utils.abc_utils.LotsOfHdf5Files
+      io:
+        _target_: sharpf.data.PointCloudIO
+      filenames:
+      - /gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/val/train_0.hdf5
+      - /gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/val/train_1.hdf5
+      labels:
+      - points
+      - distances
+      - item_id
+      transform: ${transform.val}
+      max_loaded_files: 2
+      return_index: true
+    evaluators: ${evaluators.val}
+  test:
+  - dataset_name: train
+    dataset_class:
+      _target_: sharpf.utils.abc_utils.LotsOfHdf5Files
+      io:
+        _target_: sharpf.data.PointCloudIO
+      filenames:
+      - /gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/train/train_0.hdf5
+      - /gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/train/train_1.hdf5
+      - /gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/train/train_2.hdf5
+      - /gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/train/train_3.hdf5
+      labels:
+      - points
+      - distances
+      - item_id
+      transform: ${transform.test}
+      max_loaded_files: 4
+      return_index: true
+    evaluators: ${evaluators.test}
+  - ${datasets.val.0}
+  - dataset_name: test
+    dataset_class:
+      _target_: sharpf.utils.abc_utils.LotsOfHdf5Files
+      io:
+        _target_: sharpf.data.PointCloudIO
+      filenames:
+      - /gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/test/train_0.hdf5
+      - /gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/test/train_1.hdf5
+      labels:
+      - points
+      - distances
+      - item_id
+      transform: ${transform.test}
+      max_loaded_files: 2
+      return_index: true
+    evaluators: ${evaluators.test}
+model:
+  example_input_array:
+    _target_: torch.rand
+    size:
+    - 1
+    - 4096
+    - 3
+  model_class:
+    _target_: sharpf.modeling.DGCNNHist
+    a: 0.0
+    b: 1.0
+    discretization: 240
+    margin: 2
+    encoder_blocks:
+    - _target_: sharpf.modeling.PointOpBlock
+      neighbours:
+        _target_: sharpf.modeling.NeighbourKNN
+        k: 30
+      local_transform:
+        _target_: sharpf.modeling.LocalDynamicGraph
+      feature_extractor:
+        _target_: sharpf.modeling.StackedConv
+        channels:
+        - 6
+        - 64
+        - 64
+      aggregation:
+        _target_: sharpf.modeling.AggregationMax
+    - _target_: sharpf.modeling.PointOpBlock
+      neighbours:
+        _target_: sharpf.modeling.NeighbourKNN
+        k: 30
+      local_transform:
+        _target_: sharpf.modeling.LocalDynamicGraph
+      feature_extractor:
+        _target_: sharpf.modeling.StackedConv
+        channels:
+        - 128
+        - 64
+        - 64
+      aggregation:
+        _target_: sharpf.modeling.AggregationMax
+    - _target_: sharpf.modeling.PointOpBlock
+      neighbours:
+        _target_: sharpf.modeling.NeighbourKNN
+        k: 30
+      local_transform:
+        _target_: sharpf.modeling.LocalDynamicGraph
+      feature_extractor:
+        _target_: sharpf.modeling.StackedConv
+        channels:
+        - 128
+        - 64
+        - 64
+      aggregation:
+        _target_: sharpf.modeling.AggregationMax
+    decoder_blocks:
+    - _target_: sharpf.modeling.PointOpBlock
+      in_features:
+      - 0
+      - 1
+      - 2
+      feature_extractor:
+        _target_: sharpf.modeling.StackedConv
+        channels:
+        - 192
+        - 4096
+      aggregation:
+        _target_: sharpf.modeling.GlobalMaxPooling
+    - _target_: sharpf.modeling.PointOpBlock
+      in_features:
+      - 0
+      - 1
+      - 2
+      feature_extractor:
+        _target_: sharpf.modeling.StackedConv
+        channels:
+        - 4288
+        - 512
+        - 256
+        dropout_prob: 0.0
+    - _target_: sharpf.modeling.PointOpBlock
+      feature_extractor:
+        _target_: sharpf.modeling.StackedConv
+        channels:
+        - 256
+        - ${logits:${model.model_class.discretization},${model.model_class.margin}}
+        bn: false
+        relu: false
+        conv_bias: true
+transform:
+  train:
+    _target_: sharpf.utils.abc_utils.torch.CompositeTransform
+    transforms:
+    - _target_: sharpf.utils.abc_utils.torch.ToTensor
+      keys:
+      - points
+      - distances
+      type: torch.FloatTensor
+    - _target_: sharpf.utils.abc_utils.torch.Center
+      keys:
+      - points
+      dim: 0
+    - _target_: sharpf.utils.abc_utils.torch.NormalizeL2
+      keys:
+      - points
+      dim: 1
+    - _target_: sharpf.utils.abc_utils.torch.Random3DRotation
+      keys:
+      - points
+  val:
+    _target_: sharpf.utils.abc_utils.torch.CompositeTransform
+    transforms:
+    - _target_: sharpf.utils.abc_utils.torch.ToTensor
+      keys:
+      - points
+      - distances
+      type: torch.FloatTensor
+    - _target_: sharpf.utils.abc_utils.torch.Center
+      keys:
+      - points
+      dim: 0
+    - _target_: sharpf.utils.abc_utils.torch.NormalizeL2
+      keys:
+      - points
+      dim: 1
+  test:
+    _target_: sharpf.utils.abc_utils.torch.CompositeTransform
+    transforms:
+    - _target_: sharpf.utils.abc_utils.torch.ToTensor
+      keys:
+      - points
+      - distances
+      type: torch.FloatTensor
+    - _target_: sharpf.utils.abc_utils.torch.Center
+      keys:
+      - points
+      dim: 0
+    - _target_: sharpf.utils.abc_utils.torch.NormalizeL2
+      keys:
+      - points
+      dim: 1
+task:
+  pl_class:
+    _target_: sharpf.modeling.SharpFeaturesRegressionTask
+  loss:
+    _target_: sharpf.modeling.kl_div_loss
+    a: ${model.model_class.a}
+    b: ${model.model_class.b}
+    discretization: ${model.model_class.discretization}
+    margin: ${model.model_class.margin}
+  checkpoint_on: mean_rmse/val
+  early_stop:
+    value: ${task.checkpoint_on}
+    mode: min
+    min_delta: 0.001
+    patience: 5
+evaluators:
+  val:
+  - _target_: sharpf.evaluation.RegressionEvaluator
+    input_key: distances
+    output_key: pred_distances
+  - _target_: sharpf.evaluation.IllustratorPoints
+    golden_set_ids: '[ ''00007127_cc8dcb20bea84d4ca8d94e1e_000'', ''00013127_8a05ec40b85e4b039898097c_028'']
+
+      '
+    k: 5
+  test:
+  - _target_: sharpf.evaluation.RegressionEvaluator
+    input_key: distances
+    output_key: pred_distances
+  - _target_: sharpf.evaluation.IllustratorPoints
+    golden_set_ids: '[''00007127_cc8dcb20bea84d4ca8d94e1e_000'', ''00013127_8a05ec40b85e4b039898097c_028'',
+      b''00007127_cc8dcb20bea84d4ca8d94e1e_000'', b''00013127_8a05ec40b85e4b039898097c_028'',
+      b''00018631_eb344387745a40edb0d7913b_009'', b''00009911_086229ea796640d29acd68ff_046'']
+
+      '
+    k: 5
+trainer:
+  default_root_dir: null
+  gradient_clip_val: 0.0
+  process_position: 0
+  num_nodes: 1
+  num_processes: 1
+  gpus: 1
+  auto_select_gpus: false
+  tpu_cores: null
+  log_gpu_memory: null
+  progress_bar_refresh_rate: 1
+  overfit_batches: 0.0
+  track_grad_norm: -1
+  check_val_every_n_epoch: 1
+  fast_dev_run: true
+  accumulate_grad_batches: 1
+  max_epochs: 1000
+  min_epochs: 1
+  max_steps: null
+  min_steps: null
+  limit_train_batches: 1.0
+  limit_val_batches: 1.0
+  limit_test_batches: 1.0
+  val_check_interval: 1.0
+  log_save_interval: 100
+  row_log_interval: 50
+  distributed_backend: null
+  sync_batchnorm: false
+  precision: 32
+  weights_summary: top
+  weights_save_path: null
+  num_sanity_val_steps: 2
+  truncated_bptt_steps: null
+  resume_from_checkpoint: null
+  benchmark: false
+  deterministic: false
+  reload_dataloaders_every_epoch: false
+  auto_lr_find: false
+  replace_sampler_ddp: true
+  terminate_on_nan: false
+  auto_scale_batch_size: false
+  prepare_data_per_node: true
+  amp_backend: native
+scheduler:
+  _target_: torch.optim.lr_scheduler.StepLR
+  step_size: 20
+  gamma: 0.1
+  last_epoch: -1
+opt:
+  _target_: torch.optim.Adam
+  betas:
+  - 0.9
+  - 0.999
+  lr: 0.001
+  eps: 1.0e-08
+  weight_decay: 0.0
+  amsgrad: false

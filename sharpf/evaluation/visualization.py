@@ -182,17 +182,18 @@ class CameraPose:
 
 class IllustratorPoints(DatasetEvaluator):
 
-    def __init__(self, golden_set_ids, k=5, *args, **kwargs):
+    def __init__(self, task, golden_set_ids, k=5, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.task = task
         self.golden_set_ids = golden_set_ids
         self.k = k
         self.reset()
 
     def reset(self):
-        self.error = []
+        self.metric = []
         self.relative_golden_ids = []
 
-    def _illustrate_3d(self, data, target, pred, error):
+    def _illustrate_3d(self, data, target, pred, metric):
 
         plot = k3d.plot(grid_visible=False, axes_helper=0)
 
@@ -204,10 +205,10 @@ class IllustratorPoints(DatasetEvaluator):
             col_true = get_colors(target, cm.coolwarm_r)
         else:
             col_true = get_colors(target.cpu().numpy(), cm.coolwarm_r)
-        if type(error) is np.ndarray:
-            col_err = get_colors(error, cm.jet)
+        if type(metric) is np.ndarray:
+            col_err = get_colors(metric, cm.jet)
         else:
-            col_err = get_colors(error.cpu().numpy(), cm.jet)
+            col_err = get_colors(metric.cpu().numpy(), cm.jet)
 
         if type(data) is np.ndarray:
             data_numpy = data
@@ -215,22 +216,22 @@ class IllustratorPoints(DatasetEvaluator):
             data_numpy = data.cpu().numpy()
         points_true = k3d.points(data_numpy, col_true, point_size=0.02, shader='mesh', name='ground truth')
         points_pred = k3d.points(data_numpy, col_pred, point_size=0.02, shader='mesh', name='prediction')
-        points_err = k3d.points(data_numpy, col_err, point_size=0.02, shader='mesh', name='error values')
+        points_err = k3d.points(data_numpy, col_err, point_size=0.02, shader='mesh', name='metric values')
         colorbar1 = k3d.line([[0, 0, 0], [0, 0, 0]], shader="mesh",
                              color_range=[0, 1], color_map=k3d.colormaps.matplotlib_color_maps.Jet)
-        colorbar2 = k3d.line([[], []], shader="mesh",
+        colorbar2 = k3d.line([[0, 0, 0], [0, 0, 0]], shader="mesh",
                              color_range=[0, 1], color_map=k3d.colormaps.matplotlib_color_maps.coolwarm_r)
 
         plot += points_true + points_pred + points_err + colorbar1 + colorbar2
 
         return plot
 
-    def illustrate_to_file(self, data, target, pred, error, name=None):
+    def illustrate_to_file(self, data, target, pred, metric, name=None):
         if name is None:
             name = 'illustrate-points'
         dr = os.getcwd()
         log.info('current dir ' + str(dr))
-        plot_3d = self._illustrate_3d(data, target, pred, error)
+        plot_3d = self._illustrate_3d(data, target, pred, metric)
 
         if not os.path.exists(f'{dr}/visuals'):
             os.mkdir(f'{dr}/visuals')
@@ -248,10 +249,10 @@ class IllustratorPoints(DatasetEvaluator):
         item_ids = inputs['item_id']
         dataset_ind = inputs['index']
 
-        mean_squared_errors = F.mse_loss(preds, target, reduction='none').reshape(target.shape)
-        root_mean_squared_errors = torch.sqrt(mean_squared_errors)
+        mean_squared_metrics = F.mse_loss(preds, target, reduction='none').reshape(target.shape)
+        root_mean_squared_metrics = torch.sqrt(mean_squared_metrics)
 
-        self.error.append(root_mean_squared_errors) # rmse for points
+        self.metric.append(root_mean_squared_metrics) # rmse for points
         tmp = [int(dataset_ind[i]) for i, elem in enumerate(item_ids) if str(elem) in self.golden_set_ids]
         if len(tmp) != 0:
             self.relative_golden_ids.append(torch.LongTensor(tmp))
@@ -260,11 +261,11 @@ class IllustratorPoints(DatasetEvaluator):
         # gather results across gpus
         log.info('evaluate visualization')
         synchronize()
-        errors = []
-        for elem in all_gather(self.error):
+        metrics = []
+        for elem in all_gather(self.metric):
             for e in elem:
-                errors.append(e)
-        errors = torch.cat(errors)
+                metrics.append(e)
+        metrics = torch.cat(metrics)
 
         if len(self.relative_golden_ids) == 0:
             return {'scalars': {}, 'images': {}}
@@ -273,11 +274,11 @@ class IllustratorPoints(DatasetEvaluator):
             relative_golden_ids.append(torch.LongTensor(torch.cat(tmp)))
         relative_golden_ids = torch.LongTensor(torch.cat(relative_golden_ids))
 
-        errors_golden = errors[relative_golden_ids].cpu().numpy()
+        metrics_golden = metrics[relative_golden_ids].cpu().numpy()
         # calculate quantiles
-        errors_k_best = np.argsort(torch.sqrt(errors.mean(dim=1)).cpu().numpy(), axis=0)[::-1][:self.k]
-        log.info('errors k best ' + str(errors_k_best))
-        errors_k_worst = np.argsort(torch.sqrt(errors.mean(dim=1)).cpu().numpy(), axis=0)[:self.k]
+        k_best_idx = np.argsort(torch.sqrt(metrics.mean(dim=1)).cpu().numpy(), axis=0)[::-1][:self.k]
+        log.info('metrics k best ' + str(metrics_k_best))
+        k_worst_idx = np.argsort(torch.sqrt(metrics.mean(dim=1)).cpu().numpy(), axis=0)[:self.k]
 
         log.info('get input data')
 
@@ -287,38 +288,37 @@ class IllustratorPoints(DatasetEvaluator):
                 item_golden = self.dataset[i]
                 log.info('points shape ' + str(item_golden['points'].shape))
                 pred_golden = self.model(item_golden['points'].unsqueeze(0).to('cuda'))  # predict with model
-                self.illustrate_to_file(item_golden['points'], item_golden['distances'], pred_golden, errors_golden[i],
+                self.illustrate_to_file(item_golden['points'], item_golden['distances'], pred_golden, metrics_golden[i],
                                    name=f'illustration-points_golden-set_{i}')
 
-            for i in range(len(errors_k_best)):
-                item_best = self.dataset[errors_k_best[i]]
-                item_worst = self.dataset[errors_k_worst[i]]
+            for i in range(len(metrics_k_best)):
+                item_best = self.dataset[k_best_idx[i]]
+                item_worst = self.dataset[k_worst_idx[i]]
                 pred_best = self.model(item_best['points'].unsqueeze(0).to('cuda'))
-                self.illustrate_to_file(item_best['points'], item_best['distances'], pred_best, errors[errors_k_best[i]],
+                self.illustrate_to_file(item_best['points'], item_best['distances'], pred_best, metrics[k_best_idx[i]],
                                    name=f'illustration-points_best-metric_{i}')
                 pred_worst = self.model(item_worst['points'].unsqueeze(0).to('cuda'))
-                self.illustrate_to_file(item_worst['points'], item_worst['distances'], pred_worst, errors[errors_k_worst[i]],
+                self.illustrate_to_file(item_worst['points'], item_worst['distances'], pred_worst, metrics[k_worst_idx[i]],
                                    name=f'illustration-points_worst-metric_{i}')
         log.info('!saved visualization')
         return {'scalars':{}, 'images':{}}
 
 class IllustratorDepths(DatasetEvaluator):
 
-    def __init__(self, dataset, task, golden_set_ids, k=5, dataset_name=""):
+    def __init__(self, task, golden_set_ids, k=5, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.task = task
         self.golden_set_ids = golden_set_ids
         self.k = k
         self.reset()
 
     def reset(self):
-        self.error = []
-        self.relative_golden_ids = []
+        self.metrics = []
+        self.metric_pictures = []
         self.cameras = []
 
     def _get_data_3d(self, data):
         image_height, image_width = data.shape[1], data.shape[2]
-        self.log.info(str(image_height))
-        self.log.info(str(image_width))
         resolution_3d = 0.02
         screen_aspect_ratio = 1
 
@@ -338,13 +338,13 @@ class IllustratorDepths(DatasetEvaluator):
 
         return data_3d, non_zero_idx
 
-    def _illustrate_3d(self, data, target, pred, error, camera_pose):
+    def _illustrate_3d(self, data, target, pred, metric, camera_pose):
 
         plot = k3d.plot(grid_visible=False, axes_helper=0)
 
         col_pred = get_colors(pred, cm.coolwarm_r)
         col_true = get_colors(target, cm.coolwarm_r)
-        col_err = get_colors(error, cm.jet)
+        col_err = get_colors(metric, cm.jet)
 
         data_world = camera_pose.camera_to_world(data, translate=False)
         points_true = k3d.points(data_world - np.mean(data_world, axis=0),
@@ -352,7 +352,7 @@ class IllustratorDepths(DatasetEvaluator):
         points_pred = k3d.points(data_world - np.mean(data_world, axis=0),
                                  col_pred, point_size=0.02, shader='mesh', name='prediction')
         points_err = k3d.points(data_world - np.mean(data_world, axis=0),
-                                col_err, point_size=0.02, shader='mesh', name='error values')
+                                col_err, point_size=0.02, shader='mesh', name='metric values')
         colorbar = k3d.line([[0, 0, 0], [0, 0, 0]], shader="mesh",
                             color_range=[0, 1], color_map=k3d.colormaps.matplotlib_color_maps.Jet)
 
@@ -360,7 +360,7 @@ class IllustratorDepths(DatasetEvaluator):
 
         return plot
 
-    def _illustrate_2d(self, data, target, pred, error):
+    def _illustrate_2d(self, data, target, pred, metric):
         fig = plt.figure(figsize=(10, 10), dpi=200)
         grid = AxesGrid(fig, 111,  # similar to subplot(111)
                         nrows_ncols=(1, 4),
@@ -377,7 +377,7 @@ class IllustratorDepths(DatasetEvaluator):
         cmap_dist = plt.get_cmap('coolwarm_r')
         m_dist = cm.ScalarMappable(norm=norm_dist, cmap=cmap_dist)
 
-        ax_data = grid[0].imshow(data.cpu().numpy())
+        ax_data = grid[0].imshow(data)
         cbar = fig.colorbar(ax_data, cax=grid.cbar_axes[0])
         cbar.set_ticks((data.min(), data.max()))
         cbar.ax.tick_params(labelsize=8)
@@ -386,11 +386,11 @@ class IllustratorDepths(DatasetEvaluator):
         grid[0].set_title('Depth', fontsize=10)
 
         if self.task == 'regression':
-            ax_tg = grid[1].imshow(convert_dist(target.cpu().numpy(), m_dist), cmap=cmap_dist, vmin=0.0, vmax=1.0)
+            ax_tg = grid[1].imshow(convert_dist(target, m_dist), cmap=cmap_dist, vmin=0.0, vmax=1.0)
         elif self.task == 'segmentation':
             ax_tg = grid[1].imshow(target.cpu().numpy())
         else:
-            # raise error
+            # raise metric
             ax_tg = None
 
         cbar = fig.colorbar(ax_tg, cax=grid.cbar_axes[1], norm=norm_dist)
@@ -400,11 +400,11 @@ class IllustratorDepths(DatasetEvaluator):
         grid[1].set_title('GT', fontsize=10)
 
         if self.task == 'regression':
-            ax_pred = grid[2].imshow(convert_dist(pred.cpu().numpy(), m_dist), cmap=cmap_dist, vmin=0.0, vmax=1.0)
+            ax_pred = grid[2].imshow(convert_dist(pred, m_dist), cmap=cmap_dist, vmin=0.0, vmax=1.0)
         elif self.task == 'segmentation':
-            ax_pred = grid[2].imshow(pred.cpu().numpy(), vmin=0.0, vmax=1.0)
+            ax_pred = grid[2].imshow(pred, vmin=0.0, vmax=1.0)
         else:
-            # raise error
+            # raise metric
             ax_pred = None
 
         cbar = fig.colorbar(ax_pred, cax=grid.cbar_axes[2], norm=norm_dist)
@@ -413,37 +413,39 @@ class IllustratorDepths(DatasetEvaluator):
         cbar.update_ticks()
         grid[2].set_title('Prediction', fontsize=10)
 
-        norm_error = mpl.colors.Normalize(vmin=0, vmax=error.max())
-        cmap_error = plt.get_cmap('viridis')
-        m_error = cm.ScalarMappable(norm=norm_error, cmap=cmap_error)
-        ax_error = grid[3].imshow(convert_dist(error.cpu().numpy(), m_error), cmap=cmap_error, vmin='0.0', vmax=error.max())
-        cbar = fig.colorbar(ax_error, cax=grid.cbar_axes[3], norm=norm_error)
+        norm_metric = mpl.colors.Normalize(vmin=0, vmax=metric.max())
+        cmap_metric = plt.get_cmap('viridis')
+        m_metric = cm.ScalarMappable(norm=norm_metric, cmap=cmap_metric)
+        ax_metric = grid[3].imshow(convert_dist(metric, m_metric), cmap=cmap_metric, vmin='0.0', vmax=metric.max())
+        cbar = fig.colorbar(ax_metric, cax=grid.cbar_axes[3], norm=norm_metric)
         cbar.ax.tick_params(labelsize=8)
         cbar.locator = ticker.MaxNLocator(6)
         cbar.update_ticks()
-        grid[3].set_title('error per pix', fontsize=8.5)
+        grid[3].set_title('metric per pix', fontsize=8.5)
 
         return fig
 
-    def illustrate_to_file(self, data, target, pred, error, camera, name=None):
+    def illustrate_to_file(self, data, target, pred, metric, camera, name=None):
         if name is None:
             name = f'illustration-depths_task-{self.task}'
         dr = os.getcwd()
+        log.info(dr)
         if not os.path.exists(f'{dr}/visuals'):
             os.mkdir(f'{dr}/visuals')
-        plot_2d = self._illustrate_2d(data[0], target[0], pred[0], error[0])
+        data_numpy = data.cpu().numpy()
+        pred_numpy = pred.cpu().numpy()
+        target_numpy = target.cpu().numpy()
+
+        plot_2d = self._illustrate_2d(data_numpy[0], target_numpy, pred_numpy[0], metric)
         plot_2d.savefig(f'{dr}/visuals/{name}.png')
 
         camera_pose = CameraPose(camera.cpu().numpy())
-        data_3d, non_zero_idx = self._get_data_3d(data[sample].cpu().numpy())
-        preds_numpy = pred[0].cpu().numpy()
-        target_numpy = target[0].cpu().numpy()
-        errors_numpy = error[0].cpu().numpy()
+        data_3d, non_zero_idx = self._get_data_3d(data_numpy)
 
         plot_3d = self._illustrate_3d(data_3d,
                                       target_numpy.ravel()[non_zero_idx],
-                                      preds_numpy.ravel()[non_zero_idx],
-                                      errors_numpy.ravel()[non_zero_idx],
+                                      pred_numpy.ravel()[non_zero_idx],
+                                      metric.ravel()[non_zero_idx],
                                       camera_pose)
 
         with open(f'{dr}/visuals/{name}.html', 'w') as f:
@@ -455,59 +457,72 @@ class IllustratorDepths(DatasetEvaluator):
             inputs (dict): the inputs to a model.
             outputs (dict): the outputs of a model.
         """
-        target = inputs[self.input_key]
-        preds = outputs[self.output_key]
-        item_ids = inputs['item_id']
-        dataset_ind = inputs['index']
+        target = inputs['distances']
+        preds = outputs['pred_distances']
 
         batch_size = target.size(0)
         if self.task == 'segmentation':
-            error = abs(target - preds) # difference error
+            stats = [list(stat_scores(preds[i], target[i], class_index=1)) for i in range(preds.size(0))]
+            tp, fp, tn, fn, sup = torch.Tensor(stats).to(preds.device).T.unsqueeze(2)  # each of size (batch, 1)
+            metric = balanced_accuracy(tp, fp, tn, fn)
+            metric_pic = abs(target - preds)  # difference metric
         elif self.task == 'regression':
-            mean_squared_errors = F.mse_loss(preds, target, reduction='none').view(batch_size, -1).mean(dim=1)  # (batch)
-            error = torch.sqrt(mean_squared_errors)  # (batch)
+            metric_pic = F.mse_loss(preds, target, reduction='none')
+            metric = torch.sqrt(metric_pic.view(batch_size, -1).mean(axis=1))  # (batch)
 
-        self.error.append(error)
-        self.relative_golden_ids.append([dataset_ind[i] for i, elem in enumerate(item_ids) if elem in self.golden_set_ids])
+        self.metrics.append(metric)
+        self.metric_pictures.append(metric_pic)
         self.cameras.append(inputs['camera_pose'])
 
     def evaluate(self):
         # gather results across gpus
         synchronize()
-        errors = torch.cat(all_gather(self.error))
-        cameras = torch.cat(all_gather(self.cameras))
+        metrics = torch.cat(self.metrics)
+        metric_pictures = []
+        for elem in all_gather(self.metric_pictures):
+            for e in elem:
+                metric_pictures.append(e)
+        metric_pictures = torch.cat(metric_pictures)
+        cameras = []
+        for elem in all_gather(self.cameras):
+            for e in elem:
+                cameras.append(e)
+        cameras = torch.cat(cameras)
 
-        if len(self.relative_golden_ids) == 0:
-            log.info('len(relative_golden_ids) == 0')
-            return {'scalars': {}, 'images': {}}
         relative_golden_ids = []
-        for tmp in all_gather(self.relative_golden_ids):
-            relative_golden_ids.append(torch.LongTensor(torch.cat(tmp)))
-        relative_golden_ids = torch.LongTensor(torch.cat(relative_golden_ids))
+        log.info('visualization')
+        for k in self.golden_set_ids.keys():
+            for i in self.golden_set_ids[k]:
+                log.info('k', ''.join(list(k)))
+                item = self.dataset.get_from_filename(''.join(list(k)), i)
+                relative_golden_ids.append(item['index'])
 
-        errors_golden = errors[relative_golden_ids].cpu().numpy()
+        metrics_golden = metric_pictures[relative_golden_ids].cpu().numpy()
         # calculate quantiles
-        errors_k_best = np.argsort(errors.mean(dim=1).cpu().numpy(), axis=0)[::-1][:self.k]
-        log.info('errors k best ' + str(errors_k_best))
-        errors_k_worst = np.argsort(errors.mean(dim=1).cpu().numpy(), axis=0)[:self.k]
+        k_best_idx = np.argsort(metrics.cpu().numpy(), axis=0)[::-1][:self.k]
+        k_worst_idx = np.argsort(metrics.cpu().numpy(), axis=0)[:self.k]
 
-        # get input data
-        items_golden, cameras_golden = self.dataset[relative_golden_ids], cameras[relative_golden_ids]
-        items_best, cameras_best = self.dataset[errors_k_best], cameras[errors_k_best]
-        items_worst, cameras_worst = self.dataset[errors_k_worst], cameras[errors_k_worst]
 
         if is_main_process():
-            for i in range(len(self.golden_set_ids)):
-                preds_golden = self.model(items_golden[i]['image'])  # predict with model
-                illustrate_to_file(items_golden[i]['image'], items_golden[i]['distances'], preds_golden, errors_golden[i], cameras_golden[i],
+            log.info('ids ' + str(relative_golden_ids))
+            for i in relative_golden_ids:
+                log.info('i=' + str(i))
+                item_golden = self.dataset[i]
+                pred_golden = self.model(item_golden['image'].unsqueeze(0).to('cuda'))  # predict with model
+                self.illustrate_to_file(item_golden['image'], item_golden['distances'], pred_golden,
+                                   metrics_golden[i], cameras[i],
                                    name=f'illustration-depths_task-{self.task}_golden-set_{i}')
-
-            for i in range(self.k):
-                preds_best = self.model(items_best[i]['image'])
-                illustrate_to_file(items_best[i]['image'], items_best[i]['distances'], preds_best, errors_k_best[i], cameras_best[i],
+            log.info('ids ' + str(k_best_idx))
+            for i in range(len(k_best_idx)):
+                item_best = self.dataset[k_best_idx[i]]
+                item_worst = self.dataset[k_worst_idx[i]]
+                pred_best = self.model(items_best[i]['image'].unsqueeze(0).to('cuda'))
+                self.illustrate_to_file(item_best['image'], item_best['distances'], pred_best,
+                                   metrics[k_best_idx[i]], cameras[k_best_idx[i]],
                                    name=f'illustration-depths_task-{self.task}_best-metric_{i}')
-                preds_worst = self.model(items_worst[i]['image'])
-                illustrate_to_file(items_worst[i]['image'], items_worst[i]['distances'], preds_worst, errors_k_worst[i], cameras_worst[i],
+                pred_worst = self.model(items_worst[i]['image'].unsqueeze(0).to('cuda'))
+                self.illustrate_to_file(item_worst['image'], item_worst['distances'], pred_worst,
+                                   metrics[k_worst_idx[i]], cameras[k_worst_idx[i]],
                                    name=f'illustration-depths_task-{self.task}_worst-metric_{i}')
 
         return {'scalars': {}, 'images': {}}

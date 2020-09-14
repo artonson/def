@@ -1,0 +1,3 @@
+- trainer.gpus=1
+- evaluators=regression_points
+- trainer.fast_dev_run=true

@@ -1,0 +1,222 @@
+data_loader:
+  train:
+    total_batch_size: 4
+    num_workers: 3
+    pin_memory: false
+  val:
+    total_batch_size: 4
+    num_workers: 3
+    pin_memory: false
+  test:
+    total_batch_size: 4
+    num_workers: 3
+    pin_memory: false
+eval_only: false
+test_weights: best
+seed: 123
+datasets:
+  train:
+  - dataset_name: train
+    dataset_class:
+      _target_: sharpf.utils.abc_utils.LotsOfHdf5Files
+      io:
+        _target_: sharpf.data.DepthMapIO
+      filenames:
+      - /gpfs/gpfs0/3ddl/sharp_features/eccv_data/images/dataset_config_high_res_clean.json_64x64/train/batched_16k/train_1.hdf5
+      - /gpfs/gpfs0/3ddl/sharp_features/eccv_data/images/dataset_config_high_res_clean.json_64x64/train/batched_16k/train_2.hdf5
+      - /gpfs/gpfs0/3ddl/sharp_features/eccv_data/images/dataset_config_high_res_clean.json_64x64/train/batched_16k/train_3.hdf5
+      - /gpfs/gpfs0/3ddl/sharp_features/eccv_data/images/dataset_config_high_res_clean.json_64x64/train/batched_16k/train_4.hdf5
+      - /gpfs/gpfs0/3ddl/sharp_features/eccv_data/images/dataset_config_high_res_clean.json_64x64/train/batched_16k/train_5.hdf5
+      - /gpfs/gpfs0/3ddl/sharp_features/eccv_data/images/dataset_config_high_res_clean.json_64x64/train/batched_16k/train_6.hdf5
+      labels:
+      - image
+      - distances
+      transform: ${transform.train}
+      max_loaded_files: 6
+  val:
+  - dataset_name: val
+    dataset_class:
+      _target_: sharpf.utils.abc_utils.LotsOfHdf5Files
+      io:
+        _target_: sharpf.data.DepthMapIO
+      filenames:
+      - /gpfs/gpfs0/3ddl/sharp_features/eccv_data/images/dataset_config_high_res_clean.json_64x64/val/batched_16k/train_0.hdf5
+      labels:
+      - image
+      - distances
+      - item_id
+      - camera_poses
+      transform: ${transform.val}
+      max_loaded_files: 1
+      return_index: true
+    evaluators: ${evaluators.val}
+  test:
+  - dataset_name: test
+    dataset_class:
+      _target_: sharpf.utils.abc_utils.LotsOfHdf5Files
+      io:
+        _target_: sharpf.data.DepthMapIO
+      filenames:
+      - /gpfs/gpfs0/3ddl/sharp_features/eccv_data/images/dataset_config_high_res_clean.json_64x64/val/batched_16k/train_0.hdf5
+      labels:
+      - image
+      - distances
+      - item_id
+      - camera_poses
+      transform: ${transform.test}
+      max_loaded_files: 1
+      return_index: true
+    evaluators: ${evaluators.test}
+model:
+  example_input_array:
+    _target_: torch.rand
+    size:
+    - 1
+    - 1
+    - 64
+    - 64
+  model_class:
+    _target_: sharpf.modeling.PixelRegressorHist
+    a: 0.0
+    b: 1.0
+    discretization: 240
+    margin: 2
+    feature_extractor:
+      _target_: sharpf.modeling.Unet
+      encoder_name: resnet50
+      decoder_use_batchnorm: true
+      decoder_channels:
+      - 256
+      - 128
+      - 64
+      - 32
+      - 16
+      in_channels: 1
+    regression_head:
+      _target_: sharpf.modeling.Sequential
+      modules:
+      - _target_: torch.nn.Dropout
+        p: 0.0
+      - _target_: torch.nn.Conv2d
+        in_channels: 16
+        out_channels: ${logits:${model.model_class.discretization},${model.model_class.margin}}
+        kernel_size: 3
+        padding: 1
+transform:
+  high_res_quantile: 7.4776
+  train:
+    _target_: sharpf.utils.abc_utils.torch.CompositeTransform
+    transforms:
+    - _target_: sharpf.utils.abc_utils.torch.ToTensor
+      keys:
+      - image
+      - distances
+      type: torch.FloatTensor
+    - _target_: sharpf.utils.abc_utils.torch.PreprocessDepth
+      quantile: ${transform.high_res_quantile}
+    - _target_: sharpf.utils.abc_utils.torch.PreprocessDistances
+    - _target_: sharpf.utils.abc_utils.torch.DeleteKeys
+      keys:
+      - background_mask
+    - _target_: sharpf.utils.abc_utils.torch.RenameKeys
+      old_keys:
+      - image
+      new_keys:
+      - points
+  val: ${transform.train}
+  test: ${transform.train}
+task:
+  pl_class:
+    _target_: sharpf.modeling.SharpFeaturesRegressionTask
+  loss:
+    _target_: sharpf.modeling.kl_div_loss
+    a: ${model.model_class.a}
+    b: ${model.model_class.b}
+    discretization: ${model.model_class.discretization}
+    margin: ${model.model_class.margin}
+  checkpoint_on: mean_rmse/val
+  early_stop:
+    value: ${task.checkpoint_on}
+    mode: min
+    min_delta: 0.001
+    patience: 5
+evaluators:
+  val:
+  - _target_: sharpf.evaluation.RegressionEvaluator
+    input_key: distances
+    output_key: pred_distances
+  - _target_: sharpf.evaluation.IllustratorDepths
+    golden_set_ids: '[''00007127_cc8dcb20bea84d4ca8d94e1e_000'', ''00013127_8a05ec40b85e4b039898097c_028'',
+      b''00007127_cc8dcb20bea84d4ca8d94e1e_000'', b''00013127_8a05ec40b85e4b039898097c_028'',
+      b''00018631_eb344387745a40edb0d7913b_009'', b''00009911_086229ea796640d29acd68ff_046'']
+
+      '
+    k: 5
+  test:
+  - _target_: sharpf.evaluation.RegressionEvaluator
+    input_key: distances
+    output_key: pred_distances
+  - _target_: sharpf.evaluation.IllustratorDepths
+    golden_set_ids: '[''00007127_cc8dcb20bea84d4ca8d94e1e_000'', ''00013127_8a05ec40b85e4b039898097c_028'',
+      b''00007127_cc8dcb20bea84d4ca8d94e1e_000'', b''00013127_8a05ec40b85e4b039898097c_028'',
+      b''00018631_eb344387745a40edb0d7913b_009'', b''00009911_086229ea796640d29acd68ff_046'']
+
+      '
+    k: 5
+trainer:
+  default_root_dir: null
+  gradient_clip_val: 0.0
+  process_position: 0
+  num_nodes: 1
+  num_processes: 1
+  gpus: 1
+  auto_select_gpus: false
+  tpu_cores: null
+  log_gpu_memory: null
+  progress_bar_refresh_rate: 1
+  overfit_batches: 0.0
+  track_grad_norm: -1
+  check_val_every_n_epoch: 1
+  fast_dev_run: true
+  accumulate_grad_batches: 1
+  max_epochs: 1000
+  min_epochs: 1
+  max_steps: null
+  min_steps: null
+  limit_train_batches: 1.0
+  limit_val_batches: 1.0
+  limit_test_batches: 1.0
+  val_check_interval: 1.0
+  log_save_interval: 100
+  row_log_interval: 50
+  distributed_backend: null
+  sync_batchnorm: false
+  precision: 32
+  weights_summary: top
+  weights_save_path: null
+  num_sanity_val_steps: 2
+  truncated_bptt_steps: null
+  resume_from_checkpoint: null
+  benchmark: false
+  deterministic: false
+  reload_dataloaders_every_epoch: false
+  auto_lr_find: false
+  replace_sampler_ddp: true
+  terminate_on_nan: false
+  auto_scale_batch_size: false
+  prepare_data_per_node: true
+  amp_backend: native
+scheduler:
+  _target_: torch.optim.lr_scheduler.StepLR
+  step_size: 20
+  gamma: 0.1
+  last_epoch: -1
+opt:
+  _target_: torch.optim.Adam
+  betas:
+  - 0.9
+  - 0.999
+  lr: 0.001
+  eps: 1.0e-08
+  weight_decay: 0.0
+  amsgrad: false

@@ -1,0 +1,4 @@
+- trainer.gpus=1
+- evaluators=regression_depth
+- eval_only=true
+- trainer.fast_dev_run=True
