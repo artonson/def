@@ -46,7 +46,8 @@ def call(config: Any, *args: Any, **kwargs: Any) -> Any:
                 del primitive_conf[key]
                 config = DictConfig(primitive_conf)
                 return call(config, *args, **kwargs)
-            except Exception:
+            except ImportError:
+                # raise ValueError
                 pass
 
     return hydra.utils.call(config, *args, **kwargs)
