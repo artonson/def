@@ -1,5 +1,12 @@
 # Learning to Detect Sharp Geometric Features in Point Clouds
 
+### Install custom operations
+not compatible with Pytorch > 1.4
+```
+bash build_ops.sh
+```
+
+
 ### Install additional packages
 ```bash
 singularity shell --bind /gpfs:/gpfs --nv /gpfs/gpfs0/3ddl/env/a1.sif
