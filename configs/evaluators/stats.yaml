@@ -1,0 +1,7 @@
+# @package _group_
+
+val:
+  - _target_: sharpf.evaluation.StatsEvaluator
+
+test:
+  - _target_: sharpf.evaluation.StatsEvaluator
