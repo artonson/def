@@ -18,7 +18,7 @@ python setup.py build develop --user
 
 ### Train & test the network
 ```bash
-python train_net.py hydra.run.dir=experiments/my_exp trainer.gpus=4 trainer.max_epochs=10 model=dgcnn-4k datasets=abc-pointcloud transforms=pc-basic task=regression evaluators=regression
+python train_net.py hydra.run.dir=experiments/my_exp trainer.gpus=4 trainer.max_epochs=10 model=dgcnn-4k datasets=abc-pc-64k transform=pc-basic task=regression evaluators=regression
 ```
 
 ### Test the network
