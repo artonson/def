@@ -1,0 +1,74 @@
+# @package _group_
+
+in_channels: 3
+sampleDl: 0.02
+radius: ${fmul:2.5,${model.sampleDl}}
+nsample: 30
+
+example_input_array:
+  _target_: torch.rand
+  size:
+    - 1
+    - 4096
+    - ${model.in_channels}
+
+model_class:
+  _target_: sharpf.modeling.PointRegressorHist
+  a: 0.0
+  b: 1.0
+  discretization: 240
+  margin: 2
+  feature_extractor:
+    _target_: sharpf.modeling.Unet1D
+    encoder_name: resnet26
+    decoder_channels: [576, 288, 144, 72]
+    decoder_layers: [1, 1, 1, 2]
+    in_channels: ${model.in_channels}
+    act_layer: torch.nn.LeakyReLU
+    norm_layer: torch.nn.BatchNorm1d
+    expansion: 2
+    inplanes: 144
+    first_radius: ${model.radius}
+    first_nsample: ${model.nsample}
+    first_pool: null
+    stem_type: btnk
+    type_downsample: max
+    output_stride: 128
+    nsamples_f:
+      - ${model.nsample}
+      - ${model.nsample}
+      - ${model.nsample}
+      - ${model.nsample}
+    nsamples_s: ${model.model_class.feature_extractor.nsamples_f}
+    channels: [144, 288, 576, 1152]
+    strides: [2, 4, 4, 4]
+    radiuses_f:
+      - ${fmul:1.0,${model.radius}}
+      - ${fmul:2.0,${model.radius}}
+      - ${fmul:4.0,${model.radius}}
+      - ${fmul:8.0,${model.radius}}
+    radiuses_s:
+      - ${fmul:2.0,${model.radius}}
+      - ${fmul:4.0,${model.radius}}
+      - ${fmul:8.0,${model.radius}}
+      - ${fmul:16.0,${model.radius}}
+    sampleDls:
+      - ${fmul:2.0,${model.sampleDl}}
+      - ${fmul:4.0,${model.sampleDl}}
+      - ${fmul:8.0,${model.sampleDl}}
+      - ${fmul:16.0,${model.sampleDl}}
+    remove_first_bn_act: false
+    position_embedding: sin_cos
+    agg_standard_bn_params: false
+    agg_reduction: avg
+    agg_output_conv: false
+    agg_act_layer: ${model.model_class.feature_extractor.act_layer}
+    agg_norm_layer: ${model.model_class.feature_extractor.norm_layer}
+  regression_head:
+    _target_: sharpf.modeling.Sequential
+    modules:
+      - _target_: torch.nn.Conv1d
+        in_channels: 72
+        out_channels: ${logits:${model.model_class.discretization},${model.model_class.margin}}
+        kernel_size: 1
+        padding: 0

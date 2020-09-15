@@ -124,21 +124,3 @@ class SGDConf(TargetConf):
 cs.store(
     group="opt", name="sgd", node=SGDConf(),
 )
-
-
-@dataclass
-class AdamPConf(TargetConf):
-    _target_: str = "sharpf.optim.AdamP"
-    betas: tuple = (0.9, 0.999)
-    lr: float = 1e-3
-    eps: float = 1e-8
-    weight_decay: float = 0
-    delta: float = 0.1
-    wd_ratio: float = 0.1
-    nesterov: bool = False
-    weight_decay_norm: float = 0
-
-
-cs.store(
-    group="opt", name="adamp", node=AdamPConf(),
-)

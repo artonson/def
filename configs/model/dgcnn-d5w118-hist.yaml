@@ -12,7 +12,11 @@ example_input_array:
     - ${model.in_channels}
 
 model_class:
-  _target_: sharpf.modeling.DGCNN
+  _target_: sharpf.modeling.DGCNNHist
+  a: 0.0
+  b: 1.0
+  discretization: 240
+  margin: 2
   encoder_blocks:
     - _target_: sharpf.modeling.PointOpBlock
       neighbours:
@@ -24,8 +28,8 @@ model_class:
         _target_: sharpf.modeling.StackedConv
         channels:
           - ${mul:2,${model.in_channels}}
-          - 64
-          - 64
+          - 118
+          - 118
       aggregation:
         _target_: sharpf.modeling.AggregationMax
     - _target_: sharpf.modeling.PointOpBlock
@@ -36,7 +40,7 @@ model_class:
         _target_: sharpf.modeling.LocalDynamicGraph
       feature_extractor:
         _target_: sharpf.modeling.StackedConv
-        channels: [128, 64, 64]
+        channels: [236, 118, 118]
       aggregation:
         _target_: sharpf.modeling.AggregationMax
     - _target_: sharpf.modeling.PointOpBlock
@@ -47,27 +51,51 @@ model_class:
         _target_: sharpf.modeling.LocalDynamicGraph
       feature_extractor:
         _target_: sharpf.modeling.StackedConv
-        channels: [128, 64, 64]
+        channels: [236, 118, 118]
+      aggregation:
+        _target_: sharpf.modeling.AggregationMax
+    - _target_: sharpf.modeling.PointOpBlock
+      neighbours:
+        _target_: sharpf.modeling.NeighbourKNN
+        k: 30
+      local_transform:
+        _target_: sharpf.modeling.LocalDynamicGraph
+      feature_extractor:
+        _target_: sharpf.modeling.StackedConv
+        channels: [236, 118, 118]
+      aggregation:
+        _target_: sharpf.modeling.AggregationMax
+    - _target_: sharpf.modeling.PointOpBlock
+      neighbours:
+        _target_: sharpf.modeling.NeighbourKNN
+        k: 30
+      local_transform:
+        _target_: sharpf.modeling.LocalDynamicGraph
+      feature_extractor:
+        _target_: sharpf.modeling.StackedConv
+        channels: [236, 118, 118]
       aggregation:
         _target_: sharpf.modeling.AggregationMax
   decoder_blocks:
     - _target_: sharpf.modeling.PointOpBlock
-      in_features: [0, 1, 2]
+      in_features: [0, 1, 2, 3, 4]
       feature_extractor:
         _target_: sharpf.modeling.StackedConv
-        channels: [192, 4096]
+        channels: [590, 4096]  # 1024 usual dgcnn
       aggregation:
         _target_: sharpf.modeling.GlobalMaxPooling
     - _target_: sharpf.modeling.PointOpBlock
-      in_features: [0, 1, 2]
+      in_features: [0, 1, 2, 3, 4]
       feature_extractor:
         _target_: sharpf.modeling.StackedConv
-        channels: [4288, 512, 256]
+        channels: [4686, 512, 256]  # 1216 idial dgcnn
         dropout_prob: 0.0
     - _target_: sharpf.modeling.PointOpBlock
       feature_extractor:
         _target_: sharpf.modeling.StackedConv
-        channels: [256, 1]
+        channels:
+          - 256
+          - ${logits:${model.model_class.discretization},${model.model_class.margin}}
         bn: false
         relu: false
         conv_bias: true

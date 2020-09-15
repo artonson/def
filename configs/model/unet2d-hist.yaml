@@ -1,8 +1,14 @@
 # @package _group_
 
+in_channels: 1
+
 example_input_array:
   _target_: torch.rand
-  size: [1, 1, 64, 64]
+  size:
+    - 1
+    - ${model.in_channels}
+    - 64
+    - 64
 
 model_class:
   _target_: sharpf.modeling.PixelRegressorHist
@@ -11,18 +17,20 @@ model_class:
   discretization: 240
   margin: 2
   feature_extractor:
-    _target_: sharpf.modeling.Unet
+    _target_: sharpf.modeling.Unet2D
     encoder_name: resnet50
-    decoder_use_batchnorm: true
-    decoder_channels: [256, 128, 64, 32, 16]
-    in_channels: 1
+    decoder_channels: [512, 256, 128, 64]
+    decoder_layers: [2, 2, 2, 2]
+    in_channels: ${model.in_channels}
+    avg_down: true
+    act_layer: torch.nn.LeakyReLU
   regression_head:
     _target_: sharpf.modeling.Sequential
     modules:
       - _target_: torch.nn.Dropout
         p: 0.0
       - _target_: torch.nn.Conv2d
-        in_channels: 16
+        in_channels: 64
         out_channels: ${logits:${model.model_class.discretization},${model.model_class.margin}}
         kernel_size: 3
         padding: 1
