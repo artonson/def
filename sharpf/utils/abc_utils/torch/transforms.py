@@ -94,8 +94,8 @@ class PreprocessDepth(AbstractTransform):
         self.quantile = quantile
 
     def __call__(self, item):
-        item['background_mask'] = (item['image'] == 0)
-        item['image'] = torch.where(item['background_mask'], item['image'].max() + 1.0, item['image'])
+        # item['background_mask'] = (item['image'] == 0)
+        # item['image'] = torch.where(item['background_mask'], item['image'].max() + 1.0, item['image'])
         item['image'] -= item['image'].min()
         item['image'] /= self.quantile
         item['image'].unsqueeze_(0)
