@@ -53,10 +53,29 @@ test:
         - points
         - distances
         - ${datasets.normals_name}
+        - item_id
       transform: ${transform.test}
       max_loaded_files: 4
+      return_index: true
     evaluators: ${evaluators.test}
-  - ${datasets.val.0}
+  - dataset_name: val
+    dataset_class:
+      _target_: sharpf.utils.abc_utils.LotsOfHdf5Files
+      io:
+        _target_: sharpf.data.PointCloudIO
+      filenames: [
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/val_with_voronoi_and_normals/train_0.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/val_with_voronoi_and_normals/train_1.hdf5'
+      ]
+      labels:
+        - points
+        - distances
+        - ${datasets.normals_name}
+        - item_id
+      transform: ${transform.test}
+      max_loaded_files: 2
+      return_index: true
+    evaluators: ${evaluators.test}
   - dataset_name: test
     dataset_class:
       _target_: sharpf.utils.abc_utils.LotsOfHdf5Files
@@ -70,6 +89,8 @@ test:
         - points
         - distances
         - ${datasets.normals_name}
+        - item_id
       transform: ${transform.test}
       max_loaded_files: 2
+      return_index: true
     evaluators: ${evaluators.test}

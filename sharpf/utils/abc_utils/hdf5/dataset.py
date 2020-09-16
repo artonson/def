@@ -91,7 +91,6 @@ class LotsOfHdf5Files(Dataset):
             assert os.path.exists(data_dir)
             filenames = sorted(glob.glob(os.path.join(data_dir, '*.hdf5')))
         else:
-            filenames = sorted(list(filenames))
             for filename in filenames:
                 assert os.path.exists(filename)
 
