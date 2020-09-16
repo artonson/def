@@ -3,7 +3,7 @@ from collections import Callable
 
 import torch
 
-from .transformations import random_3d_rotation_matrix
+from .transformations import random_3d_rotation_matrix, image_to_points
 
 
 class AbstractTransform(ABC, Callable):
@@ -94,8 +94,8 @@ class PreprocessDepth(AbstractTransform):
         self.quantile = quantile
 
     def __call__(self, item):
-        item['background_mask'] = (item['image'] == 0)
-        item['image'] = torch.where(item['background_mask'], item['image'].max() + 1.0, item['image'])
+        # item['background_mask'] = (item['image'] == 0)
+        # item['image'] = torch.where(item['background_mask'], item['image'].max() + 1.0, item['image'])
         item['image'] -= item['image'].min()
         item['image'] /= self.quantile
         item['image'].unsqueeze_(0)
@@ -146,6 +146,44 @@ class RenameKeys(AbstractTransform):
         for old_key, new_key in zip(self.old_keys, self.new_keys):
             assert new_key not in item
             item[new_key] = item[old_key]
+        return item
+
+
+class Concatenate(AbstractTransform):
+
+    def __init__(self, in_keys, out_key, dim):
+        super().__init__(None)
+        self.in_keys = in_keys
+        self.out_key = out_key
+        self.dim = dim
+
+    def __call__(self, item):
+        if 'voronoi' in self.in_keys:
+            item['voronoi'] = item['voronoi'].unsqueeze(1)
+        item[self.out_key] = torch.cat([item[in_key] for in_key in self.in_keys], dim=self.dim)
+        return item
+
+
+class DepthToPointCloud(AbstractTransform):
+
+    def __init__(self):
+        super().__init__(None)
+
+    def __call__(self, item):
+        item['image'] = image_to_points(item['image'])
+        return item
+
+
+class Flatten(AbstractTransform):
+
+    def __init__(self, keys, start_dims):
+        assert len(keys) == len(start_dims)
+        super().__init__(keys)
+        self.start_dims = start_dims
+
+    def __call__(self, item):
+        for key, start_dim in zip(self.keys, self.start_dims):
+            item[key] = torch.flatten(item[key], start_dim=start_dim)
         return item
 
 # class RandomSubsamplePoints(AbstractTransform):

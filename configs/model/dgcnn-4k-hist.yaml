@@ -2,10 +2,14 @@
 
 # ref implementation: https://github.com/WangYueFt/dgcnn/blob/master/tensorflow/sem_seg/model.py
 
+in_channels: 3
+
 example_input_array:
   _target_: torch.rand
-  size: [1, 4096, 3]
-
+  size:
+    - 1
+    - 4096
+    - ${model.in_channels}
 
 model_class:
   _target_: sharpf.modeling.DGCNNHist
@@ -22,7 +26,10 @@ model_class:
         _target_: sharpf.modeling.LocalDynamicGraph
       feature_extractor:
         _target_: sharpf.modeling.StackedConv
-        channels: [6, 64, 64]
+        channels:
+          - ${mul:2,${model.in_channels}}
+          - 64
+          - 64
       aggregation:
         _target_: sharpf.modeling.AggregationMax
     - _target_: sharpf.modeling.PointOpBlock

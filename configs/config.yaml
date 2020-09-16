@@ -1,5 +1,5 @@
 defaults:
-  - datasets: abc-pc
+  - datasets: abc-pc-64k
   - model: dgcnn-4k-hist
   - transform: pc-basic
   - task: regression
@@ -8,18 +8,20 @@ defaults:
   - scheduler: step
   - opt: adam
 
+total_batch_size: 32
+
 data_loader:
   train:
-    total_batch_size: 4
-    num_workers: 1  # depending on RAM capacity set this value carefully
+    total_batch_size: ${total_batch_size}
+    num_workers: 4  # depending on RAM capacity set this value carefully
     pin_memory: false
   val:
-    total_batch_size: 4
-    num_workers: 1  # depending on RAM capacity set this value carefully
+    total_batch_size: ${total_batch_size}
+    num_workers: 4  # depending on RAM capacity set this value carefully
     pin_memory: false
   test:
-    total_batch_size: 4
-    num_workers: 1  # depending on RAM capacity set this value carefully
+    total_batch_size: ${total_batch_size}
+    num_workers: 4  # depending on RAM capacity set this value carefully
     pin_memory: false
 
 eval_only: false

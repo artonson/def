@@ -6,16 +6,19 @@ class PointCloudIO():
         if not hasattr(cls, 'instance'):
             cls.instance = io.HDF5IO(
                 {
-                    'points': io.Float64('points'),
-                    'normals': io.Float64('normals'),
-                    'distances': io.Float64('distances'),
                     'directions': io.Float64('directions'),
-                    'item_id': io.AsciiString('item_id'),
-                    'orig_vert_indices': io.VarInt32('orig_vert_indices'),
-                    'orig_face_indexes': io.VarInt32('orig_face_indexes'),
+                    'distances': io.Float64('distances'),
                     'has_sharp': io.Bool('has_sharp'),
+                    'item_id': io.AsciiString('item_id'),
+                    'normals': io.Float64('normals'),
+                    'normals_estimation_10': io.Float64('normals_estimation_10'),
+                    'normals_estimation_100': io.Float64('normals_estimation_100'),
                     'num_sharp_curves': io.Int8('num_sharp_curves'),
                     'num_surfaces': io.Int8('num_surfaces'),
+                    'orig_face_indexes': io.VarInt32('orig_face_indexes'),
+                    'orig_vert_indices': io.VarInt32('orig_vert_indices'),
+                    'points': io.Float64('points'),
+                    'voronoi': io.Float64('voronoi')
                 },
                 len_label='has_sharp',
                 compression='lzf'

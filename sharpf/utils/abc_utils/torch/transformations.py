@@ -1,10 +1,8 @@
-"""Various transformation matrices."""
-# Copyright © 2014 Mikko Ronkainen <firstname@mikkoronkainen.com>
-# License: MIT, see the LICENSE file.
 import math
-
-import torch
 from math import sin, cos, tan, pi, radians
+
+import numpy as np
+import torch
 
 
 def create_scale_matrix(sx, sy, sz):
@@ -95,3 +93,30 @@ def random_scale_matrix(min_scale, max_scale):
     scale_value = min_scale + torch.rand(1).item() * (max_scale - min_scale)
     scale = create_scale_matrix(scale_value, scale_value, scale_value)
     return scale
+
+
+def image_to_points(image, resolution_3d=0.02):
+    """
+    Depth image to point cloud transformation
+        input: image: depth image, shape = (image_height, image_width)
+               resolution_3d: sampling resolution, float
+
+        output: points: point cloud obtained from the depth image, shape = (image_height * image_width, 3)
+    """
+    image_height, image_width = image.shape[0], image.shape[1]
+    screen_aspect_ratio = image_width / image_height
+    rays_screen_coords = np.mgrid[0:image_height, 0:image_width].reshape(2, image_height * image_width).T
+
+    rays_origins = (rays_screen_coords / np.array([[image_height, image_width]]))  # [h, w, 2], in [0, 1]
+    factor = image_height / 2 * resolution_3d
+    rays_origins[:, 0] = (-2 * rays_origins[:, 0] + 1) * factor  # to [-1, 1] + aspect transform
+    rays_origins[:, 1] = (-2 * rays_origins[:, 1] + 1) * factor * screen_aspect_ratio
+    rays_origins = np.concatenate([
+        rays_origins,
+        np.zeros_like(rays_origins[:, [0]])
+    ], axis=1)
+    points = np.zeros((image_height * image_width, 3))
+    points[:, 0] = rays_origins[:, 0]
+    points[:, 1] = rays_origins[:, 1]
+    points[:, 2] = image.ravel()
+    return points

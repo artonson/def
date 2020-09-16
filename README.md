@@ -1,5 +1,12 @@
 # Learning to Detect Sharp Geometric Features in Point Clouds
 
+### Install custom operations
+not compatible with Pytorch > 1.4
+```
+bash build_ops.sh
+```
+
+
 ### Install additional packages
 ```bash
 singularity shell --bind /gpfs:/gpfs --nv /gpfs/gpfs0/3ddl/env/a1.sif
@@ -11,7 +18,7 @@ python setup.py build develop --user
 
 ### Train & test the network
 ```bash
-python train_net.py hydra.run.dir=experiments/my_exp trainer.gpus=4 trainer.max_epochs=10 model=dgcnn-4k datasets=abc-pointcloud transforms=pc-basic task=regression evaluators=regression
+python train_net.py hydra.run.dir=experiments/my_exp trainer.gpus=4 trainer.max_epochs=10 model=dgcnn-4k datasets=abc-pc-64k transform=pc-basic task=regression evaluators=regression
 ```
 
 ### Test the network

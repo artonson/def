@@ -3,6 +3,7 @@ from typing import Optional, Dict, List, Tuple
 
 import torch
 from omegaconf import DictConfig
+from omegaconf import OmegaConf
 from pytorch_lightning import EvalResult
 from pytorch_lightning.core.lightning import LightningModule
 from torch.utils.data import Dataset
@@ -10,6 +11,7 @@ from torch.utils.data import Dataset
 from sharpf.data import build_loaders, build_datasets
 from sharpf.utils.hydra import instantiate
 from ...evaluation import build_evaluators, DatasetEvaluator
+from ...optim import get_params_for_optimizer
 
 log = logging.getLogger(__name__)
 
@@ -36,15 +38,23 @@ class BaseLightningModule(LightningModule):
     def checkpoint_on(self, results: Dict[str, float]):
         checkpoint_on = None
         if 'checkpoint_on' in self.hparams.task and self.hparams.task.checkpoint_on is not None:
-            assert self.hparams.task.checkpoint_on in results
-            checkpoint_on = torch.tensor(results[self.hparams.task.checkpoint_on])
+            if self.hparams.task.checkpoint_on in results:
+                checkpoint_on = torch.tensor(results[self.hparams.task.checkpoint_on])
+            elif self.is_overfit_batches():
+                log.warning('You forgot to change checkpoint_on value?')
+            else:
+                raise ValueError
         return checkpoint_on
 
     def early_stop_on(self, results: Dict[str, float]):
         early_stop_on = None
         if 'early_stop' in self.hparams.task and self.hparams.task.early_stop.value is not None:
-            assert self.hparams.task.early_stop.value in results
-            early_stop_on = torch.tensor(results[self.hparams.task.early_stop.value])
+            if self.hparams.task.checkpoint_on in results:
+                early_stop_on = torch.tensor(results[self.hparams.task.early_stop.value])
+            elif self.is_overfit_batches():
+                log.warning('You forgot to change early stop value?')
+            else:
+                raise ValueError
         return early_stop_on
 
     def _shared_eval_epoch_end(self, outputs, partition: str):
@@ -75,7 +85,7 @@ class BaseLightningModule(LightningModule):
             result = EvalResult()
 
         # log scalars
-        result.log_dict(results['scalars'])
+        result.log_dict(results['scalars'], prog_bar=True)
 
         # log images
         for name, image in results['images'].items():
@@ -107,16 +117,29 @@ class BaseLightningModule(LightningModule):
         return self._shared_eval_epoch_end(outputs, 'test')
 
     def configure_optimizers(self):
-        optimizer = instantiate(self.hparams.opt, params=self.parameters(), lr=self.learning_rate)
-        scheduler = instantiate(self.hparams.scheduler, optimizer=optimizer)
-        # todo add possibility to turn off scheduler
-        return [optimizer], [scheduler]
+        params = get_params_for_optimizer(self.model, self.learning_rate, self.hparams.opt.weight_decay,
+                                          self.hparams.opt.weight_decay_norm)
+        opt_param = OmegaConf.to_container(self.hparams.opt, resolve=True)
+        del opt_param['weight_decay']
+        del opt_param['weight_decay_norm']
+        opt_param = DictConfig(opt_param)
+        optimizer = instantiate(opt_param, params=params, lr=self.learning_rate)
+        if 'scheduler' in self.hparams:
+            scheduler = instantiate(self.hparams.scheduler, optimizer=optimizer)
+            return [optimizer], [scheduler]
+        return optimizer
 
     def train_dataloader(self):
         self.datasets['train'] = build_datasets(self.hparams, 'train')
+        if self.is_overfit_batches():
+            self.datasets['val'] = self.datasets['train']
+            self.datasets['test'] = self.datasets['train']
         loaders = build_loaders(self.hparams, self.datasets['train'], 'train')
         assert len(loaders) == 1, "There must be only one train dataloader"
         return loaders[0]
+
+    def is_overfit_batches(self) -> bool:
+        return self.hparams.trainer.overfit_batches != 0.0
 
     def val_dataloader(self):
         self.datasets['val'] = build_datasets(self.hparams, 'val')

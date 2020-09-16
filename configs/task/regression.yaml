@@ -15,4 +15,4 @@ early_stop:
   value: ${task.checkpoint_on}
   mode: min
   min_delta: 0.001
-  patience: 5
+  patience: 10

@@ -14,6 +14,7 @@ class AdamConf(TargetConf):
     lr: float = 1e-3
     eps: float = 1e-8
     weight_decay: float = 0
+    weight_decay_norm: float = 0
     amsgrad: bool = False
 
 
@@ -37,6 +38,7 @@ class AdamaxConf(TargetConf):
     lr: float = 1e-3
     eps: float = 1e-8
     weight_decay: float = 0
+    weight_decay_norm: float = 0
 
 
 cs.store(
@@ -52,6 +54,8 @@ class ASGDConf(TargetConf):
     lambd: float = 1e-4
     t0: float = 1e6
     weight_decay: float = 0
+    weight_decay_norm: float = 0
+    weight_decay_bias: float = 0
 
 
 cs.store(
@@ -85,6 +89,7 @@ class RMSpropConf(TargetConf):
     eps: float = 1e-8
     centered: bool = True
     weight_decay: float = 0
+    weight_decay_norm: float = 0
 
 
 cs.store(
@@ -113,6 +118,7 @@ class SGDConf(TargetConf):
     weight_decay: float = 0
     dampening: float = 0
     nesterov: bool = False
+    weight_decay_norm: float = 0
 
 
 cs.store(

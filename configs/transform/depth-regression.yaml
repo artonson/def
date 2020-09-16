@@ -1,6 +1,6 @@
 # @package _group_
 
-high_res_quantile: 7.4776
+high_res_quantile: 4.389
 
 train:
   _target_: sharpf.utils.abc_utils.torch.CompositeTransform
@@ -10,9 +10,6 @@ train:
       type: torch.FloatTensor
     - _target_: sharpf.utils.abc_utils.torch.PreprocessDepth
       quantile: ${transform.high_res_quantile}
-    - _target_: sharpf.utils.abc_utils.torch.PreprocessDistances
-    - _target_: sharpf.utils.abc_utils.torch.DeleteKeys
-      keys: ['background_mask']
     - _target_: sharpf.utils.abc_utils.torch.RenameKeys
       old_keys: ['image']
       new_keys: ['points']
