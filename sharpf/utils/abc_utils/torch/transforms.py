@@ -3,7 +3,7 @@ from collections import Callable
 
 import torch
 
-from .transformations import random_3d_rotation_matrix
+from .transformations import random_3d_rotation_matrix, image_to_points
 
 
 class AbstractTransform(ABC, Callable):
@@ -161,6 +161,29 @@ class Concatenate(AbstractTransform):
         if 'voronoi' in self.in_keys:
             item['voronoi'] = item['voronoi'].unsqueeze(1)
         item[self.out_key] = torch.cat([item[in_key] for in_key in self.in_keys], dim=self.dim)
+        return item
+
+
+class DepthToPointCloud(AbstractTransform):
+
+    def __init__(self):
+        super().__init__(None)
+
+    def __call__(self, item):
+        item['image'] = image_to_points(item['image'])
+        return item
+
+
+class Flatten(AbstractTransform):
+
+    def __init__(self, keys, start_dims):
+        assert len(keys) == len(start_dims)
+        super().__init__(keys)
+        self.start_dims = start_dims
+
+    def __call__(self, item):
+        for key, start_dim in zip(self.keys, self.start_dims):
+            item[key] = torch.flatten(item[key], start_dim=start_dim)
         return item
 
 # class RandomSubsamplePoints(AbstractTransform):
