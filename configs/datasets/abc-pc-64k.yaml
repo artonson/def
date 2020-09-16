@@ -29,7 +29,7 @@ val:
       labels: ['points', 'distances', 'item_id']
       transform: ${transform.val}
       max_loaded_files: 2
-      return_index: True
+      return_index: true
     evaluators: ${evaluators.val}
 test:
   - dataset_name: train
@@ -46,7 +46,7 @@ test:
       labels: ['points', 'distances', 'item_id']
       transform: ${transform.test}
       max_loaded_files: 4
-      return_index: True
+      return_index: true
     evaluators: ${evaluators.test}
   - ${datasets.val.0}
   - dataset_name: test
@@ -61,5 +61,5 @@ test:
       labels: ['points', 'distances', 'item_id']
       transform: ${transform.test}
       max_loaded_files: 2
-      return_index: True
+      return_index: true
     evaluators: ${evaluators.test}
