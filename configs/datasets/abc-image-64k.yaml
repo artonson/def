@@ -15,7 +15,6 @@ train:
       labels: ['image', 'distances']
       transform: ${transform.train}
       max_loaded_files: 4
-    evaluators: ${evaluators.test}  # for overfitting purpose
 val:
   - dataset_name: val
     dataset_class:
@@ -31,6 +30,7 @@ val:
       labels: ['image', 'distances']
       transform: ${transform.val}
       max_loaded_files: 2
+      return_index: true
     evaluators: ${evaluators.val}
 test:
   - dataset_name: train
@@ -44,11 +44,27 @@ test:
         '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_20.hdf5',
         '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_30.hdf5',
       ]
-      labels: ['image', 'distances']
+      labels: ['image', 'distances', 'item_id']
       transform: ${transform.test}
       max_loaded_files: 4
+      return_index: true
     evaluators: ${evaluators.test}
-  - ${datasets.val.0}
+  - dataset_name: val
+    dataset_class:
+      _target_: sharpf.utils.abc_utils.LotsOfHdf5Files
+      io:
+        _target_: sharpf.data.DepthMapIO
+      filenames: [
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/val/train_5.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/val/train_15.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/val/train_25.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/val/train_35.hdf5',
+      ]
+      labels: ['image', 'distances', 'item_id']
+      transform: ${transform.test}
+      max_loaded_files: 2
+      return_index: true
+    evaluators: ${evaluators.test}
   - dataset_name: test
     dataset_class:
       _target_: sharpf.utils.abc_utils.LotsOfHdf5Files
@@ -60,7 +76,8 @@ test:
         '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/val/train_28.hdf5',
         '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/val/train_38.hdf5',
       ]
-      labels: ['image', 'distances']
+      labels: ['image', 'distances', 'item_id']
       transform: ${transform.test}
       max_loaded_files: 2
+      return_index: true
     evaluators: ${evaluators.test}

@@ -3,7 +3,7 @@ defaults:
   - model: dgcnn-4k-hist
   - transform: pc-basic
   - task: regression
-  - evaluators: regression
+  - evaluators: regression-pc
   - trainer: trainer
   - scheduler: step
   - opt: adam
