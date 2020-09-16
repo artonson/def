@@ -230,7 +230,6 @@ class IllustratorPoints(DatasetEvaluator):
         if name is None:
             name = 'illustrate-points'
         dr = os.getcwd()
-        log.info('current dir ' + str(dr))
         plot_3d = self._illustrate_3d(data, target, pred, metric)
 
         if not os.path.exists(f'{dr}/visuals'):
@@ -277,7 +276,6 @@ class IllustratorPoints(DatasetEvaluator):
         metrics_golden = metrics[relative_golden_ids].cpu().numpy()
         # calculate quantiles
         k_best_idx = np.argsort(torch.sqrt(metrics.mean(dim=1)).cpu().numpy(), axis=0)[::-1][:self.k]
-        log.info('metrics k best ' + str(metrics_k_best))
         k_worst_idx = np.argsort(torch.sqrt(metrics.mean(dim=1)).cpu().numpy(), axis=0)[:self.k]
 
         log.info('get input data')
@@ -286,12 +284,11 @@ class IllustratorPoints(DatasetEvaluator):
             log.info('saving visualization')
             for i in relative_golden_ids:
                 item_golden = self.dataset[i]
-                log.info('points shape ' + str(item_golden['points'].shape))
                 pred_golden = self.model(item_golden['points'].unsqueeze(0).to('cuda'))  # predict with model
                 self.illustrate_to_file(item_golden['points'], item_golden['distances'], pred_golden, metrics_golden[i],
                                    name=f'illustration-points_golden-set_{i}')
 
-            for i in range(len(metrics_k_best)):
+            for i in range(len(k_best_idx)):
                 item_best = self.dataset[k_best_idx[i]]
                 item_worst = self.dataset[k_worst_idx[i]]
                 pred_best = self.model(item_best['points'].unsqueeze(0).to('cuda'))
