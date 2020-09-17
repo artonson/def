@@ -155,6 +155,14 @@ class Unet1D(nn.Module):
             self.encoder = PointResNet(block, [3, 4, 6, 3], in_chans=in_channels,
                                        act_layer=act_layer, norm_layer=norm_layer,
                                        **encoder_kwargs)
+        elif encoder_name == "resnet101":
+            self.encoder = PointResNet(block, [3, 4, 23, 3], in_chans=in_channels,
+                                       act_layer=act_layer, norm_layer=norm_layer,
+                                       **encoder_kwargs)
+        elif encoder_name == "resnet152":
+            self.encoder = PointResNet(block, [3, 8, 36, 3], in_chans=in_channels,
+                                       act_layer=act_layer, norm_layer=norm_layer,
+                                       **encoder_kwargs)
         else:
             raise NotImplementedError
 
