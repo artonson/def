@@ -48,19 +48,17 @@ class IllustratorPoints(DatasetEvaluator):
         # plot golden set
         for i, item_id in enumerate(item_ids):
             if str(item_id) in self.golden_set_item_ids:
-                dataset_idx = dataset_indexes[i]
 
                 # dirty hack; slicing because otherwise b'' gets into filename
                 str_item_id = str(item_id)[2:-1]
 
-                filename = f'datasetname={self.dataset_name}_golden_datasetidx={dataset_idx}_itemid={str_item_id}.html'
+                filename = f'datasetname={self.dataset_name}_golden_datasetidx={dataset_indexes[i]}_itemid={str_item_id}.html'
 
                 # xyz correspond to first 3 channels
-                self._illustrate_to_file(inputs['points'][dataset_idx][:, :3].detach().cpu(),
-                                         target[dataset_idx].detach().cpu(),
-                                         preds[dataset_idx].detach().cpu(),
-                                         F.l1_loss(preds[dataset_idx], target[dataset_idx],
-                                                   reduction='none').detach().cpu(),
+                self._illustrate_to_file(inputs['points'][i][:, :3].detach().cpu(),
+                                         target[i].detach().cpu(),
+                                         preds[i].detach().cpu(),
+                                         F.l1_loss(preds[i], target[i], reduction='none').detach().cpu(),
                                          name=filename)
 
     def evaluate(self):
