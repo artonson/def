@@ -5,7 +5,7 @@ defaults:
   - task: regression
   - evaluators: regression-pc
   - trainer: trainer
-  - scheduler: step
+  - scheduler: exponential
   - opt: adam
 
 total_batch_size: 32

@@ -2,8 +2,8 @@
 
 in_channels: 3
 sampleDl: 0.02
-radius: ${fmul:2.5,${model.sampleDl}}
-nsample: 30
+radius: 1.0 # ${fmul:2.5,${model.sampleDl}}
+nsample: 50
 
 example_input_array:
   _target_: torch.rand
