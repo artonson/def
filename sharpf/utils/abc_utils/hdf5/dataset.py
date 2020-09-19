@@ -116,7 +116,9 @@ class LotsOfHdf5Files(Dataset):
         return 0
 
     def __getitem__(self, index):
+        index = int(index)
         file_index = np.searchsorted(self.cum_num_items, index, side='right')
+        print(index, file_index)
         relative_index = index - self.cum_num_items[file_index] if file_index > 0 else index
 
         file = self.files[file_index]
@@ -133,3 +135,7 @@ class LotsOfHdf5Files(Dataset):
             item['index'] = index
 
         return item
+
+    @property
+    def file_sizes(self):
+        return [len(f) for f in self.files]
