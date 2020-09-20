@@ -18,7 +18,7 @@ class IllustratorPoints(DatasetEvaluator):
 
     def __init__(self, golden_set_item_ids, k, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.golden_set_item_ids = golden_set_item_ids
+        self.golden_set_item_ids = golden_set_item_ids if golden_set_item_ids is not None else []
         self.k = k
         self.reset()
 
@@ -76,8 +76,8 @@ class IllustratorPoints(DatasetEvaluator):
 
             def plot_top_k(type: str):
                 assert type in ['best', 'worst']
-
-                rmse_top_k_idxs = indexes[torch.topk(rmses, self.k, largest=type == 'worst').indices]
+                rmse_top_k_idxs = indexes[
+                    torch.topk(rmses, min(self.k, rmses.size(0)), largest=type == 'worst').indices]
                 for k_i, index in enumerate(rmse_top_k_idxs):
                     item = self.dataset[index]
                     pred = self.model(item['points'].unsqueeze(0).to(self.device)).detach().cpu().squeeze(0)
