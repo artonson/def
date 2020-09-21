@@ -1,0 +1,74 @@
+# @package _group_
+
+train:
+  - dataset_name: train
+    dataset_class:
+      _target_: sharpf.utils.abc_utils.LotsOfHdf5Files
+      io:
+        _target_: sharpf.data.DepthMapIO
+      filenames: [
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_0.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_1.hdf5'
+      ]
+      labels: ['image', 'distances']
+      transform: ${transform.train}
+      max_loaded_files: 2
+      virtual_size: 65536
+val:
+  - dataset_name: val
+    dataset_class:
+      _target_: sharpf.utils.abc_utils.LotsOfHdf5Files
+      io:
+        _target_: sharpf.data.DepthMapIO
+      filenames: [
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/val/train_0.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/val/train_1.hdf5'
+      ]
+      labels: ['image', 'distances']
+      transform: ${transform.val}
+      max_loaded_files: 2
+      return_index: true
+    evaluators: ${evaluators.val}
+test:
+  - dataset_name: train
+    dataset_class:
+      _target_: sharpf.utils.abc_utils.LotsOfHdf5Files
+      io:
+        _target_: sharpf.data.DepthMapIO
+      filenames: [
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_0.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_1.hdf5'
+      ]
+      labels: ['image', 'distances', 'item_id']
+      transform: ${transform.test}
+      max_loaded_files: 2
+      return_index: true
+    evaluators: ${evaluators.test}
+  - dataset_name: val
+    dataset_class:
+      _target_: sharpf.utils.abc_utils.LotsOfHdf5Files
+      io:
+        _target_: sharpf.data.DepthMapIO
+      filenames: [
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/val/train_0.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/val/train_1.hdf5'
+      ]
+      labels: ['image', 'distances', 'item_id']
+      transform: ${transform.test}
+      max_loaded_files: 2
+      return_index: true
+    evaluators: ${evaluators.test}
+  - dataset_name: test
+    dataset_class:
+      _target_: sharpf.utils.abc_utils.LotsOfHdf5Files
+      io:
+        _target_: sharpf.data.DepthMapIO
+      filenames: [
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/test/train_0.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/test/train_1.hdf5'
+      ]
+      labels: ['image', 'distances', 'item_id']
+      transform: ${transform.test}
+      max_loaded_files: 2
+      return_index: true
+    evaluators: ${evaluators.test}
