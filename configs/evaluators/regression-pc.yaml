@@ -10,11 +10,5 @@ test:
     input_key: distances
     output_key: pred_distances
   - _target_: sharpf.evaluation.IllustratorPoints
-    golden_set_item_ids:
-      - b'00007127_cc8dcb20bea84d4ca8d94e1e_000'
-      - b'00013127_8a05ec40b85e4b039898097c_028'
-      - b'00007127_cc8dcb20bea84d4ca8d94e1e_000'
-      - b'00013127_8a05ec40b85e4b039898097c_028'
-      - b'00018631_eb344387745a40edb0d7913b_009'
-      - b'00009911_086229ea796640d29acd68ff_046'
-    k: 3
+    golden_set_item_ids: ~
+    k: 5
