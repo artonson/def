@@ -12,6 +12,7 @@ train:
       labels: ['points', 'distances']
       transform: ${transform.train}
       max_loaded_files: 1
+      virtual_size: 65536
 val:
   - dataset_name: val
     dataset_class:

@@ -81,7 +81,7 @@ class Hdf5File(Dataset):
 
 class LotsOfHdf5Files(Dataset):
     def __init__(self, io, labels, filenames=None, data_dir=None, partition=None, transform=None, max_loaded_files=0,
-                 return_index=False):
+                 return_index=False, virtual_size=None):
         assert (data_dir is not None) != (filenames is not None), "either provide only data_dir or only filenames arg"
         assert max_loaded_files >= 0
 
@@ -109,14 +109,25 @@ class LotsOfHdf5Files(Dataset):
         self.current_file_idx = 0
         self.max_loaded_files = max_loaded_files
         self.return_index = return_index
+        self.virtual_size = virtual_size
+        # todo what if virtual size < true size
 
-    def __len__(self):
+    def real_len(self):
         if len(self.cum_num_items) > 0:
             return self.cum_num_items[-1]
         return 0
 
+    def __len__(self):
+        if self.virtual_size is not None:
+            return self.virtual_size
+        return self.real_len()
+
     def __getitem__(self, index):
         index = int(index)
+
+        if self.virtual_size is not None:
+            index = index % self.real_len()
+
         file_index = np.searchsorted(self.cum_num_items, index, side='right')
         relative_index = index - self.cum_num_items[file_index] if file_index > 0 else index
 
