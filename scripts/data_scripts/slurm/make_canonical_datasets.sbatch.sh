@@ -1,16 +1,16 @@
 #!/bin/bash
 
-#SBATCH --job-name=sharpf-data
-#SBATCH --output=make_canonical_datasets_%A.out
-#SBATCH --error=make_canonical_datasets_%A.err
-#SBATCH --time=2:00:00
+#SBATCH --job-name=sharpf-shuffle
+#SBATCH --output=logs/make_canonical_datasets_%A.out
+#SBATCH --error=logs/make_canonical_datasets_%A.err
+#SBATCH --time=12:00:00
 #SBATCH --partition=htc
 #SBATCH --cpus-per-task=40
 #SBATCH --ntasks=1
 #SBATCH --mem-per-cpu=16g
 #SBATCH --oversubscribe
 
-module load apps/singularity-3.2.0
+#module load apps/singularity-3.2.0
 
 __usage="
 Usage: $0 -i input_dir -o output_dir [-v]
@@ -78,7 +78,7 @@ echo "  "
 N_TASKS=${SLURM_CPUS_PER_TASK}
 MAKE_DATA_SCRIPT="${CODE_PATH_CONTAINER}/sharpf/utils/abc_utils/scripts/defrag_shuffle_split_hdf5.py"
 CHUNK_SIZE=16384
-TRAIN_FRACTION=0.8
+TRAIN_FRACTION=1.0
 RANDOM_SEED=9675
 MAX_LOADED_FILES=10
 
@@ -99,4 +99,12 @@ singularity exec \
         --random-seed ${RANDOM_SEED} \\
         --jobs ${N_TASKS} \\
         --max-loaded-files ${MAX_LOADED_FILES} \\
-         ${VERBOSE_ARG}"
+         ${VERBOSE_ARG} \\
+        -fk has_smell_coarse_surfaces_by_num_faces \\
+        -fk has_smell_coarse_surfaces_by_angles \\
+        -fk has_smell_sharpness_discontinuities \\
+        -fk has_smell_raycasting_background \\
+        -fk has_smell_depth_discontinuity \\
+        -fk has_smell_mesh_self_intersections \\
+        "
+

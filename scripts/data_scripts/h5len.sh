@@ -1,7 +1,6 @@
 #!/bin/bash
 
 set -x
-set -e
 
 __usage="Usage: $0 -i input_dir"
 usage() { echo "$__usage" >&2; }

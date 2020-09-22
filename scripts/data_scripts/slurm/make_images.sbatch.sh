@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --job-name=sharpf-images
+#SBATCH --job-name=sharpf-gen-images
 #SBATCH --output=logs/sharpf-images_%A_%a.out
 #SBATCH --error=logs/sharpf-images_%A_%a.err
 #SBATCH --array=1-100
@@ -11,7 +11,7 @@
 #SBATCH --mem-per-cpu=8g
 #SBATCH --oversubscribe
 
-module load apps/singularity-3.2.0
+# module load apps/singularity-3.2.0
 
 __usage="
 Usage: $0 -c chunk -o output_dir -d data_dir -l logs_dir -f config_file [-v]
