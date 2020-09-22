@@ -256,7 +256,7 @@ def get_annotated_patches(item, config, n_jobs):
 def generate_patches(meshes_filename, feats_filename, item_idx, config, n_jobs, output_file):
     with ABCChunk([meshes_filename, feats_filename]) as data_holder:
         point_patches_by_config = defaultdict(list)
-        item = data_holder.get(item_idx)
+        item = data_holder[item_idx]
         eprint_t("Processing chunk file {chunk}, item {item}".format(
             chunk=meshes_filename, item=item.item_id))
         try:
