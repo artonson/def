@@ -311,7 +311,7 @@ def make_patches(options):
         options.output_dir,
         'abc_{chunk}_{item_idx}.hdf5'.format(
             chunk=options.chunk.zfill(4),
-            item_idx=options.item_idx.zfill(4))
+            item_idx=str(options.item_idx).zfill(4))
     )
 
     with open(options.dataset_config) as config_file:
