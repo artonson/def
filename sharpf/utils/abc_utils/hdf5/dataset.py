@@ -35,7 +35,7 @@ class Hdf5File(Dataset):
                 self.labels = set(f.keys())
             else:
                 for label in labels:
-                    assert label in f.keys()
+                    assert label in f.keys(), f"Can't find {label} among {f.keys()}"
                 self.labels = set(labels)
             if return_index:
                 assert 'index' not in self.labels

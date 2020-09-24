@@ -186,6 +186,16 @@ class Flatten(AbstractTransform):
             item[key] = torch.flatten(item[key], start_dim=start_dim)
         return item
 
+
+class ComputeIsFlatProperty(AbstractTransform):
+
+    def __init__(self):
+        super().__init__(None)
+
+    def __call__(self, item):
+        item['is_flat'] = (item['distances'] >= 1.0).all()
+        return item
+
 # class RandomSubsamplePoints(AbstractTransform):
 #     def __init__(self, n_points, theta=1.0):
 #         self.n_points = n_points

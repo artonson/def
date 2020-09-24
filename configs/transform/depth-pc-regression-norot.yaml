@@ -23,3 +23,4 @@ test:
     - _target_: sharpf.utils.abc_utils.torch.Flatten
       keys: ['distances']
       start_dims: [0]
+    - _target_: sharpf.utils.abc_utils.torch.ComputeIsFlatProperty

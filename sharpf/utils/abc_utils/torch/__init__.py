@@ -4,7 +4,7 @@ from .transformations import (
     create_scale_matrix, create_translation_matrix,
     random_3d_rotation_matrix, random_scale_matrix, image_to_points)
 from .transforms import (
-    NormalizeL2, Random3DRotation, RandomScale, AbstractTransform,
+    NormalizeL2, Random3DRotation, ComputeIsFlatProperty, RandomScale, AbstractTransform,
     CompositeTransform, ToTensor, Center,
     PreprocessDepth, PreprocessDistances, ComputeCloseToSharpMask, DeleteKeys, RenameKeys,
     Concatenate, DepthToPointCloud, Flatten

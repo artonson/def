@@ -1,5 +1,7 @@
 # @package _group_
 
+depth2pointcloud: true
+
 val:
   - _target_: sharpf.evaluation.RegressionEvaluator
     input_key: distances
@@ -9,3 +11,39 @@ test:
   - _target_: sharpf.evaluation.RegressionEvaluator
     input_key: distances
     output_key: pred_distances
+    mask_expressions:
+      - ['is_flat', '=', false]
+      - ['has_sharp', '=', true]
+      - ['has_smell_coarse_surfaces_by_num_faces', '=', false]
+      - ['has_smell_deviating_resolution', '=', false]
+      - ['has_smell_sharpness_discontinuities', '=', false]
+      - ['has_smell_bad_face_sampling', '=', false]
+      - ['has_smell_mismatching_surface_annotation', '=', false]
+      - ['has_smell_coarse_surfaces_by_angles', '=', false]
+      - ['has_smell_depth_discontinuity', '=', false]
+      - ['has_smell_mesh_self_intersections', '=', false]
+      - ['has_smell_raycasting_background', '=', false]
+      - ['num_sharp_curves', '=', 0]
+      - ['num_sharp_curves', '>', 0]
+      - ['num_sharp_curves', '=', 1]
+      - ['num_sharp_curves', '=', 2]
+      - ['num_sharp_curves', '=', 3]
+      - ['num_sharp_curves', '=', 4]
+      - ['num_sharp_curves', '=', 5]
+      - ['num_sharp_curves', '>=', 6]
+    baseline_hist_dir_path: '/gpfs/gpfs0/3ddl/sharp_features/baseline-hists/baseline-image'
+  - _target_: sharpf.evaluation.IllustratorPoints
+    golden_set_item_ids: ~
+    k: 5
+    depth2pointcloud: ${evaluators.depth2pointcloud}
+    filter_expressions:
+      - ['num_sharp_curves', '>', 0]
+      - ['has_smell_coarse_surfaces_by_num_faces', '=', false]
+      - ['has_smell_deviating_resolution', '=', false]
+      - ['has_smell_sharpness_discontinuities', '=', false]
+      - ['has_smell_bad_face_sampling', '=', false]
+      - ['has_smell_mismatching_surface_annotation', '=', false]
+      - ['has_smell_coarse_surfaces_by_angles', '=', false]
+      - ['has_smell_depth_discontinuity', '=', false]
+      - ['has_smell_mesh_self_intersections', '=', false]
+      - ['has_smell_raycasting_background', '=', false]
