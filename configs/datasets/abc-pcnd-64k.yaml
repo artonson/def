@@ -1,5 +1,8 @@
 # @package _group_
 
+resolution: high
+noise: 0.0
+
 normals_name: normals
 
 train:
@@ -9,10 +12,10 @@ train:
       io:
         _target_: sharpf.data.PointCloudIO
       filenames: [
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/train_with_voronoi_and_normals/train_0.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/train_with_voronoi_and_normals/train_1.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/train_with_voronoi_and_normals/train_2.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/train_with_voronoi_and_normals/train_3.hdf5'
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res/${datasets.noise}/train_with_voronoi_and_normals/train_0.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res/${datasets.noise}/train_with_voronoi_and_normals/train_1.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res/${datasets.noise}/train_with_voronoi_and_normals/train_2.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res/${datasets.noise}/train_with_voronoi_and_normals/train_3.hdf5'
       ]
       labels:
         - points
@@ -28,8 +31,8 @@ val:
       io:
         _target_: sharpf.data.PointCloudIO
       filenames: [
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/val_with_voronoi_and_normals/train_0.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/val_with_voronoi_and_normals/train_1.hdf5'
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res/${datasets.noise}/val_with_voronoi_and_normals/train_0.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res/${datasets.noise}/val_with_voronoi_and_normals/train_1.hdf5'
       ]
       labels:
         - points
@@ -46,10 +49,10 @@ test:
       io:
         _target_: sharpf.data.PointCloudIO
       filenames: [
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/train_with_voronoi_and_normals/train_0.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/train_with_voronoi_and_normals/train_1.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/train_with_voronoi_and_normals/train_2.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/train_with_voronoi_and_normals/train_3.hdf5'
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res/${datasets.noise}/train_with_voronoi_and_normals/train_0.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res/${datasets.noise}/train_with_voronoi_and_normals/train_1.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res/${datasets.noise}/train_with_voronoi_and_normals/train_2.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res/${datasets.noise}/train_with_voronoi_and_normals/train_3.hdf5'
       ]
       labels: ${datasets.test_labels}
       transform: ${transform.test}
@@ -62,8 +65,8 @@ test:
       io:
         _target_: sharpf.data.PointCloudIO
       filenames: [
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/val_with_voronoi_and_normals/train_0.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/val_with_voronoi_and_normals/train_1.hdf5'
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res/${datasets.noise}/val_with_voronoi_and_normals/train_0.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res/${datasets.noise}/val_with_voronoi_and_normals/train_1.hdf5'
       ]
       labels: ${datasets.test_labels}
       transform: ${transform.test}
@@ -76,8 +79,8 @@ test:
       io:
         _target_: sharpf.data.PointCloudIO
       filenames: [
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/test_with_voronoi_and_normals/train_0.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/high_res/0.0/test_with_voronoi_and_normals/train_1.hdf5'
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res/${datasets.noise}/test_with_voronoi_and_normals/train_0.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res/${datasets.noise}/test_with_voronoi_and_normals/train_1.hdf5'
       ]
       labels: ${datasets.test_labels}
       transform: ${transform.test}

@@ -1,5 +1,8 @@
 # @package _group_
 
+resolution: high
+noise: 0.0
+
 train:
   - dataset_name: train
     dataset_class:
@@ -7,22 +10,22 @@ train:
       io:
         _target_: sharpf.data.DepthMapIO
       filenames: [
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_0.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_1.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_2.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_3.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_4.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_5.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_6.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_7.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_8.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_9.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_10.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_11.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_12.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_13.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_14.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_15.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/train/train_0.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/train/train_1.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/train/train_2.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/train/train_3.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/train/train_4.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/train/train_5.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/train/train_6.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/train/train_7.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/train/train_8.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/train/train_9.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/train/train_10.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/train/train_11.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/train/train_12.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/train/train_13.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/train/train_14.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/train/train_15.hdf5',
       ]
       labels: ['image', 'distances']
       transform: ${transform.train}
@@ -34,8 +37,8 @@ val:
       io:
         _target_: sharpf.data.DepthMapIO
       filenames: [
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/val/train_0.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/val/train_1.hdf5'
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/val/train_0.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/val/train_1.hdf5'
       ]
       labels: ['image', 'distances']
       transform: ${transform.val}
@@ -49,22 +52,22 @@ test:
       io:
         _target_: sharpf.data.DepthMapIO
       filenames: [
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_0.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_1.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_2.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_3.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_4.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_5.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_6.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_7.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_8.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_9.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_10.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_11.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_12.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_13.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_14.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_15.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/train/train_0.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/train/train_1.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/train/train_2.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/train/train_3.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/train/train_4.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/train/train_5.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/train/train_6.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/train/train_7.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/train/train_8.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/train/train_9.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/train/train_10.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/train/train_11.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/train/train_12.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/train/train_13.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/train/train_14.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/train/train_15.hdf5',
       ]
       labels: ${datasets.test_labels}
       transform: ${transform.test}
@@ -77,8 +80,8 @@ test:
       io:
         _target_: sharpf.data.DepthMapIO
       filenames: [
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/val/train_0.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/val/train_1.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/val/train_0.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/val/train_1.hdf5',
       ]
       labels: ${datasets.test_labels}
       transform: ${transform.test}
@@ -91,8 +94,8 @@ test:
       io:
         _target_: sharpf.data.DepthMapIO
       filenames: [
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/test/train_0.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/test/train_1.hdf5'
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/test/train_0.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/test/train_1.hdf5'
       ]
       labels: ${datasets.test_labels}
       transform: ${transform.test}

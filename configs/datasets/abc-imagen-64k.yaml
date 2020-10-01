@@ -1,5 +1,8 @@
 # @package _group_
 
+resolution: high
+noise: 0.0
+
 normals_name: normals
 
 train:
@@ -9,10 +12,10 @@ train:
       io:
         _target_: sharpf.data.DepthMapIO
       filenames: [
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_0.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_1.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_2.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_3.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/train/train_0.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/train/train_1.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/train/train_2.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/train/train_3.hdf5',
       ]
       labels:
         - image
@@ -27,8 +30,8 @@ val:
       io:
         _target_: sharpf.data.DepthMapIO
       filenames: [
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/val/train_0.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/val/train_1.hdf5'
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/val/train_0.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/val/train_1.hdf5'
       ]
       labels:
         - image
@@ -45,10 +48,10 @@ test:
       io:
         _target_: sharpf.data.DepthMapIO
       filenames: [
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_0.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_1.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_2.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/train/train_3.hdf5'
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/train/train_0.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/train/train_1.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/train/train_2.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/train/train_3.hdf5'
       ]
       labels: ${datasets.test_labels}
       transform: ${transform.test}
@@ -61,8 +64,8 @@ test:
       io:
         _target_: sharpf.data.DepthMapIO
       filenames: [
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/val/train_0.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/val/train_1.hdf5'
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/val/train_0.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/val/train_1.hdf5'
       ]
       labels: ${datasets.test_labels}
       transform: ${transform.test}
@@ -75,8 +78,8 @@ test:
       io:
         _target_: sharpf.data.DepthMapIO
       filenames: [
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/test/train_0.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/high_res.json/0.0/test/train_1.hdf5'
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/test/train_0.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/test/train_1.hdf5'
       ]
       labels: ${datasets.test_labels}
       transform: ${transform.test}
