@@ -1,0 +1,64 @@
+# @package _group_
+
+train:
+  _target_: sharpf.utils.abc_utils.torch.CompositeTransform
+  transforms:
+    - _target_: sharpf.utils.abc_utils.torch.ToTensor
+      keys:
+        - points
+        - distances
+        - voronoi
+        - ${datasets.normals_name}
+      type: torch.FloatTensor
+    - _target_: sharpf.utils.abc_utils.torch.Center
+      keys: ['points']
+      dim: 0
+    - _target_: sharpf.utils.abc_utils.torch.NormalizeL2
+      keys: ['points']
+      dim: 1
+    - _target_: sharpf.utils.abc_utils.torch.Random3DRotation
+      keys:
+        - points
+        - ${datasets.normals_name}
+    - _target_: sharpf.utils.abc_utils.torch.Concatenate
+      in_keys:
+        - points
+        - voronoi
+        - ${datasets.normals_name}
+      dim: 1
+      out_key: 'points'
+    - _target_: sharpf.utils.abc_utils.torch.DeleteKeys
+      keys:
+        - voronoi
+        - ${datasets.normals_name}
+
+val: ${transform.test}
+
+test:
+  _target_: sharpf.utils.abc_utils.torch.CompositeTransform
+  transforms:
+    - _target_: sharpf.utils.abc_utils.torch.ToTensor
+      keys:
+        - points
+        - distances
+        - voronoi
+        - ${datasets.normals_name}
+      type: torch.FloatTensor
+    - _target_: sharpf.utils.abc_utils.torch.Center
+      keys: ['points']
+      dim: 0
+    - _target_: sharpf.utils.abc_utils.torch.NormalizeL2
+      keys: ['points']
+      dim: 1
+    - _target_: sharpf.utils.abc_utils.torch.Concatenate
+      in_keys:
+        - points
+        - voronoi
+        - ${datasets.normals_name}
+      dim: 1
+      out_key: 'points'
+    - _target_: sharpf.utils.abc_utils.torch.DeleteKeys
+      keys:
+        - voronoi
+        - ${datasets.normals_name}
+    - _target_: sharpf.utils.abc_utils.torch.ComputeIsFlatProperty

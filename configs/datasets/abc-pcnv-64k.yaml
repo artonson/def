@@ -1,0 +1,103 @@
+# @package _group_
+
+resolution: high
+noise: 0.0
+
+normals_name: normals
+
+train:
+  - dataset_name: train
+    dataset_class:
+      _target_: sharpf.utils.abc_utils.LotsOfHdf5Files
+      io:
+        _target_: sharpf.data.PointCloudIO
+      filenames: [
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res/${datasets.noise}/train_with_voronoi_and_normals/train_0.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res/${datasets.noise}/train_with_voronoi_and_normals/train_1.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res/${datasets.noise}/train_with_voronoi_and_normals/train_2.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res/${datasets.noise}/train_with_voronoi_and_normals/train_3.hdf5'
+      ]
+      labels:
+        - points
+        - distances
+        - voronoi
+        - ${datasets.normals_name}
+      transform: ${transform.train}
+      max_loaded_files: 4
+val:
+  - dataset_name: val
+    dataset_class:
+      _target_: sharpf.utils.abc_utils.LotsOfHdf5Files
+      io:
+        _target_: sharpf.data.PointCloudIO
+      filenames: [
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res/${datasets.noise}/val_with_voronoi_and_normals/train_0.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res/${datasets.noise}/val_with_voronoi_and_normals/train_1.hdf5'
+      ]
+      labels:
+        - points
+        - distances
+        - voronoi
+        - ${datasets.normals_name}
+      transform: ${transform.val}
+      max_loaded_files: 2
+    evaluators: ${evaluators.val}
+test:
+  - dataset_name: train
+    dataset_class:
+      _target_: sharpf.utils.abc_utils.LotsOfHdf5Files
+      io:
+        _target_: sharpf.data.PointCloudIO
+      filenames: [
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res/${datasets.noise}/train_with_voronoi_and_normals/train_0.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res/${datasets.noise}/train_with_voronoi_and_normals/train_1.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res/${datasets.noise}/train_with_voronoi_and_normals/train_2.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res/${datasets.noise}/train_with_voronoi_and_normals/train_3.hdf5'
+      ]
+      labels: ${datasets.test_labels}
+      transform: ${transform.test}
+      max_loaded_files: 4
+      return_index: true
+    evaluators: ${evaluators.test}
+  - dataset_name: val
+    dataset_class:
+      _target_: sharpf.utils.abc_utils.LotsOfHdf5Files
+      io:
+        _target_: sharpf.data.PointCloudIO
+      filenames: [
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res/${datasets.noise}/val_with_voronoi_and_normals/train_0.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res/${datasets.noise}/val_with_voronoi_and_normals/train_1.hdf5'
+      ]
+      labels: ${datasets.test_labels}
+      transform: ${transform.test}
+      max_loaded_files: 2
+      return_index: true
+    evaluators: ${evaluators.test}
+  - dataset_name: test
+    dataset_class:
+      _target_: sharpf.utils.abc_utils.LotsOfHdf5Files
+      io:
+        _target_: sharpf.data.PointCloudIO
+      filenames: [
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res/${datasets.noise}/test_with_voronoi_and_normals/train_0.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res/${datasets.noise}/test_with_voronoi_and_normals/train_1.hdf5'
+      ]
+      labels: ${datasets.test_labels}
+      transform: ${transform.test}
+      max_loaded_files: 2
+      return_index: true
+    evaluators: ${evaluators.test}
+
+test_labels:
+  - 'points'
+  - 'distances'
+  - 'voronoi'
+  - ${datasets.normals_name}
+  - 'item_id'
+  - 'has_sharp'
+  - 'has_smell_coarse_surfaces_by_num_faces'
+  - 'has_smell_deviating_resolution'
+  - 'has_smell_sharpness_discontinuities'
+  - 'has_smell_bad_face_sampling'
+  - 'has_smell_mismatching_surface_annotation'
+  - 'has_smell_coarse_surfaces_by_angles'
