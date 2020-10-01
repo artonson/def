@@ -1,8 +1,7 @@
 # @package _group_
 
-# ref implementation: https://github.com/WangYueFt/dgcnn/blob/master/tensorflow/sem_seg/model.py
-
 in_channels: 3
+out_channels: 244
 
 example_input_array:
   _target_: torch.rand
@@ -10,6 +9,12 @@ example_input_array:
     - 1
     - 4096
     - ${model.in_channels}
+
+output_elements:
+  - key: distances
+    channel_range:
+      - 0
+      - ${model.out_channels}
 
 model_class:
   _target_: sharpf.modeling.DGCNNHist
@@ -92,21 +97,21 @@ model_class:
       in_features: [0, 1, 2, 3, 4, 5]
       feature_extractor:
         _target_: sharpf.modeling.StackedConv
-        channels: [948, 4096]  # 1024 usual dgcnn
+        channels: [948, 4096]
       aggregation:
         _target_: sharpf.modeling.GlobalMaxPooling
     - _target_: sharpf.modeling.PointOpBlock
       in_features: [0, 1, 2, 3, 4, 5]
       feature_extractor:
         _target_: sharpf.modeling.StackedConv
-        channels: [5044, 512, 256]  # 1216 idial dgcnn
+        channels: [5044, 512, 256]
         dropout_prob: 0.0
     - _target_: sharpf.modeling.PointOpBlock
       feature_extractor:
         _target_: sharpf.modeling.StackedConv
         channels:
           - 256
-          - ${logits:${model.model_class.discretization},${model.model_class.margin}}
+          - ${model.out_channels}
         bn: false
         relu: false
         conv_bias: true

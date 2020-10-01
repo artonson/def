@@ -1,6 +1,5 @@
 import torch.nn as nn
 
-from .. import logits_to_scalar
 from ...utils.init import initialize_head
 
 
@@ -35,7 +34,7 @@ class PointRegressorHist(PointRegressor):
         self.margin = margin
 
     def forward(self, x):
-        result = super().forward(x)  # (B, N, logits)
-        if not self.training:
-            result = logits_to_scalar(result, self.a, self.b, self.discretization, self.margin)  # (B, N, 1)
+        result = super().forward(x)  # (B, N, C)
+        # if not self.training:
+        #     result = logits_to_scalar(result, self.a, self.b, self.discretization, self.margin)  # (B, N, 1)
         return result

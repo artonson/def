@@ -1,8 +1,6 @@
 import torch
 import torch.nn as nn
 
-from sharpf.modeling import logits_to_scalar
-
 
 class DGCNN(nn.Module):
 
@@ -56,6 +54,6 @@ class DGCNNHist(DGCNN):
                 if self.training=False then C_out=1 else C_out=number of logits
         """
         result = super().forward(points)
-        if not self.training:
-            result = logits_to_scalar(result, self.a, self.b, self.discretization, self.margin)
+        # if not self.training:
+        #     result = logits_to_scalar(result, self.a, self.b, self.discretization, self.margin)
         return result

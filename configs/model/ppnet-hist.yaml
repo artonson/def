@@ -1,6 +1,8 @@
 # @package _group_
 
 in_channels: 3
+out_channels: 244
+
 sampleDl: 0.02
 radius: 1.0 # ${fmul:2.5,${model.sampleDl}}
 nsample: 50
@@ -11,6 +13,12 @@ example_input_array:
     - 1
     - 4096
     - ${model.in_channels}
+
+output_elements:
+  - key: distances
+    channel_range:
+      - 0
+      - ${model.out_channels}
 
 model_class:
   _target_: sharpf.modeling.PointRegressorHist
@@ -69,6 +77,6 @@ model_class:
     modules:
       - _target_: torch.nn.Conv1d
         in_channels: 72
-        out_channels: ${logits:${model.model_class.discretization},${model.model_class.margin}}
+        out_channels: ${model.out_channels}
         kernel_size: 1
         padding: 0

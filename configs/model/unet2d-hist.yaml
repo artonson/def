@@ -1,6 +1,7 @@
 # @package _group_
 
 in_channels: 1
+out_channels: 244
 
 example_input_array:
   _target_: torch.rand
@@ -9,6 +10,12 @@ example_input_array:
     - ${model.in_channels}
     - 64
     - 64
+
+output_elements:
+  - key: distances
+    channel_range:
+      - 0
+      - ${model.out_channels}
 
 model_class:
   _target_: sharpf.modeling.PixelRegressorHist
@@ -31,6 +38,6 @@ model_class:
         p: 0.0
       - _target_: torch.nn.Conv2d
         in_channels: 64
-        out_channels: ${logits:${model.model_class.discretization},${model.model_class.margin}}
+        out_channels: ${model.out_channels}
         kernel_size: 3
         padding: 1

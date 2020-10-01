@@ -62,7 +62,7 @@ class IllustratorPoints(DatasetEvaluator):
         # inputs['distances']: (2, 4096),
         # points: torch.Size([2, 4096, 3])
         target = torch.index_select(inputs['distances'], 0, inds)
-        preds = torch.index_select(outputs['pred_distances'], 0, inds)
+        preds = torch.index_select(outputs['distances'], 0, inds)
         points = torch.index_select(inputs['points'], 0, inds)
 
         # print(item_ids.shape, dataset_indexes.shape, target.shape, preds.shape, points.shape)
@@ -119,7 +119,8 @@ class IllustratorPoints(DatasetEvaluator):
                         continue
                     item = self.dataset[index]
                     rmse = rmses[k].item()
-                    pred = self.model(item['points'].unsqueeze(0).to(self.device)).detach().cpu().squeeze(0)
+                    pred = self.model(item['points'].unsqueeze(0).to(self.device))['distances'].detach().cpu().squeeze(
+                        0)
                     l1_errors = F.l1_loss(pred, item['distances'], reduction='none')
 
                     # dirty hack; slicing because otherwise b'' gets into filename

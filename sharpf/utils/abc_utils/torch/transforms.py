@@ -171,6 +171,11 @@ class DepthToPointCloud(AbstractTransform):
 
     def __call__(self, item):
         item['image'] = image_to_points(item['image'])
+        item['distances'] = item['distances'].reshape(-1)
+        if 'normals' in item:
+            item['normals'] = item['normals'].reshape(-1, 3)
+        if 'directions' in item:
+            item['directions'] = item['directions'].reshape(-1, 3)
         return item
 
 

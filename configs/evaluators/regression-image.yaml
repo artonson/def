@@ -5,12 +5,12 @@ depth2pointcloud: true
 val:
   - _target_: sharpf.evaluation.RegressionEvaluator
     input_key: distances
-    output_key: pred_distances
+    output_key: distances
 
 test:
   - _target_: sharpf.evaluation.RegressionEvaluator
     input_key: distances
-    output_key: pred_distances
+    output_key: distances
     mask_expressions:
       - ['is_flat', '=', false]
       - ['has_sharp', '=', true]

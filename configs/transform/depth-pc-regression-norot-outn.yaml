@@ -12,7 +12,10 @@ test:
       old_keys: ['image']
       new_keys: ['points']
     - _target_: sharpf.utils.abc_utils.torch.ToTensor
-      keys: ['points', 'distances']
+      keys:
+        - points
+        - distances
+        - ${datasets.normals_name}
       type: torch.FloatTensor
     - _target_: sharpf.utils.abc_utils.torch.Center
       keys: ['points']
