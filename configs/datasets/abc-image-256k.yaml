@@ -94,8 +94,8 @@ test:
       io:
         _target_: sharpf.data.DepthMapIO
       filenames: [
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/test/train_0.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/${datasets.noise}/test/train_1.hdf5'
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/0.0/test/train_0.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/images/${datasets.resolution}_res.json/0.0/test/train_1.hdf5'
       ]
       labels: ${datasets.test_labels}
       transform: ${transform.test}
