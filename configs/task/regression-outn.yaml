@@ -4,7 +4,7 @@ pl_class:
   _target_: sharpf.modeling.SharpFeaturesRegressionTask
 
 losses:
-  - name: distances_Loss
+  - name: distances_loss
     out_key: distances
     gt_key: distances
     loss_func:
