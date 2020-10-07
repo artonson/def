@@ -9,6 +9,7 @@ from functools import partial
 from typing import List
 
 from joblib import Parallel, delayed
+import h5py
 import numpy as np
 from torch.utils.data import DataLoader
 import yaml
@@ -27,11 +28,8 @@ from sharpf.utils.py_utils.config import load_func_from_config
 from sharpf.utils.abc_utils.mesh.io import trimesh_load
 from sharpf.utils.abc_utils.mesh.indexing import reindex_zerobased
 from sharpf.utils.abc_utils.hdf5.dataset import LotsOfHdf5Files, PreloadTypes
-from sharpf.data.datasets.sharpf_io import (
-    save_point_patches as save_fn,
-    PointCloudIO as IO
-)
 from sharpf.utils.abc_utils.hdf5.io_struct import collate_mapping_with_io
+import sharpf.utils.abc_utils.hdf5.io_struct as io
 
 
 class BufferedHDF5Writer(object):
@@ -203,6 +201,54 @@ def uncollate(collated: Mapping) -> List[Mapping]:
     ]
 
 
+IO = io.HDF5IO({
+    'points': io.Float64('points'),
+    'normals': io.Float64('normals'),
+    'distances': io.Float64('distances'),
+    'directions': io.Float64('directions'),
+    'item_id': io.AsciiString('item_id'),
+    'orig_vert_indices': io.VarInt32('orig_vert_indices'),
+    'orig_face_indexes': io.VarInt32('orig_face_indexes'),
+    'has_sharp': io.Bool('has_sharp'),
+    'num_sharp_curves': io.Int8('num_sharp_curves'),
+    'num_surfaces': io.Int8('num_surfaces'),
+    'has_smell_coarse_surfaces_by_num_faces': io.Bool('has_smell_coarse_surfaces_by_num_faces'),
+    'has_smell_coarse_surfaces_by_angles': io.Bool('has_smell_coarse_surfaces_by_angles'),
+    'has_smell_deviating_resolution': io.Bool('has_smell_deviating_resolution'),
+    'has_smell_sharpness_discontinuities': io.Bool('has_smell_sharpness_discontinuities'),
+    'has_smell_bad_face_sampling': io.Bool('has_smell_bad_face_sampling'),
+    'has_smell_mismatching_surface_annotation': io.Bool('has_smell_mismatching_surface_annotation'),
+    'voronoi': io.Float64('voronoi'),
+    'normals_estimation_10': io.Float64('normals_estimation_10'),
+    'normals_estimation_100': io.Float64('normals_estimation_100'),
+},
+len_label='has_sharp',
+compression='lzf')
+
+
+def save_point_patches(patches, filename):
+    # turn a list of dicts into a dict of torch tensors:
+    # default_collate([{'a': 'str1', 'x': np.random.normal()}, {'a': 'str2', 'x': np.random.normal()}])
+    # Out[26]: {'a': ['str1', 'str2'], 'x': tensor([0.4252, 0.1414], dtype=torch.float64)}
+    collate_fn = partial(io.collate_mapping_with_io, io=IO)
+    patches = collate_fn(patches)
+
+    with h5py.File(filename, 'w') as f:
+        for key in ['points', 'normals', 'distances', 'directions',
+                    'voronoi', 'normals_estimation_10', 'normals_estimation_100']:
+            IO.write(f, key, patches[key].numpy())
+        IO.write(f, 'item_id', patches['item_id'])
+        IO.write(f, 'orig_vert_indices', patches['orig_vert_indices'])
+        IO.write(f, 'orig_face_indexes', patches['orig_face_indexes'])
+        IO.write(f, 'has_sharp', patches['has_sharp'].numpy().astype(np.bool))
+        IO.write(f, 'num_sharp_curves', patches['num_sharp_curves'].numpy())
+        IO.write(f, 'num_surfaces', patches['num_surfaces'].numpy())
+        has_smell_keys = [key for key in IO.datasets.keys()
+                          if key.startswith('has_smell')]
+        for key in has_smell_keys:
+            IO.write(f, key, patches[key].numpy().astype(np.bool))
+
+
 def main(options):
     chunk_id = sorted(options.chunk_id)
 
@@ -211,7 +257,7 @@ def main(options):
             data_dir=options.hdf5_input_dir,
             io=IO,
             labels='*',
-            max_loaded_files=options.max_loaded_files,
+            max_loaded_files=1,
             preload=PreloadTypes.LAZY),
         num_workers=options.n_jobs,
         batch_size=options.n_jobs,
@@ -225,7 +271,7 @@ def main(options):
     writer_params = {
         'output_dir': options.hdf5_output_dir,
         'n_items_per_file': -1,
-        'save_fn': save_fn,
+        'save_fn': save_point_patches,
         'verbose': options.verbose,
         'prefix': 'train_'
     }
