@@ -2,16 +2,15 @@
 
 import argparse
 from collections.abc import Mapping
+from functools import partial
 import json
+from multiprocessing import Pool
 import os
 import sys
-from functools import partial
 from typing import List
 
-from joblib import Parallel, delayed
 import h5py
 import numpy as np
-from torch.utils.data import DataLoader
 import yaml
 
 __dir__ = os.path.normpath(
@@ -28,7 +27,6 @@ from sharpf.utils.py_utils.config import load_func_from_config
 from sharpf.utils.abc_utils.mesh.io import trimesh_load
 from sharpf.utils.abc_utils.mesh.indexing import reindex_zerobased
 from sharpf.utils.abc_utils.hdf5.dataset import LotsOfHdf5Files, PreloadTypes
-from sharpf.utils.abc_utils.hdf5.io_struct import collate_mapping_with_io
 import sharpf.utils.abc_utils.hdf5.io_struct as io
 
 
@@ -40,6 +38,7 @@ class BufferedHDF5Writer(object):
         self.file_id = 0
         self.n_items_per_file = n_items_per_file
         self.data = []
+        self.index = []
         self.verbose = verbose
         self.save_fn = save_fn
 
@@ -50,23 +49,27 @@ class BufferedHDF5Writer(object):
         if self.data:
             self._flush()
 
-    def append(self, data):
-        assert isinstance(data, Mapping)
-        self.data.append(data)
-        self.check_flush()
-
-    def extend(self, data):
-        self.data.extend([
-            dict(zip(data, item_values))
-            for item_values in zip(*data.values())
-        ])
-        self.check_flush()
+    # def append(self, data):
+    #     assert isinstance(data, Mapping)
+    #     self.data.append(data)
+    #     self.check_flush()
+    #
+    # def extend(self, data):
+    #     self.data.extend([
+    #         dict(zip(data, item_values))
+    #         for item_values in zip(*data.values())
+    #     ])
+    #     self.check_flush()
 
     def check_flush(self):
         if -1 != self.n_items_per_file and len(self.data) >= self.n_items_per_file:
-            self._flush()
-            self.file_id += 1
-            self.data = self.data[self.n_items_per_file:]
+            required_index = list(range(self.file_id * int(self.n_items_per_file),
+                                        (self.file_id + 1) * int(self.n_items_per_file)))
+            if self.index == required_index:
+                self._flush()
+                self.file_id += 1
+                self.data = self.data[self.n_items_per_file:]
+                self.index = self.index[self.n_items_per_file:]
 
     def _flush(self):
         filename = '{prefix}{id}.hdf5'.format(prefix=self.prefix, id=self.file_id)
@@ -75,6 +78,12 @@ class BufferedHDF5Writer(object):
         if self.verbose:
             print('Saved {} with {} items'.format(filename, len(self.data)))
 
+    def insert(self, data_idx, data):
+        assert isinstance(data, Mapping)
+        insert_index = np.searchsorted(self.index, data_idx)
+        self.index.insert(insert_index, data_idx)
+        self.data.insert(insert_index, data)
+        self.check_flush()
 
 
 # mm/pixel
@@ -130,7 +139,11 @@ def scale_mesh(mesh, features, shape_fabrication_extent, resolution_3d,
     return mesh
 
 
-def fix_patch(patch, chunk_ids, config, abc_dir):
+def fix_patch_unpack(*args):
+    return fix_patch(*args)
+
+
+def fix_patch(idx, patch, chunk_ids, config, abc_dir):
     item = None
     for chunk_id in chunk_ids:
         try:
@@ -185,7 +198,7 @@ def fix_patch(patch, chunk_ids, config, abc_dir):
         'num_sharp_curves': num_sharp_curves,
     }
 
-    return fixed_part
+    return idx, fixed_part
 
 
 def uncollate(collated: Mapping) -> List[Mapping]:
@@ -258,13 +271,6 @@ def main(options):
         labels='*',
         max_loaded_files=1,
         preload=PreloadTypes.LAZY)
-    loader = DataLoader(
-        dataset=dataset,
-        num_workers=options.n_jobs,
-        batch_size=options.n_jobs,
-        shuffle=False,
-        collate_fn=partial(collate_mapping_with_io, io=IO),
-    )
 
     with open(options.dataset_config) as config_file:
         config = json.load(config_file)
@@ -276,32 +282,17 @@ def main(options):
         'verbose': options.verbose,
         'prefix': 'train_'
     }
-    from multiprocessing import Pool
     with BufferedHDF5Writer(**writer_params) as writer, \
             Pool(processes=options.n_jobs) as pool:
 
         data_to_fix = ((idx, dataset[idx], chunk_id, config, options.abc_dir)
                        for idx in range(len(dataset)))
-        for proc_idx, (patch_idx, fixed_part) in enumerate(pool.imap_unordered(fix_patch, data_to_fix)):
+        for proc_idx, (patch_idx, fixed_part) in enumerate(pool.imap_unordered(fix_patch_unpack, data_to_fix)):
             patch = dataset[patch_idx]
             patch.update(fixed_part)
-            writer.append(patch)
-            print('{} items processed'.format(proc_idx))
+            writer.insert(patch_idx, patch)
+            print('{} items processed'.format(proc_idx + 1))
 
-    # with BufferedHDF5Writer(**writer_params) as writer, \
-    #         Parallel(n_jobs=options.n_jobs, backend='multiprocessing') as parallel:
-    #
-    #     for batch_idx, batch in enumerate(loader):
-    #         delayed_iterable = (delayed(fix_patch)(patch, chunk_id, config, options.abc_dir)
-    #                             for patch in uncollate(batch))
-    #         fixed_parts_batch = parallel(delayed_iterable)
-    #
-    #         for patch, fixed_part in zip(batch, fixed_parts_batch):
-    #             patch.update(fixed_part)
-    #             writer.append(patch)
-    #
-    #         print('{} items processed'.format(options.n_jobs * batch_idx))
-    #
 
 def parse_args():
     parser = argparse.ArgumentParser()
