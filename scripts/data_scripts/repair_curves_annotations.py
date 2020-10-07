@@ -280,7 +280,7 @@ def main(options):
 
         for batch_idx, batch in enumerate(loader):
             delayed_iterable = (delayed(fix_patch)(patch, chunk_id, config, options.abc_dir)
-                                for patch in uncollate(patch))
+                                for patch in uncollate(batch))
             fixed_parts_batch = parallel(delayed_iterable)
 
             for patch, fixed_part in zip(batch, fixed_parts_batch):
