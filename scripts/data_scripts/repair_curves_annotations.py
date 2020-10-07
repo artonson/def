@@ -252,13 +252,14 @@ def save_point_patches(patches, filename):
 def main(options):
     chunk_id = sorted(options.chunk_id)
 
+    dataset = LotsOfHdf5Files(
+        data_dir=options.hdf5_input_dir,
+        io=IO,
+        labels='*',
+        max_loaded_files=1,
+        preload=PreloadTypes.LAZY)
     loader = DataLoader(
-        dataset=LotsOfHdf5Files(
-            data_dir=options.hdf5_input_dir,
-            io=IO,
-            labels='*',
-            max_loaded_files=1,
-            preload=PreloadTypes.LAZY),
+        dataset=dataset,
         num_workers=options.n_jobs,
         batch_size=options.n_jobs,
         shuffle=False,
@@ -275,20 +276,32 @@ def main(options):
         'verbose': options.verbose,
         'prefix': 'train_'
     }
+    from multiprocessing import Pool
     with BufferedHDF5Writer(**writer_params) as writer, \
-            Parallel(n_jobs=options.n_jobs, backend='multiprocessing') as parallel:
+            Pool(processes=options.n_jobs) as pool:
 
-        for batch_idx, batch in enumerate(loader):
-            delayed_iterable = (delayed(fix_patch)(patch, chunk_id, config, options.abc_dir)
-                                for patch in uncollate(batch))
-            fixed_parts_batch = parallel(delayed_iterable)
+        data_to_fix = ((idx, dataset[idx], chunk_id, config, options.abc_dir)
+                       for idx in range(len(dataset)))
+        for proc_idx, (patch_idx, fixed_part) in enumerate(pool.imap_unordered(fix_patch, data_to_fix)):
+            patch = dataset[patch_idx]
+            patch.update(fixed_part)
+            writer.append(patch)
+            print('{} items processed'.format(proc_idx))
 
-            for patch, fixed_part in zip(batch, fixed_parts_batch):
-                patch.update(fixed_part)
-                writer.append(patch)
-
-            print('{} items processed'.format(options.n_jobs * batch_idx))
-
+    # with BufferedHDF5Writer(**writer_params) as writer, \
+    #         Parallel(n_jobs=options.n_jobs, backend='multiprocessing') as parallel:
+    #
+    #     for batch_idx, batch in enumerate(loader):
+    #         delayed_iterable = (delayed(fix_patch)(patch, chunk_id, config, options.abc_dir)
+    #                             for patch in uncollate(batch))
+    #         fixed_parts_batch = parallel(delayed_iterable)
+    #
+    #         for patch, fixed_part in zip(batch, fixed_parts_batch):
+    #             patch.update(fixed_part)
+    #             writer.append(patch)
+    #
+    #         print('{} items processed'.format(options.n_jobs * batch_idx))
+    #
 
 def parse_args():
     parser = argparse.ArgumentParser()
