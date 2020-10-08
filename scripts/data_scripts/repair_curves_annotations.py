@@ -65,7 +65,7 @@ class BufferedHDF5Writer(object):
         if -1 != self.n_items_per_file and len(self.data) >= self.n_items_per_file:
             required_index = list(range(self.file_id * int(self.n_items_per_file),
                                         (self.file_id + 1) * int(self.n_items_per_file)))
-            if self.index == required_index:
+            if self.index[:self.n_items_per_file] == required_index:
                 self._flush()
                 self.file_id += 1
                 self.data = self.data[self.n_items_per_file:]
@@ -76,7 +76,7 @@ class BufferedHDF5Writer(object):
         filename = os.path.join(self.output_dir, filename)
         self.save_fn(self.data[:self.n_items_per_file], filename)
         if self.verbose:
-            print('Saved {} with {} items'.format(filename, len(self.data)))
+            print('Saved {} with {} items'.format(filename, len(self.data[:self.n_items_per_file])))
 
     def insert(self, data_idx, data):
         assert isinstance(data, Mapping)
@@ -139,7 +139,7 @@ def scale_mesh(mesh, features, shape_fabrication_extent, resolution_3d,
     return mesh
 
 
-def fix_patch_unpack(*args):
+def fix_patch_unpack(args):
     return fix_patch(*args)
 
 
@@ -277,7 +277,7 @@ def main(options):
 
     writer_params = {
         'output_dir': options.hdf5_output_dir,
-        'n_items_per_file': -1,
+        'n_items_per_file': 10,
         'save_fn': save_point_patches,
         'verbose': options.verbose,
         'prefix': 'train_'
