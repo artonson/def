@@ -277,10 +277,10 @@ def main(options):
 
     writer_params = {
         'output_dir': options.hdf5_output_dir,
-        'n_items_per_file': 10,
+        'n_items_per_file': 16384,
         'save_fn': save_point_patches,
         'verbose': options.verbose,
-        'prefix': 'train_'
+        'prefix': 'fix_train_'
     }
     with BufferedHDF5Writer(**writer_params) as writer, \
             Pool(processes=options.n_jobs) as pool:
