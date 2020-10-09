@@ -146,7 +146,7 @@ def get_annotated_patches(item, config):
                 eprint_t(str(e))
                 continue
 
-            has_smell_sharpness_discontinuities = smell_sharpness_discontinuities.run(points, distances)
+            has_smell_sharpness_discontinuities = smell_sharpness_discontinuities.run(noisy_points, distances)
 
             # convert everything to images
             ray_indexes = np.where(image.ravel() != 0)[0]
