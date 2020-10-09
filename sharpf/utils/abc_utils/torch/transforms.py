@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from collections import Callable
 
 import torch
+import torch.nn.functional as F
 
 from .transformations import random_3d_rotation_matrix, image_to_points
 
@@ -51,7 +52,7 @@ class Center(AbstractTransform):
         return item
 
 
-class NormalizeL2(AbstractTransform):
+class NormalizeByMaxL2(AbstractTransform):
 
     def __init__(self, keys, dim):
         super().__init__(keys)
@@ -62,6 +63,18 @@ class NormalizeL2(AbstractTransform):
             scale = item[key].norm(dim=self.dim).max()
             assert scale.item() > 0
             item[key] /= scale
+        return item
+
+
+class NormalizeL2(AbstractTransform):
+
+    def __init__(self, keys, dim):
+        super().__init__(keys)
+        self.dim = dim
+
+    def __call__(self, item):
+        for key in self.keys:
+            item[key] = F.normalize(item[key], dim=self.dim)
         return item
 
 
@@ -200,16 +213,3 @@ class ComputeIsFlatProperty(AbstractTransform):
     def __call__(self, item):
         item['is_flat'] = (item['distances'] >= 1.0).all()
         return item
-
-# class RandomSubsamplePoints(AbstractTransform):
-#     def __init__(self, n_points, theta=1.0):
-#         self.n_points = n_points
-#         self.theta = theta
-#
-#     def __call__(self, data, target):
-#         n_points = len(data)
-#         p = torch.exp(-target * self.theta)
-#         p /= torch.sum(p)
-#         i_subset = np.random.choice(
-#             np.arange(n_points), size=self.n_points, replace=False, p=p.numpy())
-#         return data[i_subset], target[i_subset]

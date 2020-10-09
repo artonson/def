@@ -9,7 +9,7 @@ train:
     - _target_: sharpf.utils.abc_utils.torch.Center
       keys: ['points']
       dim: 0
-    - _target_: sharpf.utils.abc_utils.torch.NormalizeL2
+    - _target_: sharpf.utils.abc_utils.torch.NormalizeByMaxL2
       keys: ['points']
       dim: 1
     - _target_: sharpf.utils.abc_utils.torch.Random3DRotation
@@ -26,7 +26,7 @@ test:
     - _target_: sharpf.utils.abc_utils.torch.Center
       keys: ['points']
       dim: 0
-    - _target_: sharpf.utils.abc_utils.torch.NormalizeL2
+    - _target_: sharpf.utils.abc_utils.torch.NormalizeByMaxL2
       keys: ['points']
       dim: 1
     - _target_: sharpf.utils.abc_utils.torch.ComputeIsFlatProperty
