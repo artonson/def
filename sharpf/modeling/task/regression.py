@@ -92,6 +92,9 @@ class SharpFeaturesRegressionTask(BaseLightningModule):
                                      batch_size * num_points)
             else:
                 loss_value = call(loss_param.loss_func, outputs[loss_param.out_key], batch[loss_param.gt_key])
+
+            loss_value = loss_value * loss_param['lambda']
+
             loss_dict[loss_param.name] = loss_value
             loss += loss_value
 

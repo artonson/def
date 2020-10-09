@@ -3,10 +3,14 @@
 pl_class:
   _target_: sharpf.modeling.SharpFeaturesRegressionTask
 
+directions_lambda: 1.0
+normals_lambda: 1.0
+
 losses:
   - name: distances_loss
     out_key: distances
     gt_key: distances
+    lambda: 1.0
     loss_func:
       _target_: sharpf.modeling.kl_div_loss
       a: ${model.model_class.a}
@@ -16,11 +20,13 @@ losses:
   - name: normals_loss
     out_key: normals
     gt_key: normals
+    lambda: ${task.normals_lambda}
     loss_func:
       _target_: torch.nn.functional.mse_loss
   - name: directions_loss
     out_key: directions
     gt_key: directions
+    lambda: ${task.directions_lambda}
     loss_func:
       _target_: torch.nn.functional.mse_loss
 

@@ -7,6 +7,7 @@ losses:
   - name: distances_loss
     out_key: distances
     gt_key: distances
+    lambda: 1.0
     loss_func:
       _target_: sharpf.modeling.kl_div_loss
       a: ${model.model_class.a}
