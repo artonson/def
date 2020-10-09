@@ -1,6 +1,7 @@
 import logging
 from typing import Optional
 
+import torch
 import torch.nn.functional as F
 from pytorch_lightning import TrainResult, EvalResult
 
@@ -29,8 +30,7 @@ class SharpFeaturesRegressionTask(BaseLightningModule):
             elif output.ndim == 4:
                 out[key] = output[:, left:right, :, :]
 
-        # post-process distances
-
+        ##### post-process distances
         # convert logits to scalar if the output is a histogram
         if not self.training and (isinstance(self.model, DGCNNHist) or isinstance(self.model, PointRegressorHist)):
             out['distances'] = logits_to_scalar(out['distances'], self.model.a, self.model.b,
@@ -48,18 +48,18 @@ class SharpFeaturesRegressionTask(BaseLightningModule):
         elif out['distances'].ndim == 4:
             out['distances'] = out['distances'].squeeze(1)  # (B, 1, H, W) -> (B, H, W)
 
-        # post-process normals
+        ##### post-process normals
         if 'normals' in out:
             if out['normals'].ndim == 3:  # (B, N, 3)
                 out['normals'] = F.normalize(out['normals'], dim=2)
-            elif out['normals'].ndim == 3:  # (B, 3, H, W)
+            elif out['normals'].ndim == 4:  # (B, 3, H, W)
                 out['normals'] = F.normalize(out['normals'], dim=1)
 
-        # post-process directions
+        ##### post-process directions
         if 'directions' in out:
             if out['directions'].ndim == 3:  # (B, N, 3)
                 out['directions'] = F.normalize(out['directions'], dim=2)
-            elif out['directions'].ndim == 3:  # (B, 3, H, W)
+            elif out['directions'].ndim == 4:  # (B, 3, H, W)
                 out['directions'] = F.normalize(out['directions'], dim=1)
 
         return out
@@ -82,8 +82,16 @@ class SharpFeaturesRegressionTask(BaseLightningModule):
         loss = 0
         loss_dict = {}
         for loss_param in self.hparams.task.losses:
-            # print(loss_param.key, outputs[loss_param.key].shape, batch[loss_param.key].shape)
-            loss_value = call(loss_param.loss_func, outputs[loss_param.out_key], batch[loss_param.gt_key])
+            if loss_param.out_key == 'directions':
+                assert batch['distances'].ndim == 2
+                batch_size, num_points = batch['distances'].shape
+                mask = (batch['distances'] < 1.0).unsqueeze(2).expand_as(batch['directions'])
+                loss_value = call(loss_param.loss_func,
+                                  torch.masked_select(outputs['directions'], mask),
+                                  torch.masked_select(batch['directions'], mask), reduction='sum') / (
+                                     batch_size * num_points)
+            else:
+                loss_value = call(loss_param.loss_func, outputs[loss_param.out_key], batch[loss_param.gt_key])
             loss_dict[loss_param.name] = loss_value
             loss += loss_value
 
