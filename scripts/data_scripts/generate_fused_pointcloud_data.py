@@ -59,7 +59,7 @@ LOW_RES = 0.125
 XLOW_RES = 0.25
 
 
-def compute_patches(patch_idx, item, mesh, features,
+def compute_patches(patch_idx, mesh, features,
                     nbhood_extractor, sampler, noiser,
                     smell_coarse_surfaces_by_num_edges,
                     smell_coarse_surfaces_by_angles,
@@ -107,7 +107,6 @@ def compute_patches(patch_idx, item, mesh, features,
         'normals': np.array(normals).astype(np.float64),
         # 'distances': np.array(distances).astype(np.float64),
         # 'directions': np.array(directions).astype(np.float64),
-        'item_id': item.item_id,
         'orig_vert_indices': np.array(mesh_vertex_indexes).astype(np.int32),
         'orig_face_indexes': np.array(mesh_face_indexes).astype(np.int32),
         # 'has_sharp': has_sharp,
