@@ -135,6 +135,7 @@ class IllustratorPoints(DatasetEvaluator):
                                          F.l1_loss(preds[i], target[i], reduction='none').detach().cpu(),
                                          name=filename)
 
+
     def plot_k_elements(self, metrics: torch.Tensor, metric_name: str, descending=False):
         # metrics should be sorted s.t. the first values are best, the last values are worst
 
@@ -206,8 +207,10 @@ class IllustratorPoints(DatasetEvaluator):
         for t in self.bp_ts:
             self.bp_pct_dl1[t] = torch.cat(all_gather(self.bp_pct_dl1[t]))
 
+        scalars = {f'count_goodforvis/{self.dataset_name}': num_elements}
+
         if num_elements == 0:
-            return {'scalars': {}, 'images': {}}
+            return {'scalars': scalars, 'images': {}}
 
         self.plot_k_elements(self.rmses_dl1, 'rmsedl1', descending=False)
         self.plot_k_elements(self.ious, 'iou', descending=True)
@@ -215,7 +218,7 @@ class IllustratorPoints(DatasetEvaluator):
         for t in self.bp_ts:
             self.plot_k_elements(self.bp_pct_dl1[t], f'bpr{t}rdl1', descending=False)
 
-        return {'scalars': {}, 'images': {}}
+        return {'scalars': scalars, 'images': {}}
 
     def _get_colors(self, pred, cmap):
         hex_colors = []
