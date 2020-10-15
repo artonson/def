@@ -146,6 +146,14 @@ class IllustratorPoints(DatasetEvaluator):
             median_idx = int(rmses.median(dim=0).indices)
             plot(list(range(median_idx - self.k // 2, median_idx + self.k // 2 + self.k % 2)), 'median')
 
+            # plot q10
+            q10_idx = 0.1 * (rmses.size(0) - 1)
+            plot(list(range(q10_idx - self.k // 2, q10_idx + self.k // 2 + self.k % 2)), 'q10')
+
+            # plot q90
+            q90_idx = 0.9 * (rmses.size(0) - 1)
+            plot(list(range(q90_idx - self.k // 2, q90_idx + self.k // 2 + self.k % 2)), 'q90')
+
         return {'scalars': {}, 'images': {}}
 
     def _get_colors(self, pred, cmap):
