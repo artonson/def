@@ -93,10 +93,8 @@ class SharpFeaturesRegressionTask(BaseLightningModule):
             else:
                 loss_value = call(loss_param.loss_func, outputs[loss_param.out_key], batch[loss_param.gt_key])
 
-            loss_value = loss_value * loss_param['lambda']
-
-            loss_dict[loss_param.name] = loss_value
-            loss += loss_value
+            loss_dict[loss_param.name] = loss_value  # log original loss value for easy comparison
+            loss += loss_value * loss_param['lambda']
 
         result = TrainResult(minimize=loss)
         result.log('train_loss', loss, prog_bar=True, on_epoch=True, sync_dist=True)
