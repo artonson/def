@@ -1,4 +1,3 @@
-import weakref
 from typing import Optional, List
 
 import torch.nn as nn
@@ -15,7 +14,6 @@ class DatasetEvaluator:
 
     def __init__(self, model: Optional[nn.Module], dataset: Optional[Dataset], dataset_name: Optional[str]):
         self.dataset_name = dataset_name
-        # self.model = weakref.ref(model) if model is not None else None  # to call forward method
         self.model = model if model is not None else None  # to call forward method
         self.dataset = dataset
 
