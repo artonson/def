@@ -125,7 +125,7 @@ class SharpnessEvaluator(DatasetEvaluator):
                 if torch.any(mask_dl1):
                     squared_errors_dl1 = F.mse_loss(preds[i][mask_dl1], target[i][mask_dl1], reduction='none')
                     if self.calculate_rmse_dl1:
-                        self.rmses_dl1.append(torch.sqrt(squared_errors.mean()).view(1).detach().cpu())
+                        self.rmses_dl1.append(torch.sqrt(squared_errors_dl1.mean()).view(1).detach().cpu())
                     if self.calculate_bad_points_dl1:
                         for t in self.bp_ts:
                             bad_points_mask = squared_errors_dl1 > (t * self.resolution) ** 2
