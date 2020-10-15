@@ -4,6 +4,7 @@ from typing import List, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import torch
 import torch.nn.functional as F
 
@@ -22,6 +23,7 @@ class SharpnessEvaluator(DatasetEvaluator):
     def __init__(self, bp_ts_per_resolution: Optional[List[int]] = None, resolution: Optional[float] = None,
                  calculate_rmse: bool = True, calculate_bad_points: bool = False, calculate_iou: bool = False,
                  calculate_ba: bool = False, calculate_rmse_dl1: bool = False, calculate_bad_points_dl1: bool = False,
+                 save_metric_per_element: bool = False,
                  mask_expressions=None, reference_hist_dirs=None,
                  *args,
                  **kwargs):
@@ -44,9 +46,11 @@ class SharpnessEvaluator(DatasetEvaluator):
             assert resolution is not None
         if self.calculate_iou or self.calculate_ba:
             assert resolution is not None
+        self.save_metric_per_element = save_metric_per_element
         self.reset()
 
     def reset(self):
+        self.indexes = []
         self.rmses = []
         self.rmses_dl1 = []
         self.ious = []
@@ -68,6 +72,9 @@ class SharpnessEvaluator(DatasetEvaluator):
 
         batch_size = target.size(0)
         batch_size, num_points = target.view(batch_size, -1).size()
+
+        if self.save_metric_per_element:
+            self.indexes.append(inputs['index'].detach().cpu())
 
         target = target.view(batch_size, num_points)
         preds = preds.view(batch_size, num_points)
@@ -263,6 +270,36 @@ class SharpnessEvaluator(DatasetEvaluator):
                 save_hist_name = hist_name.replace('/', '_') + '.npy'
                 self.save_hist(bp_pct_dl1_t_hist, save_hist_name)
 
+    def save_metrics(self):
+        self.indexes = torch.cat(self.indexes)
+        synchronize()
+        self.indexes = torch.cat(all_gather(self.indexes))
+        if is_main_process():
+            data = {'index': self.indexes}
+            if self.calculate_rmse:
+                data['rmse'] = self.rmses
+            if self.calculate_rmse_dl1:
+                data['rmse_dl1'] = self.rmses_dl1
+            if self.calculate_iou:
+                data['iou'] = self.ious
+            if self.calculate_ba:
+                data['ba'] = self.bas
+            if self.calculate_bad_points:
+                for t in self.bp_ts:
+                    data[f'bpr_{t}r'] = self.bp_pct[t]
+            if self.calculate_bad_points_dl1:
+                for t in self.bp_ts:
+                    data[f'bpr_{t}r_dl1'] = self.bp_pct_dl1[t]
+            data = pd.DataFrame(data)
+            data = data.sort_values(by=['index'])
+
+            current_dir = os.getcwd()
+            metrics_dir = os.path.join(current_dir, 'metrics')
+            if not os.path.exists(metrics_dir):
+                os.mkdir(metrics_dir)
+            filename = os.path.join(metrics_dir, f"{self.dataset_name}.csv")
+            data.to_csv(filename, sep='\t', index=False, encoding='utf-8')
+
     def evaluate(self):
         # calculate metrics for whole dataset
         if self.calculate_rmse:
@@ -307,6 +344,9 @@ class SharpnessEvaluator(DatasetEvaluator):
                     self.report_bad_points(mask, mask_suffix)
                 if self.calculate_bad_points_dl1:
                     self.report_bad_points_dl1(mask, mask_suffix)
+
+        if self.save_metric_per_element:
+            self.save_metrics()
 
         return {'scalars': self.scalars, 'images': self.images}
 

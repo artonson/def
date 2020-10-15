@@ -9,6 +9,7 @@ val:
 
 test:
   - _target_: sharpf.evaluation.SharpnessEvaluator
+    save_metric_per_element: true
     calculate_rmse: true
     calculate_bad_points: true
     calculate_iou: true
