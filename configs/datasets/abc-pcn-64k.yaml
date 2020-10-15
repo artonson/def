@@ -56,7 +56,7 @@ test:
       transform: ${transform.test}
       max_loaded_files: 4
       return_index: true
-    evaluators: ${evaluators.test}
+    evaluators: ${evaluators.test_se}
   - dataset_name: val
     dataset_class:
       _target_: sharpf.utils.abc_utils.LotsOfHdf5Files
@@ -70,7 +70,7 @@ test:
       transform: ${transform.test}
       max_loaded_files: 2
       return_index: true
-    evaluators: ${evaluators.test}
+    evaluators: ${evaluators.test_se_vis_save}
   - dataset_name: test
     dataset_class:
       _target_: sharpf.utils.abc_utils.LotsOfHdf5Files
@@ -84,7 +84,7 @@ test:
       transform: ${transform.test}
       max_loaded_files: 2
       return_index: true
-    evaluators: ${evaluators.test}
+    evaluators: ${evaluators.test_se_vis_save}
 
 test_labels:
   - 'points'
