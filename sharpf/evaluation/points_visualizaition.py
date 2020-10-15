@@ -19,9 +19,11 @@ log = logging.getLogger(__name__)
 class IllustratorPoints(DatasetEvaluator):
 
     def __init__(self, resolution, golden_set_item_ids,
+                 bp_ts_per_resolution,
                  k, filter_expressions=None, depth2pointcloud=False, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.resolution = resolution
+        self.bp_ts = bp_ts_per_resolution
         self.golden_set_item_ids = golden_set_item_ids if golden_set_item_ids is not None else []
         self.k = k
         self.filter_expressions = filter_expressions if filter_expressions is not None else []
@@ -29,8 +31,11 @@ class IllustratorPoints(DatasetEvaluator):
         self.reset()
 
     def reset(self):
-        self.rmses = []
         self.indexes = []
+        self.rmses_dl1 = []
+        self.bp_pct_dl1 = {t: [] for t in self.bp_ts}
+        self.ious = []
+        self.bas = []
         self.device = None
 
     def process(self, inputs, outputs):
@@ -67,14 +72,53 @@ class IllustratorPoints(DatasetEvaluator):
         preds = torch.index_select(outputs['distances'], 0, inds)
         points = torch.index_select(inputs['points'], 0, inds)
 
-        # print(item_ids.shape, dataset_indexes.shape, target.shape, preds.shape, points.shape)
-
         # compute metrics per batch
         batch_size = target.size(0)
-        mean_squared_errors = F.mse_loss(preds, target, reduction='none').view(batch_size, -1).mean(dim=1)  # (batch)
-        root_mean_squared_errors = torch.sqrt(mean_squared_errors)
-        self.rmses.append(root_mean_squared_errors.detach().cpu())
+        batch_size, num_points = target.view(batch_size, -1).size()
+
         self.indexes.append(dataset_indexes.detach().cpu())
+        target = target.view(batch_size, num_points)
+        preds = preds.view(batch_size, num_points)
+        target_sharp = (target < self.resolution).long()
+        preds_sharp = (preds < self.resolution).long()
+
+        # calculate IOU
+        intersection = target_sharp * preds_sharp
+        union = (target_sharp + preds_sharp - intersection).sum(dim=1)
+        union_zero_mask = union == 0
+        union[union_zero_mask] = 1.0
+        intersection = intersection.sum(dim=1)
+        self.ious.append(torch.where(union_zero_mask,
+                                     torch.zeros_like(intersection, device=intersection.device, dtype=torch.float),
+                                     intersection.float() / union.float()).detach().cpu())
+
+        # calculate Balanced Accuracy
+        for i in range(batch_size):
+            tp = (preds_sharp[i] * target_sharp[i]).sum().float()
+            fp = (preds_sharp[i] * (1 - target_sharp[i])).sum().float()
+            fn = ((1 - preds_sharp[i]) * target_sharp[i]).sum().float()
+            tn = ((1 - preds_sharp[i]) * (1 - target_sharp[i])).sum().float()
+            tpr = tp / (tp + fn)
+            tnr = tn / (tn + fp)
+            tpr = torch.where(torch.isnan(tpr), tnr, tpr)
+            tnr = torch.where(torch.isnan(tnr), tpr, tnr)
+            ba = 0.5 * (tpr + tnr)
+            self.bas.append(ba.view(1).detach().cpu())
+
+        # calculate RMSE and BadPoints(T) over the points with distance < 1.0 only
+        for i in range(batch_size):
+            mask_dl1 = target[i] < 1.0
+            if torch.any(mask_dl1):
+                squared_errors_dl1 = F.mse_loss(preds[i][mask_dl1], target[i][mask_dl1], reduction='none')
+                self.rmses_dl1.append(torch.sqrt(squared_errors_dl1.mean()).view(1).detach().cpu())
+                for t in self.bp_ts:
+                    bad_points_mask = squared_errors_dl1 > (t * self.resolution) ** 2
+                    self.bp_pct_dl1[t].append(
+                        (bad_points_mask.float().sum() / num_points).view(1).detach().cpu())
+            else:
+                self.rmses_dl1.append(torch.tensor(0, dtype=torch.float).view(1))
+                for t in self.bp_ts:
+                    self.bp_pct_dl1[t].append(torch.tensor(0, dtype=torch.float).view(1))
 
         # plot golden set
         for i, item_id in enumerate(item_ids):
@@ -91,43 +135,33 @@ class IllustratorPoints(DatasetEvaluator):
                                          F.l1_loss(preds[i], target[i], reduction='none').detach().cpu(),
                                          name=filename)
 
-    def evaluate(self):
-        self.rmses = torch.cat(self.rmses) if len(self.rmses) > 0 else torch.rand(0)
-        self.indexes = torch.cat(self.indexes) if len(self.indexes) > 0 else torch.rand(0)
-        assert self.rmses.size() == self.indexes.size()
-
-        # gather results across gpus
-        synchronize()
-        rmses = torch.cat(all_gather(self.rmses))
-        indexes = torch.cat(all_gather(self.indexes))
-
-        if rmses.size(0) == 0:
-            return {'scalars': {}, 'images': {}}
+    def plot_k_elements(self, metrics: torch.Tensor, metric_name: str, descending=False):
+        # metrics should be sorted s.t. the first values are best, the last values are worst
 
         if is_main_process():
-            argsort_inds = torch.argsort(rmses)
-            rmses = rmses[argsort_inds]
-            indexes = indexes[argsort_inds]
+            argsort_inds = torch.argsort(metrics, descending=descending)
+            sorted_metrics = metrics[argsort_inds]
+            sorted_indexes = self.indexes[argsort_inds]
 
             def plot(ks: List[int], name: str):
                 k_i = 1
-                already_plotted = []  # to avoid situation when indexes -1 and 0 represent the same element
+                already_plotted = []  # to avoid situation when indexes e.g. -1 and 0 represent the same element
                 for k in ks:
                     try:
-                        index = int(indexes[k])
+                        index = int(sorted_indexes[k])
                     except IndexError:
                         continue
                     if index in already_plotted:
                         continue
                     item = self.dataset[index]
-                    rmse = rmses[k].item()
+                    metric_value = sorted_metrics[k].item()
                     pred = self.model(item['points'].unsqueeze(0).to(self.device))['distances'].detach().cpu().squeeze(
                         0)
                     l1_errors = F.l1_loss(pred, item['distances'], reduction='none')
 
                     # dirty hack; slicing because otherwise b'' gets into filename
                     str_item_id = str(item['item_id'])[2:-1]
-                    filename = f'datasetname={self.dataset_name}_{name}{k_i}_datasetidx={index}_itemid={str_item_id}_rmse={rmse}.html'
+                    filename = f'datasetname={self.dataset_name}_{metric_name}_{name}{k_i}_datasetidx={index}_metricvalue={metric_value}_itemid={str_item_id}.html'
 
                     # xyz correspond to first 3 channels
                     self._illustrate_to_file(item['points'], item['distances'], pred, l1_errors, name=filename)
@@ -143,16 +177,43 @@ class IllustratorPoints(DatasetEvaluator):
             plot(list(range(0, self.k)), 'best')
 
             # plot k median
-            median_idx = int(rmses.median(dim=0).indices)
+            median_idx = int(sorted_metrics.median(dim=0).indices)
             plot(list(range(median_idx - self.k // 2, median_idx + self.k // 2 + self.k % 2)), 'median')
 
             # plot q10
-            q10_idx = 0.1 * (rmses.size(0) - 1)
-            plot(list(range(q10_idx - self.k // 2, q10_idx + self.k // 2 + self.k % 2)), 'q10')
+            q10_idx = int(0.1 * (sorted_metrics.size(0) - 1))
+            plot(list(range(q10_idx - self.k // 2, q10_idx + self.k // 2 + self.k % 2)), 'q10best')
 
             # plot q90
-            q90_idx = 0.9 * (rmses.size(0) - 1)
-            plot(list(range(q90_idx - self.k // 2, q90_idx + self.k // 2 + self.k % 2)), 'q90')
+            q90_idx = int(0.9 * (sorted_metrics.size(0) - 1))
+            plot(list(range(q90_idx - self.k // 2, q90_idx + self.k // 2 + self.k % 2)), 'q90worst')
+
+    def evaluate(self):
+        num_elements = len(self.rmses_dl1)
+        self.indexes = torch.cat(self.indexes) if num_elements > 0 else torch.rand(0)
+        self.rmses_dl1 = torch.cat(self.rmses_dl1) if num_elements > 0 else torch.rand(0)
+        self.ious = torch.cat(self.ious) if num_elements > 0 else torch.rand(0)
+        self.bas = torch.cat(self.bas) if num_elements > 0 else torch.rand(0)
+        for t in self.bp_ts:
+            self.bp_pct_dl1[t] = torch.cat(self.bp_pct_dl1[t]) if num_elements > 0 else torch.rand(0)
+
+        # gather results across gpus
+        synchronize()
+        self.indexes = torch.cat(all_gather(self.indexes))
+        self.rmses_dl1 = torch.cat(all_gather(self.rmses_dl1))
+        self.ious = torch.cat(all_gather(self.ious))
+        self.bas = torch.cat(all_gather(self.bas))
+        for t in self.bp_ts:
+            self.bp_pct_dl1[t] = torch.cat(all_gather(self.bp_pct_dl1[t]))
+
+        if num_elements == 0:
+            return {'scalars': {}, 'images': {}}
+
+        self.plot_k_elements(self.rmses_dl1, 'rmsedl1', descending=False)
+        self.plot_k_elements(self.ious, 'iou', descending=True)
+        self.plot_k_elements(self.bas, 'ba', descending=True)
+        for t in self.bp_ts:
+            self.plot_k_elements(self.bp_pct_dl1[t], f'bpr{t}rdl1', descending=False)
 
         return {'scalars': {}, 'images': {}}
 

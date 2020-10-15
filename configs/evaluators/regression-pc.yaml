@@ -23,6 +23,7 @@ test:
   #      - ['baseline', '/gpfs/gpfs0/3ddl/sharp_features/baseline-hists/baseline-image']
   - _target_: sharpf.evaluation.IllustratorPoints
     resolution: ${evaluators.resolution}
+    bp_ts_per_resolution: [8, 16]
     golden_set_item_ids: ~
     k: 5
     filter_expressions:
