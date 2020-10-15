@@ -18,8 +18,10 @@ log = logging.getLogger(__name__)
 
 class IllustratorPoints(DatasetEvaluator):
 
-    def __init__(self, golden_set_item_ids, k, filter_expressions=None, depth2pointcloud=False, *args, **kwargs):
+    def __init__(self, resolution, golden_set_item_ids,
+                 k, filter_expressions=None, depth2pointcloud=False, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.resolution = resolution
         self.golden_set_item_ids = golden_set_item_ids if golden_set_item_ids is not None else []
         self.k = k
         self.filter_expressions = filter_expressions if filter_expressions is not None else []
@@ -163,19 +165,27 @@ class IllustratorPoints(DatasetEvaluator):
 
         plot = k3d.plot(grid_visible=False, axes_helper=0)
 
+        seg_target = (target < self.resolution).float()
+        seg_pred = (pred < self.resolution).float()
+
         col_pred = self._get_colors(pred, cm.coolwarm_r)
         col_true = self._get_colors(target, cm.coolwarm_r)
         col_err = self._get_colors(errors, cm.jet)
+        col_seg_pred = self._get_colors(seg_pred, cm.coolwarm)
+        col_seg_true = self._get_colors(seg_target, cm.coolwarm)
 
         points_true = k3d.points(xyz, col_true, point_size=0.02, shader='mesh', name='ground truth')
         points_pred = k3d.points(xyz, col_pred, point_size=0.02, shader='mesh', name='prediction')
         points_err = k3d.points(xyz, col_err, point_size=0.02, shader='mesh', name='metric values')
+        points_seg_true = k3d.points(xyz, col_seg_true, point_size=0.02, shader='mesh',
+                                     name='segmentation ground truth')
+        points_seg_pred = k3d.points(xyz, col_seg_pred, point_size=0.02, shader='mesh', name='segmentation prediction')
         colorbar1 = k3d.line([[0, 0, 0], [0, 0, 0]], shader="mesh",
                              color_range=[0, 1], color_map=k3d.colormaps.matplotlib_color_maps.Jet)
         colorbar2 = k3d.line([[0, 0, 0], [0, 0, 0]], shader="mesh",
                              color_range=[0, 1], color_map=k3d.colormaps.matplotlib_color_maps.coolwarm_r)
 
-        plot += points_true + points_pred + points_err + colorbar1 + colorbar2
+        plot += points_true + points_pred + points_err + points_seg_true + points_seg_pred + colorbar1 + colorbar2
 
         return plot
 
