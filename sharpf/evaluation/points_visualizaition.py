@@ -6,6 +6,7 @@ import k3d
 import matplotlib as mpl
 import matplotlib.cm as cm
 import numpy as np
+import pandas as pd
 import torch
 import torch.nn.functional as F
 
@@ -18,13 +19,17 @@ log = logging.getLogger(__name__)
 
 class IllustratorPoints(DatasetEvaluator):
 
-    def __init__(self, resolution, golden_set_item_ids,
+    def __init__(self, resolution,
+                 # golden_set_item_ids,
                  bp_ts_per_resolution,
-                 k, filter_expressions=None, depth2pointcloud=False, *args, **kwargs):
+                 k, reference_metrics_dirs=None, filter_expressions=None, depth2pointcloud=False, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.resolution = resolution
+        self.reference_metrics_dirs = []
+        if reference_metrics_dirs is not None and len(reference_metrics_dirs) > 0:
+            self.reference_metrics_dirs = reference_metrics_dirs
         self.bp_ts = bp_ts_per_resolution
-        self.golden_set_item_ids = golden_set_item_ids if golden_set_item_ids is not None else []
+        # self.golden_set_item_ids = golden_set_item_ids if golden_set_item_ids is not None else []
         self.k = k
         self.filter_expressions = filter_expressions if filter_expressions is not None else []
         self.depth2pointcloud = depth2pointcloud
@@ -57,7 +62,6 @@ class IllustratorPoints(DatasetEvaluator):
                 mask = inputs[key] >= value
             else:
                 raise ValueError
-            # final_mask = torch.logical_and(final_mask, mask)
             final_mask = final_mask * mask
 
         if final_mask.sum() == 0:
@@ -66,8 +70,6 @@ class IllustratorPoints(DatasetEvaluator):
         inds = final_mask.nonzero(as_tuple=True)[0]
         item_ids = np.array(inputs['item_id'])[inds.cpu()]
         dataset_indexes = torch.index_select(inputs['index'], 0, inds)
-        # inputs['distances']: (2, 4096),
-        # points: torch.Size([2, 4096, 3])
         target = torch.index_select(inputs['distances'], 0, inds)
         preds = torch.index_select(outputs['distances'], 0, inds)
         points = torch.index_select(inputs['points'], 0, inds)
@@ -120,23 +122,86 @@ class IllustratorPoints(DatasetEvaluator):
                 for t in self.bp_ts:
                     self.bp_pct_dl1[t].append(torch.tensor(0, dtype=torch.float).view(1))
 
-        # plot golden set
-        for i, item_id in enumerate(item_ids):
-            if str(item_id) in self.golden_set_item_ids:
-                # dirty hack; slicing because otherwise b'' gets into filename
-                str_item_id = str(item_id)[2:-1]
+        # # plot golden set
+        # for i, item_id in enumerate(item_ids):
+        #     if str(item_id) in self.golden_set_item_ids:
+        #         # dirty hack; slicing because otherwise b'' gets into filename
+        #         str_item_id = str(item_id)[2:-1]
+        #
+        #         filename = f'datasetname={self.dataset_name}_golden_datasetidx={dataset_indexes[i]}_itemid={str_item_id}.html'
+        #
+        #         # xyz correspond to first 3 channels
+        #         self._illustrate_to_file(points[i].detach().cpu(),
+        #                                  target[i].detach().cpu(),
+        #                                  preds[i].detach().cpu(),
+        #                                  F.l1_loss(preds[i], target[i], reduction='none').detach().cpu(),
+        #                                  name=filename)
 
-                filename = f'datasetname={self.dataset_name}_golden_datasetidx={dataset_indexes[i]}_itemid={str_item_id}.html'
+    def plot_k_diff(self, metrics: torch.Tensor, metric_name: str, reference_dir: str, reference_name: str,
+                    descending=False):
+        # metrics should be sorted s.t. the first values are best, the last values are worst
 
-                # xyz correspond to first 3 channels
-                self._illustrate_to_file(points[i].detach().cpu(),
-                                         target[i].detach().cpu(),
-                                         preds[i].detach().cpu(),
-                                         F.l1_loss(preds[i], target[i], reduction='none').detach().cpu(),
-                                         name=filename)
+        if is_main_process():
+            filename = os.path.join(reference_dir, f"{self.dataset_name}.csv")
+            reference_df = pd.read_csv(filename, sep='\t', encoding='utf-8')
+            reference_df.set_index('index', inplace=True)
+            reference_metrics = torch.from_numpy(reference_df.loc[self.indexes][metric_name].to_numpy())
+            difference = metrics - reference_metrics
+            argsort_inds = torch.argsort(difference, descending=descending)
+            sorted_difference = difference[argsort_inds]
+            sorted_metrics = metrics[argsort_inds]
+            sorted_reference_metrics = reference_metrics[argsort_inds]
+            sorted_indexes = self.indexes[argsort_inds]
 
+            def plot(ks: List[int], name: str):
+                k_i = 1
+                already_plotted = []  # to avoid situation when indexes e.g. -1 and 0 represent the same element
+                for k in ks:
+                    try:
+                        index = int(sorted_indexes[k])
+                    except IndexError:
+                        continue
+                    if index in already_plotted:
+                        continue
+                    item = self.dataset[index]
+                    metric_value = sorted_metrics[k].item()
+                    reference_value = sorted_reference_metrics[k].item()
+                    difference_value = sorted_difference[k].item()
+                    pred = self.model(item['points'].unsqueeze(0).to(self.device))['distances'].detach().cpu().squeeze(
+                        0)
+                    l1_errors = F.l1_loss(pred, item['distances'], reduction='none')
 
-    def plot_k_elements(self, metrics: torch.Tensor, metric_name: str, descending=False):
+                    # dirty hack; slicing because otherwise b'' gets into filename
+                    str_item_id = str(item['item_id'])[2:-1]
+                    filename = f'diff_datasetname={self.dataset_name}_metric={metric_name}_pos={name}{k_i}_ref={reference_name}_datasetidx={index}_ovalue={metric_value}_rvalue={reference_value}_diff={difference_value}_itemid={str_item_id}.html'
+
+                    # xyz correspond to first 3 channels
+                    # print(filename)
+                    self._illustrate_to_file(item['points'], item['distances'], pred, l1_errors, name=filename)
+
+                    k_i += 1
+
+                    already_plotted.append(index)
+
+            # plot k worst
+            plot(list(range(-self.k, 0)), 'worst')
+
+            # plot k best
+            plot(list(range(0, self.k)), 'best')
+
+            # plot k median
+            median_idx = int(sorted_metrics.median(dim=0).indices)
+            plot(list(range(median_idx - self.k // 2, median_idx + self.k // 2 + self.k % 2)), 'median')
+
+            # plot q10
+            q10_idx = int(0.1 * (sorted_metrics.size(0) - 1))
+            plot(list(range(q10_idx - self.k // 2, q10_idx + self.k // 2 + self.k % 2)), 'q10best')
+
+            # plot q90
+            q90_idx = int(0.9 * (sorted_metrics.size(0) - 1))
+            plot(list(range(q90_idx - self.k // 2, q90_idx + self.k // 2 + self.k % 2)), 'q90worst')
+
+    def plot_k_abs(self, metrics: torch.Tensor, metric_name: str, descending=False):
         # metrics should be sorted s.t. the first values are best, the last values are worst
 
         if is_main_process():
@@ -162,7 +227,7 @@ class IllustratorPoints(DatasetEvaluator):
 
                     # dirty hack; slicing because otherwise b'' gets into filename
                     str_item_id = str(item['item_id'])[2:-1]
-                    filename = f'datasetname={self.dataset_name}_{metric_name}_{name}{k_i}_datasetidx={index}_metricvalue={metric_value}_itemid={str_item_id}.html'
+                    filename = f'abs_datasetname={self.dataset_name}_metric={metric_name}_pos={name}{k_i}_datasetidx={index}_metricvalue={metric_value}_itemid={str_item_id}.html'
 
                     # xyz correspond to first 3 channels
                     self._illustrate_to_file(item['points'], item['distances'], pred, l1_errors, name=filename)
@@ -212,11 +277,18 @@ class IllustratorPoints(DatasetEvaluator):
         if num_elements == 0:
             return {'scalars': scalars, 'images': {}}
 
-        self.plot_k_elements(self.rmses_dl1, 'rmsedl1', descending=False)
-        self.plot_k_elements(self.ious, 'iou', descending=True)
-        self.plot_k_elements(self.bas, 'ba', descending=True)
+        self.plot_k_abs(self.rmses_dl1, 'rmse_dl1', descending=False)
+        self.plot_k_abs(self.ious, 'iou', descending=True)
+        self.plot_k_abs(self.bas, 'ba', descending=True)
         for t in self.bp_ts:
-            self.plot_k_elements(self.bp_pct_dl1[t], f'bpr{t}rdl1', descending=False)
+            self.plot_k_abs(self.bp_pct_dl1[t], f'bpr_{t}r_dl1', descending=False)
+
+        for reference_name, reference_dir in self.reference_metrics_dirs:
+            self.plot_k_diff(self.rmses_dl1, 'rmse_dl1', reference_dir, reference_name, descending=False)
+            self.plot_k_diff(self.ious, 'iou', reference_dir, reference_name, descending=True)
+            self.plot_k_diff(self.bas, 'ba', reference_dir, reference_name, descending=True)
+            for t in self.bp_ts:
+                self.plot_k_diff(self.bp_pct_dl1[t], f'bpr_{t}r_dl1', reference_dir, reference_name, descending=False)
 
         return {'scalars': scalars, 'images': {}}
 
