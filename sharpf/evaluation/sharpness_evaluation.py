@@ -146,6 +146,19 @@ class SharpnessEvaluator(DatasetEvaluator):
                 raise KeyError(
                     f"Can't find {key} among mask keys: {self.masks.keys()} or input keys: {inputs.keys()}") from e
 
+    def get_hist_name(self, name, mask_suffix, ref_label='', npy=False, pdf=False):
+        assert not (npy and pdf)
+        hist_name = f'{name}{mask_suffix}'
+        if ref_label != '':
+            hist_name += f'_vs_{ref_label}'
+        if npy:
+            hist_name += f'_{self.dataset_name}.npy'
+        elif pdf:
+            hist_name += f'_{self.dataset_name}.pdf'
+        else:
+            hist_name += f'/{self.dataset_name}'
+        return hist_name
+
     def report_rmse(self, mask=None, mask_suffix=''):
         if mask is not None:
             assert mask_suffix != ''
@@ -160,14 +173,14 @@ class SharpnessEvaluator(DatasetEvaluator):
         self.scalars[f'q95_rmse{mask_suffix}/{self.dataset_name}'] = np.quantile(rmses, 0.95)
         self.scalars[f'q99_rmse{mask_suffix}/{self.dataset_name}'] = np.quantile(rmses, 0.99)
         rmse_hist = torch.histc(rmses, bins=100, min=0.0, max=1.0)
-        hist_name = f'rmse_hist{mask_suffix}/{self.dataset_name}'
+        base_hist_name = 'rmse_hist'
         for ref_label, ref_dir in self.reference_hist_dirs:
-            self.images[hist_name] = plot_to_image(self._plot_hist(rmse_hist, hist_name, ref_dir,
-                                                                   xlabel='RMSE per patch value',
-                                                                   reference_label=ref_label))
-        if is_main_process():
-            save_hist_name = hist_name.replace('/', '_') + '.npy'
-            self.save_hist(rmse_hist, save_hist_name)
+            figure = self._plot_hist(rmse_hist, self.get_hist_name(base_hist_name, mask_suffix, npy=True),
+                                     ref_dir,
+                                     xlabel='RMSE per patch value', reference_label=ref_label)
+            self.images[self.get_hist_name(base_hist_name, mask_suffix, ref_label)] = plot_to_image(figure)
+            self.save_pdf_hist(figure, self.get_hist_name(base_hist_name, mask_suffix, ref_label, pdf=True))
+        self.save_npy_hist(rmse_hist, self.get_hist_name(base_hist_name, mask_suffix, npy=True))
 
     def report_rmse_dl1(self, mask=None, mask_suffix=''):
         if mask is not None:
@@ -181,15 +194,15 @@ class SharpnessEvaluator(DatasetEvaluator):
         self.scalars[f'q90_rmse_dl1{mask_suffix}/{self.dataset_name}'] = np.quantile(rmses_dl1, 0.90)
         self.scalars[f'q95_rmse_dl1{mask_suffix}/{self.dataset_name}'] = np.quantile(rmses_dl1, 0.95)
         self.scalars[f'q99_rmse_dl1{mask_suffix}/{self.dataset_name}'] = np.quantile(rmses_dl1, 0.99)
-        rmse_hist = torch.histc(rmses_dl1, bins=100, min=0.0, max=1.0)
-        hist_name = f'rmse_dl1_hist{mask_suffix}/{self.dataset_name}'
+        rmse_dl1_hist = torch.histc(rmses_dl1, bins=100, min=0.0, max=1.0)
+        base_hist_name = 'rmse_dl1_hist'
         for ref_label, ref_dir in self.reference_hist_dirs:
-            self.images[hist_name] = plot_to_image(self._plot_hist(rmse_hist, hist_name, ref_dir,
-                                                                   xlabel='RMSE(d<1.0) per patch value',
-                                                                   reference_label=ref_label))
-        if is_main_process():
-            save_hist_name = hist_name.replace('/', '_') + '.npy'
-            self.save_hist(rmse_hist, save_hist_name)
+            figure = self._plot_hist(rmse_dl1_hist, self.get_hist_name(base_hist_name, mask_suffix, npy=True),
+                                     ref_dir,
+                                     xlabel='RMSE(d<1.0) per patch value', reference_label=ref_label)
+            self.images[self.get_hist_name(base_hist_name, mask_suffix, ref_label)] = plot_to_image(figure)
+            self.save_pdf_hist(figure, self.get_hist_name(base_hist_name, mask_suffix, ref_label, pdf=True))
+        self.save_npy_hist(rmse_dl1_hist, self.get_hist_name(base_hist_name, mask_suffix, npy=True))
 
     def report_iou(self, mask=None, mask_suffix=''):
         if mask is not None:
@@ -201,14 +214,14 @@ class SharpnessEvaluator(DatasetEvaluator):
         ious = self.ious if mask is None else self.ious[mask]
         self.scalars[f'mean_iou{mask_suffix}/{self.dataset_name}'] = ious.mean().item()
         iou_hist = torch.histc(ious, bins=100, min=0.0, max=1.0)
-        hist_name = f'iou_hist{mask_suffix}/{self.dataset_name}'
+        base_hist_name = 'iou_hist'
         for ref_label, ref_dir in self.reference_hist_dirs:
-            self.images[hist_name] = plot_to_image(self._plot_hist(iou_hist, hist_name, ref_dir,
-                                                                   xlabel='IOU per patch value',
-                                                                   reference_label=ref_label))
-        if is_main_process():
-            save_hist_name = hist_name.replace('/', '_') + '.npy'
-            self.save_hist(iou_hist, save_hist_name)
+            figure = self._plot_hist(iou_hist, self.get_hist_name(base_hist_name, mask_suffix, npy=True),
+                                     ref_dir,
+                                     xlabel='IOU per patch value', reference_label=ref_label)
+            self.images[self.get_hist_name(base_hist_name, mask_suffix, ref_label)] = plot_to_image(figure)
+            self.save_pdf_hist(figure, self.get_hist_name(base_hist_name, mask_suffix, ref_label, pdf=True))
+        self.save_npy_hist(iou_hist, self.get_hist_name(base_hist_name, mask_suffix, npy=True))
 
     def report_ba(self, mask=None, mask_suffix=''):
         if mask is not None:
@@ -220,14 +233,14 @@ class SharpnessEvaluator(DatasetEvaluator):
         bas = self.bas if mask is None else self.bas[mask]
         self.scalars[f'mean_balanced_accuracy{mask_suffix}/{self.dataset_name}'] = bas.mean().item()
         ba_hist = torch.histc(bas, bins=100, min=0.0, max=1.0)
-        hist_name = f'balanced_accuracy_hist{mask_suffix}/{self.dataset_name}'
+        base_hist_name = 'balanced_accuracy_hist'
         for ref_label, ref_dir in self.reference_hist_dirs:
-            self.images[hist_name] = plot_to_image(self._plot_hist(ba_hist, hist_name, ref_dir,
-                                                                   xlabel='Balanced Accuracy per patch value',
-                                                                   reference_label=ref_label))
-        if is_main_process():
-            save_hist_name = hist_name.replace('/', '_') + '.npy'
-            self.save_hist(ba_hist, save_hist_name)
+            figure = self._plot_hist(ba_hist, self.get_hist_name(base_hist_name, mask_suffix, npy=True),
+                                     ref_dir,
+                                     xlabel='Balanced Accuracy per patch value', reference_label=ref_label)
+            self.images[self.get_hist_name(base_hist_name, mask_suffix, ref_label)] = plot_to_image(figure)
+            self.save_pdf_hist(figure, self.get_hist_name(base_hist_name, mask_suffix, ref_label, pdf=True))
+        self.save_npy_hist(ba_hist, self.get_hist_name(base_hist_name, mask_suffix, npy=True))
 
     def report_bad_points(self, mask=None, mask_suffix=''):
         if mask is not None:
@@ -240,14 +253,14 @@ class SharpnessEvaluator(DatasetEvaluator):
             bp_pct_t = self.bp_pct[t] if mask is None else self.bp_pct[t][mask]
             self.scalars[f'mean_bad_points_ratio_{t}r{mask_suffix}/{self.dataset_name}'] = bp_pct_t.mean().item()
             bp_pct_t_hist = torch.histc(bp_pct_t, bins=100, min=0.0, max=1.0)
-            hist_name = f'bad_points_ratio_{t}r_hist{mask_suffix}/{self.dataset_name}'
+            base_hist_name = f'bad_points_ratio_{t}r_hist'
             for ref_label, ref_dir in self.reference_hist_dirs:
-                self.images[hist_name] = plot_to_image(self._plot_hist(bp_pct_t_hist, hist_name, ref_dir,
-                                                                       xlabel=f'BadPoints({t}r) per patch value',
-                                                                       reference_label=ref_label))
-            if is_main_process():
-                save_hist_name = hist_name.replace('/', '_') + '.npy'
-                self.save_hist(bp_pct_t_hist, save_hist_name)
+                figure = self._plot_hist(bp_pct_t_hist, self.get_hist_name(base_hist_name, mask_suffix, npy=True),
+                                         ref_dir,
+                                         xlabel=f'BadPoints({t}r) per patch value', reference_label=ref_label)
+                self.images[self.get_hist_name(base_hist_name, mask_suffix, ref_label)] = plot_to_image(figure)
+                self.save_pdf_hist(figure, self.get_hist_name(base_hist_name, mask_suffix, ref_label, pdf=True))
+            self.save_npy_hist(bp_pct_t_hist, self.get_hist_name(base_hist_name, mask_suffix, npy=True))
 
     def report_bad_points_dl1(self, mask=None, mask_suffix=''):
         if mask is not None:
@@ -261,14 +274,14 @@ class SharpnessEvaluator(DatasetEvaluator):
             self.scalars[
                 f'mean_bad_points_ratio_{t}r_dl1{mask_suffix}/{self.dataset_name}'] = bp_pct_dl1_t.mean().item()
             bp_pct_dl1_t_hist = torch.histc(bp_pct_dl1_t, bins=100, min=0.0, max=1.0)
-            hist_name = f'bad_points_ratio_{t}r_dl1_hist{mask_suffix}/{self.dataset_name}'
+            base_hist_name = f'bad_points_ratio_{t}r_dl1_hist'
             for ref_label, ref_dir in self.reference_hist_dirs:
-                self.images[hist_name] = plot_to_image(self._plot_hist(bp_pct_dl1_t_hist, hist_name, ref_dir,
-                                                                       xlabel=f'BadPoints({t}r)(d<1.0) per patch value',
-                                                                       reference_label=ref_label))
-            if is_main_process():
-                save_hist_name = hist_name.replace('/', '_') + '.npy'
-                self.save_hist(bp_pct_dl1_t_hist, save_hist_name)
+                figure = self._plot_hist(bp_pct_dl1_t_hist, self.get_hist_name(base_hist_name, mask_suffix, npy=True),
+                                         ref_dir,
+                                         xlabel=f'BadPoints({t}r)(d<1.0) per patch value', reference_label=ref_label)
+                self.images[self.get_hist_name(base_hist_name, mask_suffix, ref_label)] = plot_to_image(figure)
+                self.save_pdf_hist(figure, self.get_hist_name(base_hist_name, mask_suffix, ref_label, pdf=True))
+            self.save_npy_hist(bp_pct_dl1_t_hist, self.get_hist_name(base_hist_name, mask_suffix, npy=True))
 
     def save_metrics(self):
         self.indexes = torch.cat(self.indexes)
@@ -360,8 +373,8 @@ class SharpnessEvaluator(DatasetEvaluator):
 
         alpha = 1.0
         if reference_hist_dir_path is not None:
-            search_hist_name = hist_name.replace('/', '_')
-            path = os.path.join(reference_hist_dir_path, f'{search_hist_name}.npy')
+            # search_hist_name = hist_name.replace('/', '_')
+            path = os.path.join(reference_hist_dir_path, hist_name)
             if os.path.exists(path):
                 baseline_hist = np.load(path)
                 hist = hist.cpu().numpy()
@@ -380,9 +393,18 @@ class SharpnessEvaluator(DatasetEvaluator):
         plt.tight_layout()
         return figure
 
-    def save_hist(self, hist, name):
-        current_dir = os.getcwd()
-        hist_dir = os.path.join(current_dir, 'hist')
-        if not os.path.exists(hist_dir):
-            os.mkdir(hist_dir)
-        np.save(os.path.join(hist_dir, name), hist.cpu().numpy())
+    def save_npy_hist(self, hist, name):
+        if is_main_process():
+            current_dir = os.getcwd()
+            hist_dir = os.path.join(current_dir, 'hist')
+            if not os.path.exists(hist_dir):
+                os.mkdir(hist_dir)
+            np.save(os.path.join(hist_dir, name), hist.cpu().numpy())
+
+    def save_pdf_hist(self, figure, name):
+        if is_main_process():
+            current_dir = os.getcwd()
+            hist_dir = os.path.join(current_dir, 'pdf_hist')
+            if not os.path.exists(hist_dir):
+                os.mkdir(hist_dir)
+            figure.savefig(os.path.join(hist_dir, name), bbox_inches='tight')
