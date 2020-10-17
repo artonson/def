@@ -354,8 +354,7 @@ class SharpnessEvaluator(DatasetEvaluator):
                    reference_hist_dir_path: str, xlabel: str, reference_label: str,
                    min=0.0, max=1.0):
         figure = plt.figure(figsize=(4.8, 3.6))
-        prototype_hist = hist[0] if isinstance(hist, list) else hist
-        bins = torch.linspace(min, max, len(prototype_hist) + 1)
+        bins = torch.linspace(min, max, len(hist) + 1)
         width = 0.7 * (bins[1] - bins[0])
         center = (bins[:-1] + bins[1:]) / 2
 
@@ -377,7 +376,6 @@ class SharpnessEvaluator(DatasetEvaluator):
         plt.bar(center, hist, align='center', width=width, alpha=alpha)
         plt.xlabel(xlabel)
         plt.ylabel('# of patches')
-        plt.xlim((min, max))
         plt.yscale('log')
         plt.tight_layout()
         return figure
