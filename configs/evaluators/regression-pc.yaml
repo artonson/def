@@ -17,7 +17,7 @@ test_se_vis_save:
 
 se:
   _target_: sharpf.evaluation.SharpnessEvaluator
-  save_metric_per_element: true
+  write_metrics_to_disk: true
   calculate_rmse: true
   calculate_bad_points: true
   calculate_iou: true
@@ -36,8 +36,8 @@ vis:
   #    reference_metrics_dirs:
   #      - ['baseline', '/trinity/home/r.rakhimov/sharp_features/outputs/2020-10-15/22-47-31/metrics']
   resolution: ${evaluators.resolution}
-  bp_ts_per_resolution: [1, 2]
-  golden_set_item_ids: ~
+  bp_ts_per_resolution: [8, 16]
+  #  golden_set_item_ids: ~
   k: 5
   filter_expressions:
     - ['is_flat', '=', false]

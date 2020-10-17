@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import torch
 import torch.nn.functional as F
+import yaml
 
 from .evaluator import DatasetEvaluator
 from ..utils.comm import all_gather, synchronize, is_main_process
@@ -23,7 +24,7 @@ class SharpnessEvaluator(DatasetEvaluator):
     def __init__(self, bp_ts_per_resolution: Optional[List[int]] = None, resolution: Optional[float] = None,
                  calculate_rmse: bool = True, calculate_bad_points: bool = False, calculate_iou: bool = False,
                  calculate_ba: bool = False, calculate_rmse_dl1: bool = False, calculate_bad_points_dl1: bool = False,
-                 save_metric_per_element: bool = False,
+                 write_metrics_to_disk: bool = False,
                  mask_expressions=None, reference_hist_dirs=None,
                  *args,
                  **kwargs):
@@ -46,7 +47,7 @@ class SharpnessEvaluator(DatasetEvaluator):
             assert resolution is not None
         if self.calculate_iou or self.calculate_ba:
             assert resolution is not None
-        self.save_metric_per_element = save_metric_per_element
+        self.write_metrics_to_disk = write_metrics_to_disk
         self.reset()
 
     def reset(self):
@@ -73,7 +74,7 @@ class SharpnessEvaluator(DatasetEvaluator):
         batch_size = target.size(0)
         batch_size, num_points = target.view(batch_size, -1).size()
 
-        if self.save_metric_per_element:
+        if self.write_metrics_to_disk:
             self.indexes.append(inputs['index'].detach().cpu())
 
         target = target.view(batch_size, num_points)
@@ -169,9 +170,9 @@ class SharpnessEvaluator(DatasetEvaluator):
         rmses = self.rmses if mask is None else self.rmses[mask]
         self.scalars[f'count{mask_suffix}/{self.dataset_name}'] = rmses.size(0)
         self.scalars[f'mean_rmse{mask_suffix}/{self.dataset_name}'] = rmses.mean().item()
-        self.scalars[f'q90_rmse{mask_suffix}/{self.dataset_name}'] = np.quantile(rmses, 0.90)
-        self.scalars[f'q95_rmse{mask_suffix}/{self.dataset_name}'] = np.quantile(rmses, 0.95)
-        self.scalars[f'q99_rmse{mask_suffix}/{self.dataset_name}'] = np.quantile(rmses, 0.99)
+        self.scalars[f'q90_rmse{mask_suffix}/{self.dataset_name}'] = float(np.quantile(rmses, 0.90))
+        self.scalars[f'q95_rmse{mask_suffix}/{self.dataset_name}'] = float(np.quantile(rmses, 0.95))
+        self.scalars[f'q99_rmse{mask_suffix}/{self.dataset_name}'] = float(np.quantile(rmses, 0.99))
         rmse_hist = torch.histc(rmses, bins=100, min=0.0, max=1.0)
         base_hist_name = 'rmse_hist'
         for ref_label, ref_dir in self.reference_hist_dirs:
@@ -191,9 +192,9 @@ class SharpnessEvaluator(DatasetEvaluator):
             self.rmses_dl1 = torch.cat(all_gather(self.rmses_dl1))
         rmses_dl1 = self.rmses_dl1 if mask is None else self.rmses_dl1[mask]
         self.scalars[f'mean_rmse_dl1{mask_suffix}/{self.dataset_name}'] = rmses_dl1.mean().item()
-        self.scalars[f'q90_rmse_dl1{mask_suffix}/{self.dataset_name}'] = np.quantile(rmses_dl1, 0.90)
-        self.scalars[f'q95_rmse_dl1{mask_suffix}/{self.dataset_name}'] = np.quantile(rmses_dl1, 0.95)
-        self.scalars[f'q99_rmse_dl1{mask_suffix}/{self.dataset_name}'] = np.quantile(rmses_dl1, 0.99)
+        self.scalars[f'q90_rmse_dl1{mask_suffix}/{self.dataset_name}'] = float(np.quantile(rmses_dl1, 0.90))
+        self.scalars[f'q95_rmse_dl1{mask_suffix}/{self.dataset_name}'] = float(np.quantile(rmses_dl1, 0.95))
+        self.scalars[f'q99_rmse_dl1{mask_suffix}/{self.dataset_name}'] = float(np.quantile(rmses_dl1, 0.99))
         rmse_dl1_hist = torch.histc(rmses_dl1, bins=100, min=0.0, max=1.0)
         base_hist_name = 'rmse_dl1_hist'
         for ref_label, ref_dir in self.reference_hist_dirs:
@@ -283,6 +284,16 @@ class SharpnessEvaluator(DatasetEvaluator):
                 self.save_pdf_hist(figure, self.get_hist_name(base_hist_name, mask_suffix, ref_label, pdf=True))
             self.save_npy_hist(bp_pct_dl1_t_hist, self.get_hist_name(base_hist_name, mask_suffix, npy=True))
 
+    def save_scalars(self):
+        if is_main_process():
+            current_dir = os.getcwd()
+            metrics_dir = os.path.join(current_dir, 'metrics')
+            if not os.path.exists(metrics_dir):
+                os.mkdir(metrics_dir)
+            filename = os.path.join(metrics_dir, f"agg_{self.dataset_name}.yaml")
+            with open(filename, 'w') as outfile:
+                yaml.dump(self.scalars, outfile, default_flow_style=False)
+
     def save_metrics(self):
         self.indexes = torch.cat(self.indexes)
         synchronize()
@@ -358,8 +369,9 @@ class SharpnessEvaluator(DatasetEvaluator):
                 if self.calculate_bad_points_dl1:
                     self.report_bad_points_dl1(mask, mask_suffix)
 
-        if self.save_metric_per_element:
+        if self.write_metrics_to_disk:
             self.save_metrics()
+            self.save_scalars()
 
         return {'scalars': self.scalars, 'images': self.images}
 
