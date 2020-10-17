@@ -16,6 +16,10 @@ test_se_vis_save:
   - _target_: sharpf.evaluation.PredictionsSaving
     filter_expressions: ${evaluators.vis.filter_expressions}
 
+test_whole:
+  - ${evaluators.se}
+  - _target_: sharpf.evaluation.PredictionsSaving
+
 se:
   _target_: sharpf.evaluation.SharpnessEvaluator
   write_metrics_to_disk: true
