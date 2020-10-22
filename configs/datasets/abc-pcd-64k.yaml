@@ -10,10 +10,10 @@ train:
       io:
         _target_: sharpf.data.PointCloudIO
       filenames: [
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res/${datasets.noise}/train_with_voronoi/train_0.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res/${datasets.noise}/train_with_voronoi/train_1.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res/${datasets.noise}/train_with_voronoi/train_2.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res/${datasets.noise}/train_with_voronoi/train_3.hdf5'
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res.json/${datasets.noise}/train/train_0.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res.json/${datasets.noise}/train/train_1.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res.json/${datasets.noise}/train/train_2.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res.json/${datasets.noise}/train/train_3.hdf5'
       ]
       labels: ['points', 'distances', 'directions']
       transform: ${transform.train}
@@ -25,8 +25,8 @@ val:
       io:
         _target_: sharpf.data.PointCloudIO
       filenames: [
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res/${datasets.noise}/val_with_voronoi/train_0.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res/${datasets.noise}/val_with_voronoi/train_1.hdf5'
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res.json/${datasets.noise}/val/train_0.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res.json/${datasets.noise}/val/train_1.hdf5'
       ]
       labels: ['points', 'distances', 'directions']
       transform: ${transform.val}
@@ -39,10 +39,10 @@ test:
       io:
         _target_: sharpf.data.PointCloudIO
       filenames: [
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res/${datasets.noise}/train_with_voronoi/train_0.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res/${datasets.noise}/train_with_voronoi/train_1.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res/${datasets.noise}/train_with_voronoi/train_2.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res/${datasets.noise}/train_with_voronoi/train_3.hdf5'
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res.json/${datasets.noise}/train/train_0.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res.json/${datasets.noise}/train/train_1.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res.json/${datasets.noise}/train/train_2.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res.json/${datasets.noise}/train/train_3.hdf5'
       ]
       labels: ${datasets.test_labels}
       transform: ${transform.test}
@@ -55,8 +55,8 @@ test:
       io:
         _target_: sharpf.data.PointCloudIO
       filenames: [
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res/${datasets.noise}/val_with_voronoi/train_0.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res/${datasets.noise}/val_with_voronoi/train_1.hdf5'
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res.json/${datasets.noise}/val/train_0.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res.json/${datasets.noise}/val/train_1.hdf5'
       ]
       labels: ${datasets.test_labels}
       transform: ${transform.test}
@@ -69,8 +69,8 @@ test:
       io:
         _target_: sharpf.data.PointCloudIO
       filenames: [
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res/0.0/test_with_voronoi/train_0.hdf5',
-        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res/0.0/test_with_voronoi/train_1.hdf5'
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res.json/0.0/test/train_0.hdf5',
+        '/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/points/${datasets.resolution}_res.json/0.0/test/train_1.hdf5'
       ]
       labels: ${datasets.test_labels}
       transform: ${transform.test}
