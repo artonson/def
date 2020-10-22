@@ -96,6 +96,8 @@ class ToTensor(AbstractTransform):
 
     def __call__(self, item):
         for key in self.keys:
+            if key == 'points':
+                item['points'] = item['points'].reshape((-1, 3))
             item[key] = torch.from_numpy(item[key]).type(self.type)
         return item
 
