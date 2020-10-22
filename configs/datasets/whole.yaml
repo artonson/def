@@ -9,7 +9,7 @@ test:
     dataset_class:
       _target_: sharpf.utils.abc_utils.LotsOfHdf5Files
       io:
-        _target_: sharpf.data.PointCloudIO
+        _target_: sharpf.data.WholePointCloudIO
       filenames: ['${datasets.path}']
       labels: ${datasets.test_labels}
       transform: ${transform.test}

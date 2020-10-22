@@ -64,3 +64,31 @@ class DepthMapIO():
                 compression='lzf'
             )
         return cls.instance
+
+
+class WholePointCloudIO():
+    def __new__(cls):
+        if not hasattr(cls, 'instance'):
+            cls.instance = io.HDF5IO(
+                {
+                    'points': io.VarFloat64('points'),
+                    'normals': io.VarFloat64('normals'),
+                    'distances': io.VarFloat64('distances'),
+                    'directions': io.VarFloat64('directions'),
+                    'indexes_in_whole': io.VarInt32('indexes_in_whole'),
+                    'item_id': io.AsciiString('item_id'),
+                    'orig_vert_indices': io.VarInt32('orig_vert_indices'),
+                    'orig_face_indexes': io.VarInt32('orig_face_indexes'),
+                    'has_sharp': io.Bool('has_sharp'),
+                    'num_sharp_curves': io.Int8('num_sharp_curves'),
+                    'num_surfaces': io.Int8('num_surfaces'),
+                    'has_smell_coarse_surfaces_by_num_faces': io.Bool('has_smell_coarse_surfaces_by_num_faces'),
+                    'has_smell_coarse_surfaces_by_angles': io.Bool('has_smell_coarse_surfaces_by_angles'),
+                    'has_smell_deviating_resolution': io.Bool('has_smell_deviating_resolution'),
+                    'has_smell_sharpness_discontinuities': io.Bool('has_smell_sharpness_discontinuities'),
+                    'has_smell_bad_face_sampling': io.Bool('has_smell_bad_face_sampling'),
+                    'has_smell_mismatching_surface_annotation': io.Bool('has_smell_mismatching_surface_annotation'),
+                },
+                len_label='has_sharp',
+                compression='lzf')
+        return cls.instance

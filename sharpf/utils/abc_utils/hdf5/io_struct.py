@@ -25,6 +25,7 @@ class Float64(HDF5Dataset):
     def __init__(self, name):
         super().__init__(name, dtype=np.float64)
 
+
 class Bool(HDF5Dataset):
     def __init__(self, name):
         super().__init__(name, dtype=np.bool)
@@ -57,6 +58,11 @@ class VarInt32(VariableLenDataset):
         dataset = hdf5_file.create_dataset(self.name, shape=(len(data),), dtype=self.dtype, compression=compression)
         for i, item in enumerate(data):
             dataset[i] = item
+
+
+class VarFloat64(VariableLenDataset):
+    def __init__(self, name):
+        super().__init__(name, dtype=h5py.special_dtype(vlen=np.float64))
 
 
 class HDF5IO:
