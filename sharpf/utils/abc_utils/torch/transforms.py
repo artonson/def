@@ -107,8 +107,12 @@ class PreprocessDepth(AbstractTransform):
         self.quantile = quantile
 
     def __call__(self, item):
-        # item['background_mask'] = (item['image'] == 0)
-        # item['image'] = torch.where(item['background_mask'], item['image'].max() + 1.0, item['image'])
+        if 'voronoi' in item:
+            item['voronoi'] = item['voronoi'].reshape(64, 64)
+        if 'normals' in item:
+            item['normals'] = item['normals'].permute(2, 0, 1).contiguous()
+        if 'directions' in item:
+            item['directions'] = item['directions'].permute(2, 0, 1).contiguous()
         item['image'] -= item['image'].min()
         item['image'] /= self.quantile
         item['image'].unsqueeze_(0)
@@ -172,7 +176,10 @@ class Concatenate(AbstractTransform):
 
     def __call__(self, item):
         if 'voronoi' in self.in_keys:
-            item['voronoi'] = item['voronoi'].unsqueeze(1)
+            if item['voronoi'].ndim == 2:
+                item['voronoi'] = item['voronoi'].unsqueeze(0)
+            elif item['voronoi'].ndim == 1:
+                item['voronoi'] = item['voronoi'].unsqueeze(1)
         item[self.out_key] = torch.cat([item[in_key] for in_key in self.in_keys], dim=self.dim)
         return item
 
@@ -185,6 +192,8 @@ class DepthToPointCloud(AbstractTransform):
     def __call__(self, item):
         item['image'] = image_to_points(item['image'])
         item['distances'] = item['distances'].reshape(-1)
+        if 'voronoi' in item:
+            item['voronoi'] = item['voronoi'].reshape(-1)
         if 'normals' in item:
             item['normals'] = item['normals'].reshape(-1, 3)
         if 'directions' in item:

@@ -49,6 +49,7 @@ class DepthMapIO():
                     'num_surfaces': io.Int8('num_surfaces'),
                     'camera_pose': io.Float64('camera_pose'),
                     'mesh_scale': io.Float64('mesh_scale'),
+                    'voronoi': io.Float64('voronoi'),
                     'has_smell_bad_face_sampling': io.Bool('has_smell_bad_face_sampling'),
                     'has_smell_coarse_surfaces_by_angles': io.Bool('has_smell_coarse_surfaces_by_angles'),
                     'has_smell_coarse_surfaces_by_num_faces': io.Bool('has_smell_coarse_surfaces_by_num_faces'),

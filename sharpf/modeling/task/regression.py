@@ -73,23 +73,28 @@ class SharpFeaturesRegressionTask(BaseLightningModule):
         self._check_range(batch['distances'])
         outputs = self.forward(batch['points'], clamp=False)
 
-        if outputs['distances'].ndim == 4:
-            outputs['distances'] = outputs['distances'].permute(0, 2, 3, 1)  # (B, H, W, C)
-            b, h, w, c = outputs['distances'].size()
-            outputs['distances'] = outputs['distances'].view(b, h * w, c)
-            batch['distances'] = batch['distances'].view(b, h * w)
-
         loss = 0
         loss_dict = {}
         for loss_param in self.hparams.task.losses:
             if loss_param.out_key == 'directions':
-                assert batch['distances'].ndim == 2
-                batch_size, num_points = batch['distances'].shape
-                mask = (batch['distances'] < 1.0).unsqueeze(2).expand_as(batch['directions'])
+                if batch['distances'].ndim == 2:
+                    batch_size, num_points = batch['distances'].shape
+                    mask = (batch['distances'] < 1.0).unsqueeze(2).expand_as(batch['directions'])
+                elif batch['distances'].ndim == 3:
+                    batch_size, h, w = batch['distances'].shape
+                    num_points = h * w
+                    mask = (batch['distances'] < 1.0).unsqueeze(1).expand_as(batch['directions'])
+                else:
+                    raise ValueError
                 loss_value = call(loss_param.loss_func,
                                   torch.masked_select(outputs['directions'], mask),
                                   torch.masked_select(batch['directions'], mask), reduction='sum') / (
                                      batch_size * num_points)
+            elif loss_param.out_key == 'distances' and outputs['distances'].ndim == 4:
+                # histogram loss for images case
+                b, c, h, w = outputs['distances'].size()
+                loss_value = call(loss_param.loss_func, outputs['distances'].permute(0, 2, 3, 1).view(b, h * w, c),
+                                  batch['distances'].view(b, h * w))
             else:
                 loss_value = call(loss_param.loss_func, outputs[loss_param.out_key], batch[loss_param.gt_key])
 

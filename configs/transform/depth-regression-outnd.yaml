@@ -1,0 +1,27 @@
+# @package _group_
+
+high_res_quantile: 4.389
+
+train: ${transform.test}
+
+val: ${transform.test}
+
+test:
+  _target_: sharpf.utils.abc_utils.torch.CompositeTransform
+  transforms:
+    - _target_: sharpf.utils.abc_utils.torch.ToTensor
+      keys:
+        - image
+        - distances
+        - directions
+        - ${datasets.normals_name}
+      type: torch.FloatTensor
+    - _target_: sharpf.utils.abc_utils.torch.PreprocessDepth
+      quantile: ${transform.high_res_quantile}
+    - _target_: sharpf.utils.abc_utils.torch.NormalizeL2
+      keys: ['directions']
+      dim: 0
+    - _target_: sharpf.utils.abc_utils.torch.RenameKeys
+      old_keys: ['image']
+      new_keys: ['points']
+    - _target_: sharpf.utils.abc_utils.torch.ComputeIsFlatProperty
