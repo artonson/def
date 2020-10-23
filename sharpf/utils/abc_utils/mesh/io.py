@@ -5,12 +5,16 @@ import trimesh
 import numpy as np
 
 
-def trimesh_load(io: BytesIO) -> Tuple[trimesh.base.Trimesh, np.ndarray, np.ndarray]:
+def trimesh_load(io: BytesIO, need_decode=True) -> Tuple[trimesh.base.Trimesh, np.ndarray, np.ndarray]:
     """Read the mesh: since trimesh messes the indices, this has to be done manually."""
 
     vertices, vertex_indices, vertex_normals, vertex_normal_indices = [], [], [], []
 
-    for line in io.read().decode('utf-8').splitlines():
+    file_contents = io.read()
+    if need_decode:
+        file_contents = file_contents.decode('utf-8')
+
+    for line in file_contents.splitlines():
         values = line.strip().split()
         if not values:
             continue
