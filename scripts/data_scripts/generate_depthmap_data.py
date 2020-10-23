@@ -146,14 +146,18 @@ def get_annotated_patches(item, config):
                 eprint_t(str(e))
                 continue
 
-            has_smell_sharpness_discontinuities = smell_sharpness_discontinuities.run(noisy_points, distances)
+            try:
+                has_smell_sharpness_discontinuities = smell_sharpness_discontinuities.run(noisy_points, distances)
+            except Exception as e:
+                eprint_t(str(e))
+                continue
 
             # convert everything to images
             ray_indexes = np.where(image.ravel() != 0)[0]
             noisy_image = imaging.points_to_image(noisy_points, ray_indexes)
-            normals = imaging.points_to_image(normals, ray_indexes, assign_channels=[0, 1, 2])
-            distances = imaging.points_to_image(distances.reshape(-1, 1), ray_indexes, assign_channels=[0])
-            directions = imaging.points_to_image(directions, ray_indexes, assign_channels=[0, 1, 2])
+            normals_image = imaging.points_to_image(normals, ray_indexes, assign_channels=[0, 1, 2])
+            distances_image = imaging.points_to_image(distances.reshape(-1, 1), ray_indexes, assign_channels=[0])
+            directions_image = imaging.points_to_image(directions, ray_indexes, assign_channels=[0, 1, 2])
 
             # compute statistics
             num_sharp_curves = len([curve for curve in nbhood_features['curves'] if curve['sharp']])
@@ -161,9 +165,9 @@ def get_annotated_patches(item, config):
 
             patch_info = {
                 'image': noisy_image,
-                'normals': normals,
-                'distances': distances,
-                'directions': directions,
+                'normals': normals_image,
+                'distances': distances_image,
+                'directions': directions_image,
                 'item_id': item.item_id,
                 'orig_vert_indices': mesh_vertex_indexes,
                 'orig_face_indexes': mesh_face_indexes,

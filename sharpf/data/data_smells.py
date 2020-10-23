@@ -91,6 +91,8 @@ class SmellDeviatingResolution(DataSmell):
 
 class SmellSharpnessDiscontinuities(DataSmell):
     def run(self, points, distances):
+        if len(points) == 1: 
+            return False
         # validate for Lipshitz condition:
         # if for two points x_i and x_j (nearest neighbours of each other)
         # corresponding values f(x_i) and f(x_j) differ by more than ||x_i - x_j||, discard the patch
