@@ -1,32 +1,35 @@
 #!/bin/bash
 
-#SBATCH --job-name=sharpf-repair
-#SBATCH --output=logs/repair_%A.out
-#SBATCH --error=logs/repair_%A.err
+#SBATCH --job-name=sharpf-repair-array
+#SBATCH --output=logs/repair_%A_%a.out
+#SBATCH --error=logs/repair_%A_%a.err
+#SBATCH --array=1-1000
 #SBATCH --time=12:00:00
 #SBATCH --partition=htc
-#SBATCH --cpus-per-task=32
+#SBATCH --cpus-per-task=4
 #SBATCH --ntasks=1
-#SBATCH --mem-per-cpu=10g
+#SBATCH --mem-per-cpu=4g
 #SBATCH --oversubscribe
 
 # module load apps/singularity-3.2.0
 
 __usage="
-Usage: $0 -i input_filename -o output_dir -a data_dir -l logs_dir -f config_file [-v]"
+Usage: $0 -i input_filelist -o output_dir -a data_dir -l logs_dir -f config_file -c chunk -t item_offset [-v]"
 
 usage() { echo "$__usage" >&2; }
 
 # Get all the required options and set the necessary variables
 VERBOSE=false
-while getopts "i:o:a:l:f:v" opt
+while getopts "i:o:a:l:f:vc:t:" opt
 do
     case ${opt} in
-        i) INPUT_FILE_HOST=$OPTARG;;
+        i) INPUT_FILELIST=$OPTARG;;
         o) OUTPUT_PATH_HOST=$OPTARG;;
-        d) ABC_PATH_HOST=$OPTARG;;
+        a) ABC_PATH_HOST=$OPTARG;;
         l) LOGS_PATH_HOST=$OPTARG;;
         f) DATASET_CONFIG=$OPTARG;;
+        c) CHUNK=$OPTARG;;
+        t) ITEM_OFFSET=$OPTARG;;
         v) VERBOSE=true;;
         *) usage; exit 1 ;;
     esac
@@ -45,11 +48,50 @@ if [[ ! ${DATASET_CONFIG} ]]; then
     echo "config_file is not set" && usage && exit 1
 fi
 
-INPUT_PATH_CONTAINER="/in"
-if [[ ! ${INPUT_FILE_HOST} ]]; then
-    echo "input_filename is not set" && usage && exit 1
+if [[ ! ${ITEM_OFFSET} ]]; then
+    ITEM_OFFSET=0
+    echo "item_offset is not specified, setting to 0"
 fi
+
+if [[ ! ${CHUNK} ]]; then
+    echo "chunk is not set" && usage && exit 1
+fi
+
+INPUT_PATH_CONTAINER="/in"
+###########################################
+# Hack to make things work in an array
+###########################################
+#if [[ ! ${INPUT_FILE_HOST} ]]; then
+#    echo "input_filename is not set" && usage && exit 1
+#fi
+# INPUT_PATH_HOST=$( dirname ${INPUT_FILE_HOST})
+
+# Working with input directories
+#if [[ ! ${INPUT_PATH_HOST} ]]; then
+#    echo "input_dir is not set" && usage && exit 1
+#fi
+#TASK_ID=$(( ${SLURM_ARRAY_TASK_ID} + ${ITEM_OFFSET} ))
+#INPUT_FILE_HOST=$( find "${INPUT_PATH_HOST}" -type f -name "abc*.hdf5" | sort | head -n "${TASK_ID}" | tail -1 )
+
+
+if [[ ! ${INPUT_FILELIST} ]]; then
+    echo "input_filelist is not set" && usage && exit 1
+fi
+
+TASK_ID=$(( ${SLURM_ARRAY_TASK_ID} + ${ITEM_OFFSET} ))
+
+if [[ $( wc -l <"${INPUT_FILELIST}" ) -lt ${TASK_ID} ]]; then
+    echo "SLURM task ID exceeds number of files to process, exiting" && exit 1
+fi
+
+INPUT_FILE_HOST=$( cat "${INPUT_FILELIST}" | head -n "${TASK_ID}" | tail -1 )
 INPUT_PATH_HOST=$( dirname ${INPUT_FILE_HOST})
+
+
+###########################################
+# Hack to make things work in an array
+###########################################
+
 
 OUTPUT_PATH_CONTAINER="/out"
 if [[ ! ${OUTPUT_PATH_HOST} ]]; then
@@ -90,7 +132,7 @@ SCRIPT="${CODE_PATH_CONTAINER}/scripts/data_scripts/repair_curves_annotations.py
 CONFIGS_PATH_CONTAINER="${CODE_PATH_CONTAINER}/scripts/data_scripts/configs/pointcloud_datasets"
 CONFIG_PATH="${CONFIGS_PATH_CONTAINER}/${DATASET_CONFIG}"
 
-INPUT_FILENAME=$( basename ${INPUT_FILE_GPFS} )
+INPUT_FILENAME=$( basename ${INPUT_FILE_HOST} )
 
 singularity exec \
   --bind ${CODE_PATH_HOST}:${CODE_PATH_CONTAINER} \
@@ -102,11 +144,12 @@ singularity exec \
   "${SIMAGE_FILENAME}" \
       bash -c "python3 ${SCRIPT} \\
         --abc-dir ${ABC_PATH_CONTAINER} \\
-        --chunk 0 --chunk 1 \\
-        --input-dir ${INPUT_PATH_CONTAINER}/${INPUT_FILENAME} \\
+        --chunk ${CHUNK} \\
+        --input-filename ${INPUT_PATH_CONTAINER}/${INPUT_FILENAME} \\
         --output-dir ${OUTPUT_PATH_CONTAINER} \\
         --dataset-config ${CONFIG_PATH} \\
         --jobs ${SLURM_CPUS_PER_TASK} \\
         --verbose
            1> >(tee ${LOGS_PATH_CONTAINER}/${INPUT_FILENAME}.out) \\
            2> >(tee ${LOGS_PATH_CONTAINER}/${INPUT_FILENAME}.err)"
+

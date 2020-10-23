@@ -26,8 +26,13 @@ from sharpf.utils.abc_utils.abc.feature_utils import compute_features_nbhood, re
 from sharpf.utils.py_utils.config import load_func_from_config
 from sharpf.utils.abc_utils.mesh.io import trimesh_load
 from sharpf.utils.abc_utils.mesh.indexing import reindex_zerobased
-from sharpf.utils.abc_utils.hdf5.dataset import LotsOfHdf5Files, PreloadTypes
+from sharpf.utils.abc_utils.hdf5.dataset import Hdf5File, LotsOfHdf5Files, PreloadTypes
 import sharpf.utils.abc_utils.hdf5.io_struct as io
+import sharpf.data.data_smells as smells
+from sharpf.data.datasets.sharpf_io import (
+    save_point_patches as save_fn,
+    PointCloudIO as IO
+)
 
 
 class BufferedHDF5Writer(object):
@@ -144,19 +149,38 @@ def fix_patch_unpack(args):
 
 
 def fix_patch(idx, patch, chunk_ids, config, abc_dir):
-    item = None
+    print('Fixing patch {}, item_id= {}'.format(idx, patch['item_id']))
+#   item = None
+#   for chunk_id in chunk_ids:
+#       try:
+#           data_holder = get_data_holder(abc_dir, chunk_id)
+#           item = data_holder.get(patch['item_id'].decode())
+#       except KeyError:
+#           continue
+#
+#   if None is item:
+#       raise ValueError()
+#
+#   mesh, _, _ = trimesh_load(item.obj)
+#   features = yaml.load(item.feat, Loader=yaml.Loader)
+
+    dirname, hash, number = patch['item_id'].decode().split('_')
+    obj_basename = '_'.join([dirname, hash, 'trimesh', number]) + '.obj'
+    feat_basename = '_'.join([dirname, hash, 'features', number]) + '.yml'
+
     for chunk_id in chunk_ids:
-        try:
-            data_holder = get_data_holder(abc_dir, chunk_id)
-            item = data_holder.get(patch['item_id'].decode())
-        except KeyError:
-            continue
+        obj_filename = os.path.join(abc_dir, 'obj', str(chunk_id).zfill(4), dirname, obj_basename)
+        feat_filename = os.path.join(abc_dir, 'feat', str(chunk_id).zfill(4), dirname, feat_basename)
+        if os.path.exists(obj_filename):
+            break
 
-    if None is item:
-        raise ValueError()
+    print('Opening {} and {}'.format(obj_filename, feat_filename))
 
-    mesh, _, _ = trimesh_load(item.obj)
-    features = yaml.load(item.feat, Loader=yaml.Loader)
+    with open(obj_filename) as obj_file:
+        mesh, _, _ = trimesh_load(obj_file, need_decode=False)
+
+    with open(feat_filename) as feat_file:
+        features = yaml.load(feat_file, Loader=yaml.Loader)
 
     shape_fabrication_extent = config.get('shape_fabrication_extent', 10.0)
     base_n_points_per_short_curve = config.get('base_n_points_per_short_curve', 8)
@@ -191,11 +215,15 @@ def fix_patch(idx, patch, chunk_ids, config, abc_dir):
         nbhood_features,
         patch['points'])
 
+    smell_sharpness_discontinuities = smells.SmellSharpnessDiscontinuities()
+    has_smell_sharpness_discontinuities = smell_sharpness_discontinuities.run(patch['points'], distances)
+
     fixed_part = {
         'distances': distances,
         'directions': directions,
         'has_sharp': has_sharp,
         'num_sharp_curves': num_sharp_curves,
+        'has_smell_sharpness_discontinuities': has_smell_sharpness_discontinuities
     }
 
     return idx, fixed_part
@@ -214,62 +242,68 @@ def uncollate(collated: Mapping) -> List[Mapping]:
     ]
 
 
-IO = io.HDF5IO({
-    'points': io.Float64('points'),
-    'normals': io.Float64('normals'),
-    'distances': io.Float64('distances'),
-    'directions': io.Float64('directions'),
-    'item_id': io.AsciiString('item_id'),
-    'orig_vert_indices': io.VarInt32('orig_vert_indices'),
-    'orig_face_indexes': io.VarInt32('orig_face_indexes'),
-    'has_sharp': io.Bool('has_sharp'),
-    'num_sharp_curves': io.Int8('num_sharp_curves'),
-    'num_surfaces': io.Int8('num_surfaces'),
-    'has_smell_coarse_surfaces_by_num_faces': io.Bool('has_smell_coarse_surfaces_by_num_faces'),
-    'has_smell_coarse_surfaces_by_angles': io.Bool('has_smell_coarse_surfaces_by_angles'),
-    'has_smell_deviating_resolution': io.Bool('has_smell_deviating_resolution'),
-    'has_smell_sharpness_discontinuities': io.Bool('has_smell_sharpness_discontinuities'),
-    'has_smell_bad_face_sampling': io.Bool('has_smell_bad_face_sampling'),
-    'has_smell_mismatching_surface_annotation': io.Bool('has_smell_mismatching_surface_annotation'),
-    'voronoi': io.Float64('voronoi'),
-    'normals_estimation_10': io.Float64('normals_estimation_10'),
-    'normals_estimation_100': io.Float64('normals_estimation_100'),
-},
-len_label='has_sharp',
-compression='lzf')
+#IO = io.HDF5IO({
+#   'points': io.Float64('points'),
+#   'normals': io.Float64('normals'),
+#   'distances': io.Float64('distances'),
+#   'directions': io.Float64('directions'),
+#   'item_id': io.AsciiString('item_id'),
+#   'orig_vert_indices': io.VarInt32('orig_vert_indices'),
+#   'orig_face_indexes': io.VarInt32('orig_face_indexes'),
+#   'has_sharp': io.Bool('has_sharp'),
+#   'num_sharp_curves': io.Int8('num_sharp_curves'),
+#   'num_surfaces': io.Int8('num_surfaces'),
+#   'has_smell_coarse_surfaces_by_num_faces': io.Bool('has_smell_coarse_surfaces_by_num_faces'),
+#   'has_smell_coarse_surfaces_by_angles': io.Bool('has_smell_coarse_surfaces_by_angles'),
+#   'has_smell_deviating_resolution': io.Bool('has_smell_deviating_resolution'),
+#   'has_smell_sharpness_discontinuities': io.Bool('has_smell_sharpness_discontinuities'),
+#   'has_smell_bad_face_sampling': io.Bool('has_smell_bad_face_sampling'),
+#   'has_smell_mismatching_surface_annotation': io.Bool('has_smell_mismatching_surface_annotation'),
+#   'voronoi': io.Float64('voronoi'),
+#   'normals_estimation_10': io.Float64('normals_estimation_10'),
+#   'normals_estimation_100': io.Float64('normals_estimation_100'),
+#},
+#len_label='has_sharp',
+#compression='lzf')
 
 
-def save_point_patches(patches, filename):
-    # turn a list of dicts into a dict of torch tensors:
-    # default_collate([{'a': 'str1', 'x': np.random.normal()}, {'a': 'str2', 'x': np.random.normal()}])
-    # Out[26]: {'a': ['str1', 'str2'], 'x': tensor([0.4252, 0.1414], dtype=torch.float64)}
-    collate_fn = partial(io.collate_mapping_with_io, io=IO)
-    patches = collate_fn(patches)
-
-    with h5py.File(filename, 'w') as f:
-        for key in ['points', 'normals', 'distances', 'directions',
-                    'voronoi', 'normals_estimation_10', 'normals_estimation_100']:
-            IO.write(f, key, patches[key].numpy())
-        IO.write(f, 'item_id', patches['item_id'])
-        IO.write(f, 'orig_vert_indices', patches['orig_vert_indices'])
-        IO.write(f, 'orig_face_indexes', patches['orig_face_indexes'])
-        IO.write(f, 'has_sharp', patches['has_sharp'].numpy().astype(np.bool))
-        IO.write(f, 'num_sharp_curves', patches['num_sharp_curves'].numpy())
-        IO.write(f, 'num_surfaces', patches['num_surfaces'].numpy())
-        has_smell_keys = [key for key in IO.datasets.keys()
-                          if key.startswith('has_smell')]
-        for key in has_smell_keys:
-            IO.write(f, key, patches[key].numpy().astype(np.bool))
+#def save_point_patches(patches, filename):
+#   # turn a list of dicts into a dict of torch tensors:
+#   # default_collate([{'a': 'str1', 'x': np.random.normal()}, {'a': 'str2', 'x': np.random.normal()}])
+#   # Out[26]: {'a': ['str1', 'str2'], 'x': tensor([0.4252, 0.1414], dtype=torch.float64)}
+#   collate_fn = partial(io.collate_mapping_with_io, io=IO)
+#   patches = collate_fn(patches)
+#
+#   with h5py.File(filename, 'w') as f:
+#       for key in ['points', 'normals', 'distances', 'directions',
+#                   'voronoi', 'normals_estimation_10', 'normals_estimation_100']:
+#           IO.write(f, key, patches[key].numpy())
+#       IO.write(f, 'item_id', patches['item_id'])
+#       IO.write(f, 'orig_vert_indices', patches['orig_vert_indices'])
+#       IO.write(f, 'orig_face_indexes', patches['orig_face_indexes'])
+#       IO.write(f, 'has_sharp', patches['has_sharp'].numpy().astype(np.bool))
+#       IO.write(f, 'num_sharp_curves', patches['num_sharp_curves'].numpy())
+#       IO.write(f, 'num_surfaces', patches['num_surfaces'].numpy())
+#       has_smell_keys = [key for key in IO.datasets.keys()
+#                         if key.startswith('has_smell')]
+#       for key in has_smell_keys:
+#           IO.write(f, key, patches[key].numpy().astype(np.bool))
 
 
 def main(options):
     chunk_id = sorted(options.chunk_id)
 
-    dataset = LotsOfHdf5Files(
-        data_dir=options.hdf5_input_dir,
+#   dataset = LotsOfHdf5Files(
+#       data_dir=options.hdf5_input_dir,
+#       io=IO,
+#       labels='*',
+#       max_loaded_files=1,
+#       preload=PreloadTypes.LAZY)
+
+    dataset = Hdf5File(
+        filename=options.hdf5_input_filename,
         io=IO,
         labels='*',
-        max_loaded_files=1,
         preload=PreloadTypes.LAZY)
 
     with open(options.dataset_config) as config_file:
@@ -277,10 +311,10 @@ def main(options):
 
     writer_params = {
         'output_dir': options.hdf5_output_dir,
-        'n_items_per_file': 16384,
-        'save_fn': save_point_patches,
+        'n_items_per_file': 10240,
+        'save_fn': save_fn,
         'verbose': options.verbose,
-        'prefix': 'fix_train_'
+        'prefix': 'fix_' + os.path.splitext(os.path.basename(options.hdf5_input_filename))[0] + '_',
     }
     with BufferedHDF5Writer(**writer_params) as writer, \
             Pool(processes=options.n_jobs) as pool:
@@ -301,8 +335,8 @@ def parse_args():
                         type=int, default=1, help='CPU jobs to use in parallel [default: 1].')
     parser.add_argument('-a', '--abc-dir', dest='abc_dir',
                         required=True, help='directory with ABC dataset source files.')
-    parser.add_argument('-i', '--input-dir', dest='hdf5_input_dir',
-                        required=True, help='directory of HDF5 input files.')
+    parser.add_argument('-i', '--input-filename', dest='hdf5_input_filename',
+                        required=True, help='HDF5 input filename.')
     parser.add_argument('-o', '--output-dir', dest='hdf5_output_dir',
                         required=True, help='directory with HDF5 output files.')
     parser.add_argument('-c', '--chunk', type=int, dest='chunk_id', action='append',
