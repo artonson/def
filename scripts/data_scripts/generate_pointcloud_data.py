@@ -145,7 +145,11 @@ def get_annotated_patches(item, config):
                 eprint_t(str(e))
                 continue
 
-            has_smell_sharpness_discontinuities = smell_sharpness_discontinuities.run(noisy_points, distances)
+            try:
+                has_smell_sharpness_discontinuities = smell_sharpness_discontinuities.run(noisy_points, distances)
+            except Exception as e:
+                eprint_t(str(e))
+                continue
 
             num_sharp_curves = len([curve for curve in nbhood_features['curves'] if curve['sharp']])
             num_surfaces = len(nbhood_features['surfaces'])
