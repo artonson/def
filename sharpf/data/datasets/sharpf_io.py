@@ -1,3 +1,4 @@
+from copy import deepcopy
 from functools import partial
 
 import h5py
@@ -78,16 +79,6 @@ DepthMapIO = io.HDF5IO({
     compression='lzf')
 
 
-# example_data_config = {
-#     'fields': [
-#         {
-#             'name': 'image',
-#             'data_type': 'float64',
-#             'variable_len': False,
-#         }
-#     ]
-# }
-
 def save_depth_maps(patches, filename):
     # turn a list of dicts into a dict of torch tensors:
     # default_collate([{'a': 'str1', 'x': np.random.normal()}, {'a': 'str2', 'x': np.random.normal()}])
@@ -110,3 +101,32 @@ def save_depth_maps(patches, filename):
                           if key.startswith('has_smell')]
         for key in has_smell_keys:
             DepthMapIO.write(f, key, patches[key].numpy().astype(np.bool))
+
+
+FusedPointCloudIO = deepcopy(PointCloudIO)
+FusedPointCloudIO.datasets.update({
+    'point_to_patch_idx': io.Int8('point_to_patch_idx'),
+})
+
+
+def save_fused_point_patches(patches, filename):
+    # turn a list of dicts into a dict of torch tensors:
+    # default_collate([{'a': 'str1', 'x': np.random.normal()}, {'a': 'str2', 'x': np.random.normal()}])
+    # Out[26]: {'a': ['str1', 'str2'], 'x': tensor([0.4252, 0.1414], dtype=torch.float64)}
+    collate_fn = partial(io.collate_mapping_with_io, io=FusedPointCloudIO)
+    patches = collate_fn(patches)
+
+    with h5py.File(filename, 'w') as f:
+        for key in ['points', 'normals', 'distances', 'directions']:
+            FusedPointCloudIO.write(f, key, patches[key].numpy())
+        FusedPointCloudIO.write(f, 'item_id', patches['item_id'])
+        FusedPointCloudIO.write(f, 'orig_vert_indices', patches['orig_vert_indices'])
+        FusedPointCloudIO.write(f, 'orig_face_indexes', patches['orig_face_indexes'])
+        FusedPointCloudIO.write(f, 'has_sharp', patches['has_sharp'].numpy().astype(np.bool))
+        FusedPointCloudIO.write(f, 'num_sharp_curves', patches['num_sharp_curves'].numpy())
+        FusedPointCloudIO.write(f, 'num_surfaces', patches['num_surfaces'].numpy())
+        FusedPointCloudIO.write(f, 'point_to_patch_idx', patches['point_to_patch_idx'].numpy())
+        has_smell_keys = [key for key in FusedPointCloudIO.datasets.keys()
+                          if key.startswith('has_smell')]
+        for key in has_smell_keys:
+            FusedPointCloudIO.write(f, key, patches[key].numpy().astype(np.bool))
