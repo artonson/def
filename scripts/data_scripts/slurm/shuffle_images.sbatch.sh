@@ -1,8 +1,8 @@
 #!/bin/bash
 
 #SBATCH --job-name=sharpf-shuffle
-#SBATCH --output=logs/shuffle_images_%A.out
-#SBATCH --error=logs/shuffle_images_%A.err
+#SBATCH --output=/trinity/home/a.artemov/tmp/shuffle_images/%A.out
+#SBATCH --error=/trinity/home/a.artemov/tmp/shuffle_images/%A.err
 #SBATCH --time=24:00:00
 #SBATCH --partition=htc
 #SBATCH --cpus-per-task=40
@@ -99,16 +99,16 @@ singularity exec \
         --random-shuffle \\
         --random-seed ${RANDOM_SEED} \\
         --max-loaded-files ${MAX_LOADED_FILES} \\
-         ${VERBOSE_ARG} \\
-       -fk has_smell_coarse_surfaces_by_num_faces \\
-       -fk has_smell_coarse_surfaces_by_angles \\
-       -fk has_smell_sharpness_discontinuities \\
-       -fk has_smell_raycasting_background \\
-       -fk has_smell_depth_discontinuity \\
-       -fk has_smell_mesh_self_intersections \\
-       "
+        ${VERBOSE_ARG} \\
+        -io images \\
+        -fk has_smell_coarse_surfaces_by_num_faces \\
+        -fk has_smell_coarse_surfaces_by_angles \\
+        -fk has_smell_sharpness_discontinuities \\
+        -fk has_smell_raycasting_background \\
+        -fk has_smell_depth_discontinuity \\
+        -fk has_smell_mesh_self_intersections \\
+        "
 
 #      -fk has_smell_mismatching_surface_annotation
 #      -fk has_smell_bad_face_sampling
 #      -fk has_smell_deviating_resolution
-

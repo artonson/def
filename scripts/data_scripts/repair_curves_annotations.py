@@ -2,14 +2,12 @@
 
 import argparse
 from collections.abc import Mapping
-from functools import partial
 import json
 from multiprocessing import Pool
 import os
 import sys
 from typing import List
 
-import h5py
 import numpy as np
 import yaml
 
@@ -26,8 +24,7 @@ from sharpf.utils.abc_utils.abc.feature_utils import compute_features_nbhood, re
 from sharpf.utils.py_utils.config import load_func_from_config
 from sharpf.utils.abc_utils.mesh.io import trimesh_load
 from sharpf.utils.abc_utils.mesh.indexing import reindex_zerobased
-from sharpf.utils.abc_utils.hdf5.dataset import Hdf5File, LotsOfHdf5Files, PreloadTypes
-import sharpf.utils.abc_utils.hdf5.io_struct as io
+from sharpf.utils.abc_utils.hdf5.dataset import Hdf5File, PreloadTypes
 import sharpf.data.data_smells as smells
 from sharpf.data.datasets.sharpf_io import (
     save_point_patches as save_fn,

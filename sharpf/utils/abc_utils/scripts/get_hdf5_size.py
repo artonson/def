@@ -14,7 +14,7 @@ __dir__ = os.path.normpath(
 )
 sys.path[1:1] = [__dir__]
 
-from sharpf.data.datasets.sharpf_io import PointCloudIO, DepthMapIO as IO
+import sharpf.data.datasets.sharpf_io as io
 from sharpf.utils.abc_utils.hdf5.dataset import Hdf5File, LotsOfHdf5Files, PreloadTypes
 from sharpf.utils.abc_utils.hdf5.io_struct import collate_mapping_with_io, select_items_by_predicates
 
@@ -22,6 +22,8 @@ from sharpf.utils.abc_utils.hdf5.io_struct import collate_mapping_with_io, selec
 def main(options):
     labels = ['has_sharp'] + options.true_keys + options.false_keys
     # labels = '*'
+
+    IO = io.IO_SPECS[options.io]
 
     if None is not options.h5_input:
         dataset = Hdf5File(options.h5_input, IO, labels=labels, preload=PreloadTypes.LAZY)
@@ -73,6 +75,8 @@ def parse_options():
                         help='specify keys that must be TRUE to put into resulting HDF5 files (can me multiple).')
     parser.add_argument('-fk', '--false-key', dest='false_keys', action='append', default=[], 
                         help='specify keys that must be FALSE to put into resulting HDF5 files (can me multiple).')
+
+    parser.add_argument('-io', dest='io_spec', choices=io.IO_SPECS.keys(), help='i/o spec to use.')
     args = parser.parse_args()
     return args
 

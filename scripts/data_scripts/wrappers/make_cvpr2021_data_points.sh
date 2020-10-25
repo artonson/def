@@ -11,7 +11,7 @@ export DATATYPE=points
 # codebase configuration
 export PROJECT_ROOT=/trinity/home/a.artemov/repos/sharp_features
 export GENERATE_DATA_SCRIPT=${PROJECT_ROOT}/scripts/data_scripts/slurm/make_points.sbatch.sh
-export SHUFFLE_SCRIPT=${PROJECT_ROOT}/scripts/data_scripts/slurm/make_canonical_datasets.sbatch.sh
+export SHUFFLE_SCRIPT=${PROJECT_ROOT}/scripts/data_scripts/slurm/shuffle_points.sbatch.sh
 
 # job configuration
 export CONFIG_LIST="high_res.json"

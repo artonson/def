@@ -6,7 +6,6 @@ from functools import partial
 import os
 import sys
 
-import torch
 from torch.utils.data import DataLoader
 
 __dir__ = os.path.normpath(
@@ -16,14 +15,7 @@ __dir__ = os.path.normpath(
 sys.path[1:1] = [__dir__]
 
 from sharpf.utils.abc_utils.hdf5.dataset import LotsOfHdf5Files, PreloadTypes
-# from sharpf.data.datasets.sharpf_io import (
-#     save_point_patches as save_fn,
-#     PointCloudIO as IO
-# )
-from sharpf.data.datasets.sharpf_io import (
-    save_depth_maps as save_fn,
-    DepthMapIO as IO
-)
+import sharpf.data.datasets.sharpf_io as io
 from sharpf.utils.abc_utils.hdf5.io_struct import collate_mapping_with_io, select_items_by_predicates
 
 
@@ -72,6 +64,8 @@ class BufferedHDF5Writer(object):
 
 
 def main(options):
+    IO, save_fn = io.IO_SPECS[options.io], io.SAVE_FNS[options.io]
+
     batch_size = min(128, options.num_items_per_file)
     loader = DataLoader(
         LotsOfHdf5Files(
@@ -113,6 +107,7 @@ def parse_options():
 
     parser.add_argument('-i', '--input-dir', dest='hdf5_input_dir', help='directory of HDF5 input files.')
     parser.add_argument('-o', '--output-dir', dest='hdf5_output_dir', help='directory with HDF5 output files.')
+    parser.add_argument('-io', dest='io_spec', choices=io.IO_SPECS.keys(), help='i/o spec to use.')
 
     parser.add_argument('-n', '--num-items-per-file', dest='num_items_per_file', type=int, default=1000,
                         help='how many items to put into each output HDF5 file.')

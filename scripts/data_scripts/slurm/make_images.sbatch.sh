@@ -1,8 +1,8 @@
 #!/bin/bash
 
-#SBATCH --job-name=sharpf-gen-images
-#SBATCH --output=logs/sharpf-images_%A_%a.out
-#SBATCH --error=logs/sharpf-images_%A_%a.err
+#SBATCH --job-name=sharpf-images
+#SBATCH --output=/trinity/home/a.artemov/tmp/sharpf_images/%A_%a.out
+#SBATCH --error=/trinity/home/a.artemov/tmp/sharpf_images/%A_%a.err
 #SBATCH --array=1-100
 #SBATCH --time=24:00:00
 #SBATCH --partition=htc
@@ -14,7 +14,7 @@
 # module load apps/singularity-3.2.0
 
 __usage="
-Usage: $0 -c chunk -o output_dir -d data_dir -l logs_dir -f config_file [-v]
+Usage: $0 -c chunk -o output_dir -d data_dir -l logs_dir -f config_file -s slice_size [-v]
 
   -c:   zero-based chunk identifier
   -o: 	output directory where images will be written
@@ -22,12 +22,14 @@ Usage: $0 -c chunk -o output_dir -d data_dir -l logs_dir -f config_file [-v]
   -l:   server logs dir
   -f:   dataset config file (from scripts/data_scripts/configs/pointcloud_datasets dir
   -v:   if set, verbose mode is activated (more output from the script generally)
+  -s:   if set, determines the number of consecutive items to be processed by a job [default: 100]
 
 Example:
 sbatch make_images.sbatch.sh
   -d /gpfs/gpfs0/3ddl/datasets/abc \\
   -o /gpfs/gpfs0/3ddl/datasets/abc/eccv  \\
   -l /home/artonson/tmp/logs  \\
+  -c 22
   -v
 "
 
@@ -35,7 +37,8 @@ usage() { echo "$__usage" >&2; }
 
 # Get all the required options and set the necessary variables
 VERBOSE=false
-while getopts "c:o:d:l:f:v" opt
+SLICE_SIZE=100
+while getopts "c:o:d:l:f:vs:" opt
 do
     case ${opt} in
         c) CHUNK=$OPTARG;;
@@ -44,6 +47,7 @@ do
         l) LOGS_PATH_HOST=$OPTARG;;
         f) DATASET_CONFIG=$OPTARG;;
         v) VERBOSE=true;;
+        s) SLICE_SIZE=$OPTARG;;
         *) usage; exit 1 ;;
     esac
 done
@@ -104,16 +108,15 @@ MAKE_DATA_SCRIPT="${CODE_PATH_CONTAINER}/scripts/data_scripts/generate_depthmap_
 PC_CONFIGS_PATH_CONTAINER="${CODE_PATH_CONTAINER}/scripts/data_scripts/configs/depthmap_datasets"
 DATASET_PATH="${PC_CONFIGS_PATH_CONTAINER}/${DATASET_CONFIG}"
 
-CHUNK_SIZE=10
-SLICE_START=$(( ${CHUNK_SIZE} * ${SLURM_ARRAY_TASK_ID} ))
-SLICE_END=$(( ${CHUNK_SIZE} * (${SLURM_ARRAY_TASK_ID} + 1) ))
+SLICE_START=$(( SLICE_SIZE * SLURM_ARRAY_TASK_ID ))
+SLICE_END=$(( SLICE_SIZE * (SLURM_ARRAY_TASK_ID + 1) ))
 echo "SLURM_ARRAY_TASK_ID=${SLURM_ARRAY_TASK_ID} SLICE_START=${SLICE_START} SLICE_END=${SLICE_END}"
 
 singularity exec \
   --bind ${CODE_PATH_HOST}:${CODE_PATH_CONTAINER} \
-  --bind ${DATA_PATH_HOST}:${DATA_PATH_CONTAINER} \
-  --bind ${LOGS_PATH_HOST}:${LOGS_PATH_CONTAINER} \
-  --bind ${OUTPUT_PATH_HOST}:${OUTPUT_PATH_CONTAINER} \
+  --bind "${DATA_PATH_HOST}":${DATA_PATH_CONTAINER} \
+  --bind "${LOGS_PATH_HOST}":${LOGS_PATH_CONTAINER} \
+  --bind "${OUTPUT_PATH_HOST}":${OUTPUT_PATH_CONTAINER} \
   --bind "${PWD}":/run/user \
   "${SIMAGE_FILENAME}" \
       bash -c 'export OMP_NUM_THREADS='"${OMP_NUM_THREADS}; \\
@@ -127,4 +130,3 @@ singularity exec \
          ${VERBOSE_ARG} \\
            1> >(tee ${LOGS_PATH_CONTAINER}/${CHUNK}_${SLURM_ARRAY_TASK_ID}.out) \\
            2> >(tee ${LOGS_PATH_CONTAINER}/${CHUNK}_${SLURM_ARRAY_TASK_ID}.err)"
-
