@@ -39,14 +39,15 @@ class PoissonDiskSampler(SamplerFunc):
     """Sample using the Poisson-Disk-Sampling of a mesh
     based on "Parallel Poisson Disk Sampling with Spectrum
     Analysis on Surface". (Implementation by fwilliams) """
+
     # https://github.com/marmakoide/mesh-blue-noise-sampling/blob/master/mesh-sampling.py
-    def __init__(self, n_points, resolution_3d, crop_center):
-        self.crop_center = crop_center
+    def __init__(self, n_points, resolution_3d, make_n_points='crop_center'):
+        self.make_n_points = make_n_points
         super().__init__(n_points, resolution_3d)
 
     @classmethod
     def from_config(cls, config):
-        return cls(config['n_points'], config['resolution_3d'], config['crop_center'])
+        return cls(config['n_points'], config['resolution_3d'], config['make_n_points'])
 
     def _make_dense_mesh(self, mesh, extra_points_factor=10, point_split_factor=4):
         # Intuition: take 10x the number of needed n_points,
@@ -92,11 +93,16 @@ class PoissonDiskSampler(SamplerFunc):
             required_points, radius=self.resolution_3d, use_geodesic_distance=True)
 
         # ensure that we are returning exactly n_points
-        if self.crop_center:
+        if self.make_n_points == 'crop_center':
             centroid = np.mean(points, axis=1, keepdims=True) if centroid is None else centroid
             return_idx = np.argsort(np.linalg.norm(points - centroid, axis=1))[:self.n_points]
-        else:
+
+        elif self.make_n_points == 'sample':
             return_idx = np.random.choice(np.arange(len(points)), size=self.n_points, replace=False)
+
+        else:
+            assert None is self.make_n_points
+            return_idx = np.arange(len(points))
 
         points, normals = points[return_idx], normals[return_idx]
         return points, normals
