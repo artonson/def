@@ -7,6 +7,7 @@ import os
 import sys
 import traceback
 
+import igl
 from joblib import Parallel, delayed
 import numpy as np
 import yaml
@@ -21,7 +22,7 @@ sys.path[1:1] = [__dir__]
 from sharpf.data import DataGenerationException
 from sharpf.utils.abc_utils.abc.abc_data import ABCModality, ABCChunk, ABC_7Z_FILEMASK
 from sharpf.data.annotation import ANNOTATOR_BY_TYPE
-from sharpf.data.datasets.sharpf_io import save_point_patches
+import sharpf.data.datasets.sharpf_io as io
 from sharpf.data.mesh_nbhoods import NBHOOD_BY_TYPE
 from sharpf.data.noisers import NOISE_BY_TYPE
 from sharpf.data.point_samplers import SAMPLER_BY_TYPE
@@ -59,12 +60,20 @@ LOW_RES = 0.125
 XLOW_RES = 0.25
 
 
-def compute_patches(patch_idx, mesh, features,
-                    nbhood_extractor, sampler, noiser,
-                    smell_coarse_surfaces_by_num_edges,
-                    smell_coarse_surfaces_by_angles,
-                    smell_deviating_resolution,
-                    smell_bad_face_sampling):
+def compute_patches(
+        patch_idx,
+        whole_model_points,
+        mesh,
+        features,
+        nbhood_extractor,
+        sampler,
+        noiser,
+        annotator,
+        smell_coarse_surfaces_by_num_edges,
+        smell_coarse_surfaces_by_angles,
+        smell_deviating_resolution,
+        smell_bad_face_sampling,
+        smell_sharpness_discontinuities):
 
     nbhood_extractor.current_patch_idx = patch_idx
 
@@ -76,7 +85,6 @@ def compute_patches(patch_idx, mesh, features,
     except DataGenerationException as e:
         eprint_t(str(e))
         return None
-    centroid = nbhood_extractor.centroid
 
     has_smell_coarse_surfaces_by_num_edges = smell_coarse_surfaces_by_num_edges.run(mesh, mesh_face_indexes, features)
     has_smell_coarse_surfaces_by_angles = smell_coarse_surfaces_by_angles.run(mesh, mesh_face_indexes, features)
@@ -88,71 +96,49 @@ def compute_patches(patch_idx, mesh, features,
     # remove vertices lying on the boundary (sharp edges found in 1 face only)
     nbhood_features = remove_boundary_features(nbhood, nbhood_features, how='edges')
 
-    # sample the neighbourhood to form a point patch
-    try:
-        points, normals = sampler.sample(nbhood, centroid=nbhood_extractor.centroid)
-    except DataGenerationException as e:
-        eprint_t(str(e))
-        return None
+    distance_sq, face_indexes, _ = igl.point_mesh_squared_distance(
+        whole_model_points,
+        nbhood.vertices,
+        nbhood.faces)
+    indexes = np.where(distance_sq < sampler.resolution_3d / 100)[0]
+    points, normals = whole_model_points[indexes], nbhood.face_normals[face_indexes[indexes]]
 
     has_smell_deviating_resolution = smell_deviating_resolution.run(points)
     has_smell_bad_face_sampling = smell_bad_face_sampling.run(nbhood, points)
 
     # create a noisy sample
     noisy_points = noiser.make_noise(points, normals)
-    num_sharp_curves = len([curve for curve in nbhood_features['curves'] if curve['sharp']])
-    num_surfaces = len(nbhood_features['surfaces'])
-    patch = {
-        'points': np.array(noisy_points).astype(np.float64),
-        'normals': np.array(normals).astype(np.float64),
-        # 'distances': np.array(distances).astype(np.float64),
-        # 'directions': np.array(directions).astype(np.float64),
-        'orig_vert_indices': np.array(mesh_vertex_indexes).astype(np.int32),
-        'orig_face_indexes': np.array(mesh_face_indexes).astype(np.int32),
-        # 'has_sharp': has_sharp,
-        'num_sharp_curves': num_sharp_curves,
-        'num_surfaces': num_surfaces,
-        'has_smell_coarse_surfaces_by_num_faces': has_smell_coarse_surfaces_by_num_edges,
-        'has_smell_coarse_surfaces_by_angles': has_smell_coarse_surfaces_by_angles,
-        'has_smell_deviating_resolution': has_smell_deviating_resolution,
-        # 'has_smell_sharpness_discontinuities': has_smell_sharpness_discontinuities,
-        'has_smell_bad_face_sampling': has_smell_bad_face_sampling,
-        # 'has_smell_mismatching_surface_annotation': has_smell_mismatching_surface_annotation,
-        'nbhood': nbhood,
-        'nbhood_features': nbhood_features,
-        'centroid': centroid,
-        'nbhood_radius': nbhood_extractor.radius_base,
-    }
-    return patch
-
-
-def compute_annotation_nonlocal(patch, whole_model_points, config):
-    centroid = patch['centroid']
-    nbhood = patch['nbhood']
-    nbhood_features = patch['nbhood_features']
-    nbhood_radius = patch['nbhood_radius']
-
-    annotator = load_func_from_config(ANNOTATOR_BY_TYPE, config['annotation'])
-    smell_sharpness_discontinuities = smells.SmellSharpnessDiscontinuities.from_config(
-        config['smell_sharpness_discontinuities'])
-
-    whole_model_points_norm_sq = np.linalg.norm(whole_model_points, axis=1) ** 2
-    distance_to_centroid = np.sqrt(
-        whole_model_points_norm_sq
-        - 2 * np.dot(whole_model_points, centroid)
-        + np.linalg.norm(centroid) ** 2
-    )
-    indexes = np.where(distance_to_centroid < nbhood_radius)[0]
-    noisy_points = whole_model_points[indexes]
 
     try:
         distances, directions, has_sharp = annotator.annotate(nbhood, nbhood_features, noisy_points)
     except DataGenerationException as e:
         eprint_t(str(e))
-        return [None] * 5
+        return None
+
     has_smell_sharpness_discontinuities = smell_sharpness_discontinuities.run(noisy_points, distances)
 
-    return distances, directions, has_sharp, indexes, has_smell_sharpness_discontinuities
+    num_sharp_curves = len([curve for curve in nbhood_features['curves'] if curve['sharp']])
+    num_surfaces = len(nbhood_features['surfaces'])
+    patch = {
+        'points': np.array(noisy_points).astype(np.float64),
+        'normals': np.array(normals).astype(np.float64),
+        'distances': np.array(distances).astype(np.float64),
+        'directions': np.array(directions).astype(np.float64),
+        'orig_vert_indices': np.array(mesh_vertex_indexes).astype(np.int32),
+        'orig_face_indexes': np.array(mesh_face_indexes).astype(np.int32),
+        'has_sharp': has_sharp,
+        'num_sharp_curves': num_sharp_curves,
+        'num_surfaces': num_surfaces,
+        'has_smell_coarse_surfaces_by_num_faces': has_smell_coarse_surfaces_by_num_edges,
+        'has_smell_coarse_surfaces_by_angles': has_smell_coarse_surfaces_by_angles,
+        'has_smell_deviating_resolution': has_smell_deviating_resolution,
+        'has_smell_sharpness_discontinuities': has_smell_sharpness_discontinuities,
+        'has_smell_bad_face_sampling': has_smell_bad_face_sampling,
+        #         'has_smell_mismatching_surface_annotation': has_smell_mismatching_surface_annotation,
+        # 'nbhood': nbhood,
+        'indexes': indexes
+    }
+    return patch
 
 
 def get_annotated_patches(data, config, n_jobs):
@@ -164,26 +150,35 @@ def get_annotated_patches(data, config, n_jobs):
     nbhood_extractor = load_func_from_config(NBHOOD_BY_TYPE, config['neighbourhood'])
     sampler = load_func_from_config(SAMPLER_BY_TYPE, config['sampling'])
     noiser = load_func_from_config(NOISE_BY_TYPE, config['noise'])
+    annotator = load_func_from_config(ANNOTATOR_BY_TYPE, config['annotation'])
 
-    smell_coarse_surfaces_by_num_edges = smells.SmellCoarseSurfacesByNumEdges.from_config(config['smell_coarse_surfaces_by_num_edges'])
-    smell_coarse_surfaces_by_angles = smells.SmellCoarseSurfacesByAngles.from_config(config['smell_coarse_surfaces_by_angles'])
-    smell_deviating_resolution = smells.SmellDeviatingResolution.from_config(config['smell_deviating_resolution'])
+    smell_coarse_surfaces_by_num_edges = smells.SmellCoarseSurfacesByNumEdges.from_config(
+        config['smell_coarse_surfaces_by_num_edges'])
+    smell_coarse_surfaces_by_angles = smells.SmellCoarseSurfacesByAngles.from_config(
+        config['smell_coarse_surfaces_by_angles'])
+    smell_deviating_resolution = smells.SmellDeviatingResolution.from_config(
+        config['smell_deviating_resolution'])
     smell_bad_face_sampling = smells.SmellBadFaceSampling.from_config(config['smell_bad_face_sampling'])
+    smell_sharpness_discontinuities = smells.SmellSharpnessDiscontinuities.from_config(
+        config['smell_sharpness_discontinuities'])
 
     mesh = scale_mesh(data['mesh'], data['features'],
                       shape_fabrication_extent, base_resolution_3d,
                       short_curve_quantile=short_curve_quantile,
                       n_points_per_short_curve=base_n_points_per_short_curve)
 
+    config_n_points = config['sampling']['n_points']
+    n_points = np.ceil(mesh.area / (np.pi * sampler.resolution_3d ** 2 / 4)).astype(int)
+    sampler.n_points = n_points
+    whole_model_points, whole_model_normals = sampler.sample(mesh)
+
     full_model_resolution_discount = 4.0
-    nbhood_extractor.radius_base = np.sqrt(
-        sampler.n_points) * 0.5 * sampler.resolution_3d / full_model_resolution_discount
-
+    nbhood_extractor.radius_base = \
+        np.sqrt(config_n_points) * 0.5 * sampler.resolution_3d / full_model_resolution_discount
     nbhood_extractor.index(mesh)
-
     full_model_resolution_discount = 1.0
-    nbhood_extractor.radius_base = np.sqrt(
-        sampler.n_points) * 0.5 * sampler.resolution_3d / full_model_resolution_discount
+    nbhood_extractor.radius_base = \
+        np.sqrt(config_n_points) * 0.5 * sampler.resolution_3d / full_model_resolution_discount
 
     features = data['features']
     has_smell_mismatching_surface_annotation = any([
@@ -193,51 +188,44 @@ def get_annotated_patches(data, config, n_jobs):
 
     parallel = Parallel(n_jobs=n_jobs, backend='multiprocessing', verbose=100)
     delayed_iterable = (delayed(compute_patches)(
-        patch_idx, mesh, features,
-        nbhood_extractor, sampler, noiser,
+        patch_idx,
+        whole_model_points,
+        mesh,
+        features,
+        nbhood_extractor,
+        sampler,
+        noiser,
+        annotator,
         smell_coarse_surfaces_by_num_edges,
         smell_coarse_surfaces_by_angles,
         smell_deviating_resolution,
-        smell_bad_face_sampling)
+        smell_bad_face_sampling,
+        smell_sharpness_discontinuities)
         for patch_idx in range(nbhood_extractor.n_patches_per_mesh))
     point_patches = parallel(delayed_iterable)
 
+    whole_model_distances = np.ones(len(whole_model_points)) * annotator.distance_upper_bound
+    whole_model_directions = np.zeros((len(whole_model_points), 3))
     for patch in point_patches:
-        patch.update({
-            'item_id': data['item_id'],
-            'has_smell_mismatching_surface_annotation': has_smell_mismatching_surface_annotation,
-        })
-
-    whole_model_points = np.concatenate([
-        patch['points']
-        for patch in point_patches])
-
-    parallel = Parallel(n_jobs=n_jobs, backend='multiprocessing', verbose=100)
-    delayed_iterable = (delayed(compute_annotation_nonlocal)(
-        patch, whole_model_points, config) for patch in point_patches)
-    result = parallel(delayed_iterable)
-
-    whole_model_distances = np.ones(len(whole_model_points)) * np.inf
-    whole_model_directions = np.ones((len(whole_model_points), 3)) * np.inf
-    for i, (distances, directions, has_sharp, indexes, has_smell_sharpness_discontinuities) in enumerate(result):
+        distances = patch['distances']
+        directions = patch['directions']
+        indexes = patch['indexes']
         assign_mask = whole_model_distances[indexes] > distances
         whole_model_distances[indexes[assign_mask]] = distances[assign_mask]
         whole_model_directions[indexes[assign_mask]] = directions[assign_mask]
 
     whole_patches = []
-    for i, (patch, relabeled) in enumerate(zip(point_patches, result)):
-        distances, directions, has_sharp, indexes, has_smell_sharpness_discontinuities = relabeled
-
+    for patch in point_patches:
         whole_patch = deepcopy(patch)
-        i1, i2 = i * sampler.n_points, (i + 1) * sampler.n_points
-        whole_patch['distances'] = whole_model_distances[i1:i2]
-        whole_patch['directions'] = whole_model_directions[i1:i2, :]
-        nbhood_features = patch['nbhood_features']
-        whole_patch['has_sharp'] = any(curve['sharp'] for curve in nbhood_features['curves'])
-        whole_patch['num_sharp_curves'] = len([curve for curve in nbhood_features['curves'] if curve['sharp']])
-        whole_patch['num_surfaces'] = len(nbhood_features['surfaces'])
+        whole_patch['points'] = whole_patch['points'].ravel()
+        whole_patch['normals'] = whole_patch['normals'].ravel()
+        whole_patch['distances'] = whole_model_distances[patch['indexes']].ravel()
+        whole_patch['directions'] = whole_model_directions[patch['indexes'], :].ravel()
         whole_patch['has_smell_mismatching_surface_annotation'] = has_smell_mismatching_surface_annotation
-        whole_patch['has_smell_sharpness_discontinuities'] = has_smell_sharpness_discontinuities
+        whole_patch['item_id'] = data['item_id']
+        # whole_patch.pop('nbhood')
+        whole_patch.pop('indexes')
+        whole_patch['indexes_in_whole'] = patch['indexes']
         whole_patches.append(whole_patch)
 
     return whole_patches
@@ -264,10 +252,12 @@ def make_patches(options):
     with open(options.dataset_config) as config_file:
         config = json.load(config_file)
 
-    item_idx = options.item_idx
-
     with ABCChunk([obj_filename, feat_filename]) as data_holder:
-        item = data_holder[item_idx]
+        if None is not options.item_idx:
+            item = data_holder[options.item_idx]
+        else:
+            assert None is not options.item_id
+            item = data_holder.get(options.item_id)
 
         mesh, _, _ = trimesh_load(item.obj)
         features = yaml.load(item.feat, Loader=yaml.Loader)
@@ -296,7 +286,8 @@ def make_patches(options):
                     chunk=options.chunk.zfill(4),
                     item_id=data['item_id']))
             try:
-                save_point_patches(patches, output_filename)
+                save_fn = io.SAVE_FNS['whole_points']
+                save_fn(patches, output_filename)
             except Exception as e:
                 eprint_t('Error writing patches to disk at {output_file}: {what}'.format(
                     output_file=output_filename, what=e))
@@ -318,8 +309,11 @@ def parse_args():
                         required=True, help='output dir.')
     parser.add_argument('-g', '--dataset-config', dest='dataset_config',
                         required=True, help='dataset configuration file.')
-    parser.add_argument('-n', dest='item_idx', type=int,
-                        required=True, help='index of data to process')
+
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument('-id', '--item-id', dest='item_id', help='data id to process.')
+    group.add_argument('-n', '--item-index', dest='item_idx', type=int, help='index of data to process')
+
     parser.add_argument('--verbose', dest='verbose', action='store_true', default=False,
                         required=False, help='be verbose')
     return parser.parse_args()
