@@ -64,7 +64,7 @@ class BufferedHDF5Writer(object):
 
 
 def main(options):
-    IO, save_fn = io.IO_SPECS[options.io], io.SAVE_FNS[options.io]
+    IO, save_fn = io.IO_SPECS[options.io_spec], io.SAVE_FNS[options.io_spec]
 
     batch_size = min(128, options.num_items_per_file)
     loader = DataLoader(

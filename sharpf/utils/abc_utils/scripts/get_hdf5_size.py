@@ -23,7 +23,7 @@ def main(options):
     labels = ['has_sharp'] + options.true_keys + options.false_keys
     # labels = '*'
 
-    IO = io.IO_SPECS[options.io]
+    IO = io.IO_SPECS[options.io_spec]
 
     if None is not options.h5_input:
         dataset = Hdf5File(options.h5_input, IO, labels=labels, preload=PreloadTypes.LAZY)
