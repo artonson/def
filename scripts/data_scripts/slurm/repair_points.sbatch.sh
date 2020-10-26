@@ -1,8 +1,8 @@
 #!/bin/bash
 
-#SBATCH --job-name=sharpf-repair-array
-#SBATCH --output=logs/repair_%A_%a.out
-#SBATCH --error=logs/repair_%A_%a.err
+#SBATCH --job-name=sharpf-repair
+#SBATCH --output=/trinity/home/a.artemov/tmp/sharpf_repair/%A_%a.out
+#SBATCH --error=/trinity/home/a.artemov/tmp/sharpf_repair/%A_%a.err
 #SBATCH --array=1-1000
 #SBATCH --time=12:00:00
 #SBATCH --partition=htc
@@ -78,14 +78,14 @@ if [[ ! ${INPUT_FILELIST} ]]; then
     echo "input_filelist is not set" && usage && exit 1
 fi
 
-TASK_ID=$(( ${SLURM_ARRAY_TASK_ID} + ${ITEM_OFFSET} ))
+TASK_ID=$(( SLURM_ARRAY_TASK_ID + ITEM_OFFSET ))
 
 if [[ $( wc -l <"${INPUT_FILELIST}" ) -lt ${TASK_ID} ]]; then
     echo "SLURM task ID exceeds number of files to process, exiting" && exit 1
 fi
 
-INPUT_FILE_HOST=$( cat "${INPUT_FILELIST}" | head -n "${TASK_ID}" | tail -1 )
-INPUT_PATH_HOST=$( dirname ${INPUT_FILE_HOST})
+INPUT_FILE_HOST=$( head -n "${TASK_ID}" <"${INPUT_FILELIST}" | tail -1 )
+INPUT_PATH_HOST=$( dirname "${INPUT_FILE_HOST}")
 
 
 ###########################################
@@ -132,14 +132,14 @@ SCRIPT="${CODE_PATH_CONTAINER}/scripts/data_scripts/repair_curves_annotations.py
 CONFIGS_PATH_CONTAINER="${CODE_PATH_CONTAINER}/scripts/data_scripts/configs/pointcloud_datasets"
 CONFIG_PATH="${CONFIGS_PATH_CONTAINER}/${DATASET_CONFIG}"
 
-INPUT_FILENAME=$( basename ${INPUT_FILE_HOST} )
+INPUT_FILENAME=$( basename "${INPUT_FILE_HOST}" )
 
 singularity exec \
   --bind ${CODE_PATH_HOST}:${CODE_PATH_CONTAINER} \
-  --bind ${ABC_PATH_HOST}:${ABC_PATH_CONTAINER} \
-  --bind ${LOGS_PATH_HOST}:${LOGS_PATH_CONTAINER} \
-  --bind ${INPUT_PATH_HOST}:${INPUT_PATH_CONTAINER} \
-  --bind ${OUTPUT_PATH_HOST}:${OUTPUT_PATH_CONTAINER} \
+  --bind "${ABC_PATH_HOST}":${ABC_PATH_CONTAINER} \
+  --bind "${LOGS_PATH_HOST}":${LOGS_PATH_CONTAINER} \
+  --bind "${INPUT_PATH_HOST}":${INPUT_PATH_CONTAINER} \
+  --bind "${OUTPUT_PATH_HOST}":${OUTPUT_PATH_CONTAINER} \
   --bind "${PWD}":/run/user \
   "${SIMAGE_FILENAME}" \
       bash -c "python3 ${SCRIPT} \\
@@ -149,7 +149,7 @@ singularity exec \
         --output-dir ${OUTPUT_PATH_CONTAINER} \\
         --dataset-config ${CONFIG_PATH} \\
         --jobs ${SLURM_CPUS_PER_TASK} \\
-        --verbose
+        ${VERBOSE_ARG}
            1> >(tee ${LOGS_PATH_CONTAINER}/${INPUT_FILENAME}.out) \\
            2> >(tee ${LOGS_PATH_CONTAINER}/${INPUT_FILENAME}.err)"
 
