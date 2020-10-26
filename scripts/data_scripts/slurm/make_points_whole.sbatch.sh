@@ -1,8 +1,8 @@
 #!/bin/bash
 
 #SBATCH --job-name=sharpf-whole-points
-#SBATCH --output=/trinity/home/a.artemov/tmp/sharpf_whole_points/%A_%a.out
-#SBATCH --error=/trinity/home/a.artemov/tmp/sharpf_whole_points/%A_%a.err
+#SBATCH --output=/trinity/home/a.artemov/tmp/sharpf_points_whole/%A_%a.out
+#SBATCH --error=/trinity/home/a.artemov/tmp/sharpf_points_whole/%A_%a.err
 #SBATCH --array=1-80
 #SBATCH --time=02:00:00
 #SBATCH --partition=htc
@@ -23,6 +23,7 @@ Usage: $0 -c chunk -o output_dir -d data_dir -l logs_dir -f config_file -i input
   -f:   dataset config file (from scripts/data_scripts/configs/pointcloud_datasets dir
   -v:   if set, verbose mode is activated (more output from the script generally)
   -i:   input filename with item ids from a given chunk to process
+  -t:   if the number of input items is larger than 1000, specify this to offset index of read item
 
 Example:
 sbatch make_points.sbatch.sh
