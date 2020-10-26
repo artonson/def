@@ -2,16 +2,17 @@
 
 set -x
 
-__usage="Usage: $0 -i input_dir"
+__usage="Usage: $0 -i input_dir -s io_spec"
 usage() { echo "$__usage" >&2; }
 
 # Get all the required options and set the necessary variables
 TOTALS=false
-while getopts "ti:" opt
+while getopts "ti:s:" opt
 do
     case ${opt} in
         i) INPUT_DIR_HOST=$OPTARG;;
         t) TOTALS=true;;
+        s) IO_SPEC=$OPTARG;;
         *) usage; exit 1 ;;
     esac
 done
@@ -19,6 +20,10 @@ done
 INPUT_DIR_CONTAINER="/input"
 if [[ ! ${INPUT_DIR_HOST} ]]; then
     echo "input_dir is not set" && usage && exit 1
+fi
+
+if [[ ! ${IO_SPEC} ]]; then
+    echo "io_spec is not set" && usage && exit 1
 fi
 
 if [[ "${TOTALS}" = true ]]; then
@@ -42,6 +47,7 @@ singularity exec \
       bash -c \
       "python3 ${H5_LEN_SCRIPT} \\
         --input-dir ${INPUT_DIR_CONTAINER} \\
+        -io ${IO_SPEC} \\
         ${TOTALS_ARG}"
 #      -fk has_smell_coarse_surfaces_by_num_faces \\
 #      -fk has_smell_coarse_surfaces_by_angles \\
