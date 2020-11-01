@@ -17,6 +17,7 @@ sys.path[1:1] = [__dir__]
 from sharpf.utils.abc_utils.hdf5.dataset import LotsOfHdf5Files, PreloadTypes
 import sharpf.data.datasets.sharpf_io as io
 from sharpf.utils.abc_utils.hdf5.io_struct import collate_mapping_with_io, select_items_by_predicates
+from sharpf.utils.py_utils.console import eprint_t
 
 
 class BufferedHDF5Writer(object):
@@ -93,12 +94,20 @@ def main(options):
     with BufferedHDF5Writer(**train_writer_params) as train_writer, \
             BufferedHDF5Writer(**val_writer_params) as val_writer:
 
+        stored_count = 0
         for batch_idx, batch in enumerate(loader):
             seen_fraction = batch_idx * batch_size / len(loader.dataset)
             writer = train_writer if seen_fraction <= options.train_fraction else val_writer
             filtered_batch = select_items_by_predicates(
                 batch, true_keys=options.true_keys, false_keys=options.false_keys)
             writer.extend(filtered_batch)
+            stored_count += len(filtered_batch)
+            if options.verbose:
+                eprint_t('Processed {0:d} items ({1:3.1f}% of data), stored {2:d} items'.format(
+                    batch_idx * batch_size, seen_fraction * 100, stored_count))
+
+            if stored_count >= options.max_items_to_store:
+                break
 
 
 def parse_options():
@@ -111,6 +120,8 @@ def parse_options():
 
     parser.add_argument('-n', '--num-items-per-file', dest='num_items_per_file', type=int, default=1000,
                         help='how many items to put into each output HDF5 file.')
+    parser.add_argument('-m', '--max-items-to-store', dest='max_items_to_store', type=int,
+                        help='stop after this number of items has been written into files.')
     parser.add_argument('-t', '--train-fraction', dest='train_fraction', type=float, default=0.8,
                         help='fraction of items to keep as training set.')
     parser.add_argument('--train-prefix', dest='train_prefix', default='train_',
