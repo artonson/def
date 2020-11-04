@@ -21,7 +21,7 @@
     "validate_image": true
   },
   "noise": {
-    "subtype": "z_direction",
+    "type": "z_direction",
     "scale": 0.0
   },
   "annotation": {
