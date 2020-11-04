@@ -212,8 +212,8 @@ def get_annotated_patches(data, config, n_jobs):
         non_annotated_patches.append(patch_info)
 
 
-    whole_model_points = []
-    whole_model_point_indexes = []
+    whole_model_points, whole_model_point_indexes = [], []
+    n_points = 0
     for patch in non_annotated_patches:
         image = patch['image']
         camera_to_world_4x4 = patch['camera_pose']
@@ -221,9 +221,10 @@ def get_annotated_patches(data, config, n_jobs):
         camera_pose = CameraPose(camera_to_world_4x4)
         points_in_world_frame = camera_pose.camera_to_world(points_in_camera_frame)
         whole_model_points.append(points_in_world_frame)
-        whole_model_point_indexes.append(np.arange(len(points_in_world_frame)))
+        whole_model_point_indexes.append(
+            np.arange(n_points, n_points + len(points_in_world_frame)))
+        n_points += len(points_in_world_frame)
     whole_model_points = np.concatenate(whole_model_points)
-    whole_model_point_indexes = np.concatenate(whole_model_point_indexes)
 
     parallel = Parallel(n_jobs=n_jobs, backend='multiprocessing', verbose=100)
     delayed_iterable = (delayed(compute_patches)(
@@ -245,16 +246,14 @@ def get_annotated_patches(data, config, n_jobs):
         whole_model_directions[indexes[assign_mask]] = directions[assign_mask]
 
     whole_patches = []
-    for non_annotated, annotated in zip(non_annotated_patches, annotated_patches):
+    for non_annotated, annotated, indexes in zip(non_annotated_patches, annotated_patches, whole_model_point_indexes):
         whole_patch = deepcopy(non_annotated)
-        whole_patch['image'] = whole_patch['image']
-        whole_patch['normals'] = whole_patch['normals']
         whole_patch['distances'] = imaging.points_to_image(
-            whole_model_distances[annotated['indexes']],
+            whole_model_distances[indexes].reshape(-1, 1),
             non_annotated['ray_indexes'],
             assign_channels=[0])
         whole_patch['directions'] = imaging.points_to_image(
-            whole_model_directions[annotated['indexes'], :],
+            whole_model_directions[indexes, :],
             non_annotated['ray_indexes'],
             assign_channels=[0, 1, 2])
         whole_patch['has_smell_mismatching_surface_annotation'] = has_smell_mismatching_surface_annotation
@@ -264,7 +263,7 @@ def get_annotated_patches(data, config, n_jobs):
         whole_patch.pop('nbhood')
         whole_patch.pop('nbhood_features')
         whole_patch.pop('ray_indexes')
-        whole_patch['indexes_in_whole'] = annotated['indexes']
+        # whole_patch['indexes_in_whole'] = np.array(annotated['indexes'])
         whole_patches.append(whole_patch)
 
     return whole_patches
@@ -325,7 +324,7 @@ def make_patches(options):
                     chunk=options.chunk.zfill(4),
                     item_id=data['item_id']))
             try:
-                save_fn = io.SAVE_FNS['whole_images']
+                save_fn = io.SAVE_FNS['images']
                 save_fn(patches, output_filename)
             except Exception as e:
                 eprint_t('Error writing patches to disk at {output_file}: {what}'.format(
