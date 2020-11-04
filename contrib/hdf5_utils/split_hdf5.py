@@ -21,10 +21,10 @@ def split_hdf5(filename, label, output_dir, output_format="xyz", use_normals=Fal
     with h5py.File(filename, 'r') as f:
         data = list(f[label])
         if use_normals:
-          normals = list(f['normals'])
-          data = np.concatenate([data, normals], axis = -1)
-          print(data.shape)
-          data = list(data)
+            normals = list(f['normals'])
+            data = np.concatenate([data, normals], axis = -1)
+            print(data.shape)
+            data = list(data)
     
     file_basename = os.path.splitext(os.path.basename(filename))[0]
    
