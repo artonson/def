@@ -11,8 +11,8 @@ def parse_args():
     parser.add_argument('--label', help='label in hdf5 file to get data from (default: all)')
     parser.add_argument('--output_dir', help='output directory for splitted files')
     parser.add_argument('--output_format', default='xyz', help='output format for splitted files (default: xyz)')
-    parser.add_argument('--use_normals', default=False, help='use normals')
-    parser.add_argument('--reshape_nx3', default=False, help='if set, reshapes each item into (n, 3) array')
+    parser.add_argument('--use_normals', default=False, action='store_true', help='use normals')
+    parser.add_argument('--reshape_nx3', default=False, action='store_true', help='if set, reshapes each item into (n, 3) array')
     args = parser.parse_args()
     return args
 
