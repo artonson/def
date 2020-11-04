@@ -22,6 +22,7 @@ from sharpf.utils.abc_utils.abc.feature_utils import get_curves_extents
 from sharpf.utils.py_utils.config import load_func_from_config
 from sharpf.utils.abc_utils.mesh.io import trimesh_load
 import sharpf.data.data_smells as smells
+from sharpf.utils.py_utils.console import eprint_t
 
 
 LARGEST_PROCESSABLE_MESH_VERTICES = 20000
@@ -35,11 +36,10 @@ def scale_mesh(mesh, features, shape_fabrication_extent, resolution_3d,
 
     # compute lengths of curves
     sharp_curves_lengths = get_curves_extents(mesh, features)
-
-    least_len = np.quantile(sharp_curves_lengths, short_curve_quantile)
-    least_len_mm = resolution_3d * n_points_per_short_curve
-
-    mesh = mesh.apply_scale(least_len_mm / least_len)
+    if len(sharp_curves_lengths) > 0:
+        least_len = np.quantile(sharp_curves_lengths, short_curve_quantile)
+        least_len_mm = resolution_3d * n_points_per_short_curve
+        mesh = mesh.apply_scale(least_len_mm / least_len)
 
     return mesh
 
@@ -56,6 +56,8 @@ def check_models_slice(meshes_filename, feats_filename, data_slice, config, outp
     slice_start, slice_end = data_slice
     with ABCChunk([meshes_filename, feats_filename]) as data_holder:
         for item in data_holder[slice_start:slice_end]:
+            eprint_t(item.item_id)
+
             mesh, _, _ = trimesh_load(item.obj)
             features = yaml.load(item.feat, Loader=yaml.Loader)
 
@@ -67,15 +69,24 @@ def check_models_slice(meshes_filename, feats_filename, data_slice, config, outp
             base_resolution_3d = config.get('base_resolution_3d', LOW_RES)
             short_curve_quantile = config.get('short_curve_quantile', 0.05)
 
-            mesh = scale_mesh(mesh, features, shape_fabrication_extent, base_resolution_3d,
-                              short_curve_quantile=short_curve_quantile,
-                              n_points_per_short_curve=base_n_points_per_short_curve)
+            try:
+                mesh = scale_mesh(mesh, features, shape_fabrication_extent, base_resolution_3d,
+                                  short_curve_quantile=short_curve_quantile,
+                                  n_points_per_short_curve=base_n_points_per_short_curve)
+            except Exception as e:
+                eprint_t(e)
+                raise
 
             sampler = load_func_from_config(SAMPLER_BY_TYPE, config['sampling'])
             n_points = np.ceil(mesh.area / (np.pi * sampler.resolution_3d ** 2 / 4)).astype(int)
 
             with open(output_file, 'a') as f:
                 f.write('{item_id} {n_points} {has_smell_mesh_self_intersections}\n'.format(
+                    item_id=item.item_id,
+                    n_points=n_points,
+                    has_smell_mesh_self_intersections=has_smell_mesh_self_intersections))
+                eprint_t('{area} {item_id} {n_points} {has_smell_mesh_self_intersections}'.format(
+                    area=mesh.area,
                     item_id=item.item_id,
                     n_points=n_points,
                     has_smell_mesh_self_intersections=has_smell_mesh_self_intersections))

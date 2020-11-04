@@ -215,9 +215,10 @@ def get_curves_extents(mesh, features):
         np.max(verts, axis=0) - np.min(verts, axis=0) + eps
         for verts in sharp_verts])
 
-    extents = extents.max(axis=1)
-
-    return extents
+    if len(extents) == 0:
+        return []
+    else:
+        return extents.max(axis=1)
 
 
 def get_curves_lengths_edges(mesh, features):
