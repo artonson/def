@@ -50,9 +50,11 @@ def scale_mesh(mesh, features, shape_fabrication_extent, resolution_3d,
     least_len = np.quantile(sharp_curves_lengths, short_curve_quantile)
     least_len_mm = resolution_3d * n_points_per_short_curve
 
-    mesh = mesh.apply_scale(least_len_mm / least_len)
+    scale = least_len_mm / least_len
+    mesh = mesh.apply_scale(scale)
 
-    return mesh
+    return mesh, scale
+
 
 
 # mm/pixel
@@ -116,11 +118,6 @@ def get_annotated_patches(data, config, n_jobs):
     smell_mesh_self_intersections = smells.SmellMeshSelfIntersections.from_config(config['smell_mesh_self_intersections'])
 
     mesh, features = data['mesh'], data['features']
-
-    mesh = scale_mesh(mesh, features,
-                      shape_fabrication_extent, base_resolution_3d,
-                      short_curve_quantile=short_curve_quantile,
-                      n_points_per_short_curve=base_n_points_per_short_curve)
 
     processed_mesh = trimesh.base.Trimesh(vertices=mesh.vertices, faces=mesh.faces, process=True, validate=True)
     if processed_mesh.vertices.shape != mesh.vertices.shape or \
