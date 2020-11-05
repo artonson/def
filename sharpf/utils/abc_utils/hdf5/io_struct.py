@@ -41,6 +41,11 @@ class Int8(HDF5Dataset):
         super().__init__(name, dtype=np.int8)
 
 
+class Int32(HDF5Dataset):
+    def __init__(self, name):
+        super().__init__(name, dtype=np.int32)
+
+
 class AsciiString(HDF5Dataset):
     def __init__(self, name):
         super().__init__(name, dtype=h5py.string_dtype(encoding='ascii'))
