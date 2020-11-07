@@ -115,7 +115,10 @@ class MinsAvgPredictionsCombiner(PointwisePredictionsCombiner):
     def __init__(self, signal_thr=0.9):
         def mean_of_mins(values):
             values = np.array(values)
-            return np.min(values[values < signal_thr])
+            if len(values[values < signal_thr]) > 0:
+                return np.mean(values[values < signal_thr])
+            else:
+                return np.mean(values)
 
         super().__init__(func=mean_of_mins, tag='mom')
 
@@ -220,8 +223,8 @@ def save_full_model_predictions(points, predictions, filename):
         len_label='distances',
         compression='lzf')
     with h5py.File(filename, 'w') as f:
-        PointPatchPredictionsIO.write(f, 'points', points)
-        PointPatchPredictionsIO.write(f, 'distances', predictions)
+        PointPatchPredictionsIO.write(f, 'points', [points])
+        PointPatchPredictionsIO.write(f, 'distances', [predictions])
 
 
 def main(options):
@@ -277,6 +280,9 @@ def main(options):
     list_points = [patch['points'].reshape((-1, 3)) for patch in ground_truth_dataset]
 
     for combiner in combiners:
+        if options.verbose:
+            print('Running {}'.format(combiner.tag))
+
         consolidated_predictions, prediction_variants = \
             combiner(predictions, n_points, list_indexes_in_whole, list_points)
 
