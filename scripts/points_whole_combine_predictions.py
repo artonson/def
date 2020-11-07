@@ -175,8 +175,9 @@ class CenterCropPredictionsCombiner(PointwisePredictionsCombiner):
 
 
 class PredictionsSmoother(ABC):
-    def __init__(self, regularizer_alpha=0.01):
+    def __init__(self, regularizer_alpha=0.01, tag=None):
         self._regularizer_alpha = regularizer_alpha
+        self.tag = tag
 
     def smoothing_loss(self, *args, **kwargs): raise NotImplemented()
 
@@ -209,6 +210,9 @@ class PredictionsSmoother(ABC):
 
 
 class L2Smoother(PredictionsSmoother):
+    def __init__(self, regularizer_alpha=0.01):
+        super().__init__(regularizer_alpha, tag='l2')
+
     def smoothing_loss(self, predictions, init_predictions, nn_indexes, alpha):
         data_fidelity_term = (predictions - init_predictions) ** 2
         regularization_term = torch.sum(
@@ -219,6 +223,9 @@ class L2Smoother(PredictionsSmoother):
 
 
 class TotalVariationSmoother(PredictionsSmoother):
+    def __init__(self, regularizer_alpha=0.01):
+        super().__init__(regularizer_alpha, tag='tv')
+
     def smoothing_loss(self, predictions, init_predictions, nn_indexes, alpha):
         data_fidelity_term = (predictions - init_predictions) ** 2
         regularization_term = torch.sum(
@@ -235,6 +242,7 @@ class SmoothingCombiner(PredictionsCombiner):
     def __init__(self, combiner, smoother):
         self._combiner = combiner
         self._smoother = smoother
+        self.tag = combiner.tag + '__' + smoother.tag
 
     def __call__(
             self,
