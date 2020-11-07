@@ -11,6 +11,7 @@
 #
 
 import argparse
+from abc import ABC
 from collections import defaultdict
 from functools import partial
 import glob
@@ -22,6 +23,9 @@ from typing import Callable, List, Mapping, Tuple
 import h5py
 import numpy as np
 from tqdm import tqdm, trange
+import torch
+from torch import optim
+from scipy.spatial import cKDTree
 
 __dir__ = os.path.normpath(
     os.path.join(
@@ -57,7 +61,19 @@ class TruncatedMean(object):
         return result
 
 
-class PointwisePredictionsCombiner:
+class PredictionsCombiner:
+    def __call__(
+            self,
+            predictions: List[Mapping],
+            n_points: int,
+            list_indexes_in_whole: List[np.array],
+            list_points: List[np.array],
+    ) -> Tuple[np.array, Mapping]:
+
+        raise NotImplemented()
+
+
+class PointwisePredictionsCombiner(PredictionsCombiner):
     """Combines predictions where each point is predicted multiple times
     by taking a simple function of the point's predictions.
 
@@ -156,42 +172,88 @@ class CenterCropPredictionsCombiner(PointwisePredictionsCombiner):
             whole_model_distances_pred[idx] = self._func(values)
 
         return whole_model_distances_pred, predictions_variants
-#
-#
-# import torch
-# from torch import optim
-# from scipy.spatial import cKDTree
-#
-# n_omp_threads = int(os.environ.get('OMP_NUM_THREADS', 1))
-# nn_distances, nn_indexes = cKDTree(whole_model_points_pred, leafsize=100) \
-#     .query(whole_model_points_pred, k=51, n_jobs=36)
-#
-#
-# def l2_knn_smoothing_loss(predictions, init_predictions, nn_indexes, alpha):
-#     data_fidelity_term = (predictions - init_predictions) ** 2
-#     regularization_term = torch.sum(
-#         (predictions[nn_indexes[:, 1:]] -
-#          predictions.reshape((len(predictions), 1))) ** 2,
-#         dim=1)
-#     return torch.sum(data_fidelity_term) + alpha * torch.sum(regularization_term)
-#
-#
-# init_predictions_th = torch.Tensor(whole_model_distances_pred_min)
-#
-# predictions_th = torch.ones(whole_model_distances_pred_min.shape)
-# predictions_th.requires_grad_()
-#
-# optimizer = optim.SGD([predictions_th], lr=0.001, momentum=0.9)
-#
-# t = trange(300, desc='Optimization', leave=True)
-# for i in t:
-#     optimizer.zero_grad()
-#     loss = l2_knn_smoothing_loss(predictions_th, init_predictions_th, nn_indexes, 0.01)
-#     loss.backward()
-#     optimizer.step()
-#     s = 'Optimization: step #{0:}, loss: {1:3.1f}'.format(i, loss.item())
-#     t.set_description(s)
-#     t.refresh()
+
+
+class PredictionsSmoother(ABC):
+    def __init__(self, regularizer_alpha=0.01):
+        self._regularizer_alpha = regularizer_alpha
+
+    def smoothing_loss(self, *args, **kwargs): raise NotImplemented()
+
+    def __call__(
+            self,
+            predictions: np.array,
+            points: np.array,
+    ) -> Tuple[np.array, Mapping]:
+
+        n_omp_threads = int(os.environ.get('OMP_NUM_THREADS', 1))
+        nn_distances, nn_indexes = cKDTree(points, leafsize=100) \
+            .query(points, k=51, n_jobs=n_omp_threads)
+
+        init_predictions_th = torch.Tensor(predictions)
+        predictions_th = torch.ones(predictions.shape)
+        predictions_th.requires_grad_()
+
+        optimizer = optim.SGD([predictions_th], lr=0.001, momentum=0.9)
+        t = trange(300, desc='Optimization', leave=True)
+        for i in t:
+            optimizer.zero_grad()
+            loss = self.smoothing_loss(predictions_th, init_predictions_th, nn_indexes, self._regularizer_alpha)
+            loss.backward()
+            optimizer.step()
+            s = 'Optimization: step #{0:}, loss: {1:3.1f}'.format(i, loss.item())
+            t.set_description(s)
+            t.refresh()
+
+        return predictions_th.detach().numpy()
+
+
+class L2Smoother(PredictionsSmoother):
+    def smoothing_loss(self, predictions, init_predictions, nn_indexes, alpha):
+        data_fidelity_term = (predictions - init_predictions) ** 2
+        regularization_term = torch.sum(
+            (predictions[nn_indexes[:, 1:]] -
+             predictions.reshape((len(predictions), 1))) ** 2,
+            dim=1)
+        return torch.sum(data_fidelity_term) + alpha * torch.sum(regularization_term)
+
+
+class TotalVariationSmoother(PredictionsSmoother):
+    def smoothing_loss(self, predictions, init_predictions, nn_indexes, alpha):
+        data_fidelity_term = (predictions - init_predictions) ** 2
+        regularization_term = torch.sum(
+            torch.abs(
+                predictions[nn_indexes[:, 1:]] -
+                predictions.reshape((len(predictions), 1))),
+            dim=1)
+        return torch.sum(data_fidelity_term) + alpha * torch.sum(regularization_term)
+
+
+class SmoothingCombiner(PredictionsCombiner):
+    """Predict on a pointwise basis, then smoothen."""
+
+    def __init__(self, combiner, smoother):
+        self._combiner = combiner
+        self._smoother = smoother
+
+    def __call__(
+            self,
+            predictions: List[Mapping],
+            n_points: int,
+            list_indexes_in_whole: List[np.array],
+            list_points: List[np.array],
+    ) -> Tuple[np.array, Mapping]:
+
+        whole_model_distances_pred, predictions_variants = self._combiner(
+            predictions, n_points, list_indexes_in_whole, list_points)
+
+        points = np.zeros((n_points, 3))
+        iterable = zip(list_indexes_in_whole, list_points)
+        for indexes_gt, points_gt in tqdm(iterable):
+            points[indexes_gt] = points_gt.reshape((-1, 3))
+        whole_model_distances_pred = self._smoother(whole_model_distances_pred, points)
+
+        return whole_model_distances_pred, predictions_variants
 
 
 def convert_npylist_to_hdf5(input_dir, output_filename):
@@ -274,6 +336,14 @@ def main(options):
         TruncatedAvgPredictionsCombiner(),
         CenterCropPredictionsCombiner(brd_thr=80, func=np.min),
         MinsAvgPredictionsCombiner(signal_thr=0.9),
+        SmoothingCombiner(
+            combiner=CenterCropPredictionsCombiner(brd_thr=80, func=np.min),
+            smoother=L2Smoother(regularizer_alpha=0.01)
+        ),
+        SmoothingCombiner(
+            combiner=CenterCropPredictionsCombiner(brd_thr=80, func=np.min),
+            smoother=TotalVariationSmoother(regularizer_alpha=0.001)
+        )
     ]
 
     list_indexes_in_whole = [patch['indexes_in_whole'] for patch in ground_truth_dataset]
