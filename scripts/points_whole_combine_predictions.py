@@ -370,7 +370,7 @@ def main(options):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--verbose', action='store_true', default=False, dest='verbose',
+    parser.add_argument('-v', '--verbose', action='store_true', default=False, dest='verbose',
                         help='verbose output [default: False].')
 
     parser.add_argument('-t', '--true-filename', dest='true_filename', required=True,
