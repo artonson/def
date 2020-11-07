@@ -13,6 +13,7 @@
 import argparse
 from abc import ABC
 from collections import defaultdict
+from copy import deepcopy
 from functools import partial
 import glob
 import os
@@ -26,6 +27,13 @@ from tqdm import tqdm, trange
 import torch
 from torch import optim
 from scipy.spatial import cKDTree
+from scipy.stats.mstats import mquantiles
+from sklearn.decomposition import PCA
+from sklearn.linear_model import (
+    LinearRegression, TheilSenRegressor, RANSACRegressor, HuberRegressor)
+from sklearn.preprocessing import PolynomialFeatures
+from joblib import Parallel, delayed
+
 
 __dir__ = os.path.normpath(
     os.path.join(
@@ -37,8 +45,6 @@ sys.path[1:1] = [__dir__]
 from sharpf.utils.abc_utils.hdf5.dataset import Hdf5File, PreloadTypes
 import sharpf.utils.abc_utils.hdf5.io_struct as io_struct
 import sharpf.data.datasets.sharpf_io as sharpf_io
-
-from scipy.stats.mstats import mquantiles
 
 
 class AveragingNoDataException(ValueError):
@@ -175,22 +181,38 @@ class CenterCropPredictionsCombiner(PointwisePredictionsCombiner):
 
 
 class PredictionsSmoother(ABC):
-    def __init__(self, regularizer_alpha=0.01, tag=None):
-        self._regularizer_alpha = regularizer_alpha
+    def __init__(self, tag='', n_neighbours=51):
         self.tag = tag
-
-    def smoothing_loss(self, *args, **kwargs): raise NotImplemented()
+        self._n_neighbours = n_neighbours
 
     def __call__(
             self,
             predictions: np.array,
             points: np.array,
+            predictions_variants: Mapping
     ) -> Tuple[np.array, Mapping]:
 
         n_omp_threads = int(os.environ.get('OMP_NUM_THREADS', 1))
         nn_distances, nn_indexes = cKDTree(points, leafsize=100) \
-            .query(points, k=51, n_jobs=n_omp_threads)
+            .query(points, k=self._n_neighbours, n_jobs=n_omp_threads)
 
+        smoothed_predictions = self.perform_smoothing(
+            predictions, points, predictions_variants, nn_distances, nn_indexes)
+        return smoothed_predictions
+
+    def perform_smoothing(self, predictions, points, predictions_variants, nn_distances, nn_indexes):
+        raise NotImplemented()
+
+
+class OptimizationBasedSmoother(PredictionsSmoother):
+    def __init__(self, regularizer_alpha=0.01, tag='', n_neighbours=51):
+        super().__init__(tag, n_neighbours)
+        self._regularizer_alpha = regularizer_alpha
+
+    def smoothing_loss(self, *args, **kwargs):
+        raise NotImplemented()
+
+    def perform_smoothing(self, predictions, points, predictions_variants, nn_distances, nn_indexes):
         init_predictions_th = torch.Tensor(predictions)
         predictions_th = torch.ones(predictions.shape)
         predictions_th.requires_grad_()
@@ -209,7 +231,7 @@ class PredictionsSmoother(ABC):
         return predictions_th.detach().numpy()
 
 
-class L2Smoother(PredictionsSmoother):
+class L2Smoother(OptimizationBasedSmoother):
     def __init__(self, regularizer_alpha=0.01):
         super().__init__(regularizer_alpha, tag='l2')
 
@@ -222,7 +244,7 @@ class L2Smoother(PredictionsSmoother):
         return torch.sum(data_fidelity_term) + alpha * torch.sum(regularization_term)
 
 
-class TotalVariationSmoother(PredictionsSmoother):
+class TotalVariationSmoother(OptimizationBasedSmoother):
     def __init__(self, regularizer_alpha=0.01):
         super().__init__(regularizer_alpha, tag='tv')
 
@@ -239,7 +261,7 @@ class TotalVariationSmoother(PredictionsSmoother):
 class SmoothingCombiner(PredictionsCombiner):
     """Predict on a pointwise basis, then smoothen."""
 
-    def __init__(self, combiner, smoother):
+    def __init__(self, combiner: PointwisePredictionsCombiner, smoother: PredictionsSmoother):
         self._combiner = combiner
         self._smoother = smoother
         self.tag = combiner.tag + '__' + smoother.tag
@@ -252,16 +274,74 @@ class SmoothingCombiner(PredictionsCombiner):
             list_points: List[np.array],
     ) -> Tuple[np.array, Mapping]:
 
-        whole_model_distances_pred, predictions_variants = self._combiner(
+        combined_predictions, predictions_variants = self._combiner(
             predictions, n_points, list_indexes_in_whole, list_points)
 
         points = np.zeros((n_points, 3))
         iterable = zip(list_indexes_in_whole, list_points)
         for indexes_gt, points_gt in tqdm(iterable):
             points[indexes_gt] = points_gt.reshape((-1, 3))
-        whole_model_distances_pred = self._smoother(whole_model_distances_pred, points)
+        combined_predictions = self._smoother(combined_predictions, points, predictions_variants)
 
-        return whole_model_distances_pred, predictions_variants
+        return combined_predictions, predictions_variants
+
+
+class RobustLocalLinearFit(PredictionsSmoother):
+    def __init__(self, estimator, n_jobs=1, n_neighbours=51):
+        super().__init__(tag='linreg', n_neighbours=n_neighbours)
+        self._n_jobs = n_jobs
+        self._estimator = estimator
+
+    def perform_smoothing(
+            self,
+            predictions: np.array,
+            points: np.array,
+            predictions_variants: Mapping,
+            nn_distances: np.array,
+            nn_indexes: np.array
+    ) -> np.array:
+
+        def make_xy(point_index, points, nn_indexes, predictions_variants):
+            X, y = [], []
+            for neighbour_index in nn_indexes[point_index]:
+                for y_value in predictions_variants[neighbour_index]:
+                    X.append(points[neighbour_index])
+                    y.append(y_value)
+
+            return np.array(X), np.array(y), np.unique(X, axis=0, return_index=True)[1]
+
+        def data_maker(points, nn_indexes, predictions_variants):
+            for point_index in range(len(points)):
+                X, y, uniq_indexes = make_xy(point_index, points, nn_indexes, predictions_variants)
+                yield point_index, X, y, uniq_indexes
+
+        def local_linear_fit(X, y, estimator):
+            X_trans = PCA(n_components=2).fit_transform(X)
+            X_trans = PolynomialFeatures(2).fit_transform(X_trans)
+            try:
+                y_pred = estimator.fit(X_trans, y).predict(X_trans)
+            except ValueError:
+                y_pred = None
+            return y_pred
+
+        parallel = Parallel(n_jobs=self._n_jobs, backend='loky', verbose=100)
+        delayed_iterable = (delayed(local_linear_fit)(X, y, deepcopy(self._estimator))
+                            for point_index, X, y, uniq_indexes in data_maker(points, nn_indexes, predictions_variants))
+        refined_predictions = parallel(delayed_iterable)
+
+        refined_predictions_variants = defaultdict(list)
+        for refined_prediction, (point_index, X, y, uniq_indexes) in tqdm(
+                zip(refined_predictions, data_maker(points, nn_indexes, predictions_variants))):
+            if None is refined_prediction:
+                continue
+            for i, nn_index in enumerate(nn_indexes[point_index]):
+                refined_predictions_variants[nn_index].append(refined_prediction[uniq_indexes[i]])
+
+        refined_combined_predictions = np.zeros_like(predictions)
+        for idx, values in refined_predictions_variants.items():
+            refined_combined_predictions[idx] = np.mean(values)
+
+        return refined_combined_predictions
 
 
 def convert_npylist_to_hdf5(input_dir, output_filename):
@@ -351,7 +431,14 @@ def main(options):
         SmoothingCombiner(
             combiner=CenterCropPredictionsCombiner(brd_thr=80, func=np.min),
             smoother=TotalVariationSmoother(regularizer_alpha=0.001)
-        )
+        ),
+        SmoothingCombiner(
+            combiner=CenterCropPredictionsCombiner(brd_thr=80, func=np.min),
+            smoother=RobustLocalLinearFit(
+                HuberRegressor(epsilon=4., alpha=1.),
+                n_jobs=32
+            )
+        ),
     ]
 
     list_indexes_in_whole = [patch['indexes_in_whole'] for patch in ground_truth_dataset]
@@ -361,11 +448,11 @@ def main(options):
         if options.verbose:
             print('Running {}'.format(combiner.tag))
 
-        consolidated_predictions, prediction_variants = \
+        combined_predictions, prediction_variants = \
             combiner(predictions, n_points, list_indexes_in_whole, list_points)
 
         output_filename = os.path.join(options.output_dir, '{}__{}.hdf5'.format(name, combiner.tag))
-        save_full_model_predictions(whole_model_points_gt, consolidated_predictions, output_filename)
+        save_full_model_predictions(whole_model_points_gt, combined_predictions, output_filename)
 
 
 def parse_args():
