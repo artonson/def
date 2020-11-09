@@ -152,7 +152,7 @@ WholeDepthMapIO = io.HDF5IO({
         'normals': io.Float64('normals'),
         'distances': io.Float64('distances'),
         'directions': io.Float64('directions'),
-        'indexes_in_whole': io.VarInt32('indexes_in_whole'),
+        'indexes_in_whole': io.Int32('indexes_in_whole'),
         'item_id': io.AsciiString('item_id'),
         'orig_vert_indices': io.VarInt32('orig_vert_indices'),
         'orig_face_indexes': io.VarInt32('orig_face_indexes'),
