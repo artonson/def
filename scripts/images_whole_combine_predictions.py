@@ -402,7 +402,7 @@ def multi_view_interpolate_predictions(
         pose_i = CameraPose(gt_cameras[i])
         image_i = gt_images[i]
         points_i = pose_i.camera_to_world(imaging.image_to_points(image_i))
-        predictions_i = np.zeros(len(points_i))
+        predictions_i = np.zeros_like(image_i)
         predictions_i[image_i != 0.] = predictions[i][image_i != 0.]
         return pose_i, image_i, points_i, predictions_i
 
@@ -491,7 +491,7 @@ def main(options):
     gt_distances = [view['distances'] for view in ground_truth]
     gt_cameras = [view['camera_pose'] for view in ground_truth]
 
-    n_points = np.sum([len(np.nonzero(image.ravel())[0]) for image in gt_images])
+    n_points = int(np.sum([len(np.nonzero(image.ravel())[0]) for image in gt_images]))
     whole_model_points_gt = []
     whole_model_distances_gt = []
     for camera_to_world_4x4, image, distances in zip(gt_cameras, gt_images, gt_distances):
