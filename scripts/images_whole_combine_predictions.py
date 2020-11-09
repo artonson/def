@@ -29,27 +29,27 @@ import torch
 from torch import optim
 from scipy.spatial import cKDTree
 from scipy.stats.mstats import mquantiles
+from scipy import interpolate
 from sklearn.decomposition import PCA
 from sklearn.linear_model import (
     LinearRegression, TheilSenRegressor, RANSACRegressor, HuberRegressor)
 from sklearn.preprocessing import PolynomialFeatures
 from joblib import Parallel, delayed
 
-
 __dir__ = os.path.normpath(
     os.path.join(
         os.path.dirname(os.path.realpath(__file__)), '..')
 )
 
-
 sys.path[1:1] = [__dir__]
 
 import sharpf.data.datasets.sharpf_io as sharpf_io
-from sharpf.data.imaging import IMAGING_BY_TYPE
+from sharpf.data.imaging import IMAGING_BY_TYPE, RaycastingImaging
 from sharpf.utils.abc_utils.hdf5.dataset import Hdf5File, PreloadTypes
 import sharpf.utils.abc_utils.hdf5.io_struct as io_struct
 from sharpf.utils.camera_utils.camera_pose import CameraPose
 from sharpf.utils.py_utils.config import load_func_from_config
+from sharpf.utils.py_utils.console import eprint_t
 
 
 class AveragingNoDataException(ValueError):
@@ -75,8 +75,8 @@ class TruncatedMean(object):
 class PredictionsCombiner:
     def __call__(
             self,
-            predictions: List[Mapping],
             n_points: int,
+            list_predictions: List[np.array],
             list_indexes_in_whole: List[np.array],
             list_points: List[np.array],
     ) -> Tuple[np.array, Mapping]:
@@ -99,8 +99,8 @@ class PointwisePredictionsCombiner(PredictionsCombiner):
 
     def __call__(
             self,
-            predictions: List[Mapping],
             n_points: int,
+            list_predictions: List[np.array],
             list_indexes_in_whole: List[np.array],
             list_points: List[np.array],
     ) -> Tuple[np.array, Mapping]:
@@ -109,9 +109,8 @@ class PointwisePredictionsCombiner(PredictionsCombiner):
 
         # step 1: gather predictions
         predictions_variants = defaultdict(list)
-        iterable = zip(predictions, list_indexes_in_whole, list_points)
-        for prediction, indexes_gt, points_gt in tqdm(iterable):
-            distances = prediction['distances']
+        iterable = zip(list_predictions, list_indexes_in_whole, list_points)
+        for distances, indexes_gt, points_gt in tqdm(iterable):
             for i, idx in enumerate(indexes_gt):
                 predictions_variants[idx].append(distances[i])
 
@@ -159,8 +158,8 @@ class CenterCropPredictionsCombiner(PointwisePredictionsCombiner):
 
     def __call__(
             self,
-            predictions: List[Mapping],
             n_points: int,
+            list_predictions: List[np.array],
             list_indexes_in_whole: List[np.array],
             list_points: List[np.array],
     ) -> Tuple[np.array, Mapping]:
@@ -169,9 +168,8 @@ class CenterCropPredictionsCombiner(PointwisePredictionsCombiner):
 
         # step 1: gather predictions
         predictions_variants = defaultdict(list)
-        iterable = zip(predictions, list_indexes_in_whole, list_points)
-        for prediction, indexes_gt, points_gt in tqdm(iterable):
-            distances = prediction['distances']
+        iterable = zip(list_predictions, list_indexes_in_whole, list_points)
+        for distances, indexes_gt, points_gt in tqdm(iterable):
             # here comes difference from the previous variant
             points_radii = np.linalg.norm(points_gt - points_gt.mean(axis=0), axis=1)
             center_indexes = np.where(points_radii < np.percentile(points_radii, self._brd_thr))[0]
@@ -205,7 +203,15 @@ class PredictionsSmoother(ABC):
             predictions, points, predictions_variants, nn_distances, nn_indexes)
         return smoothed_predictions
 
-    def perform_smoothing(self, predictions, points, predictions_variants, nn_distances, nn_indexes):
+    def perform_smoothing(
+            self,
+            predictions: np.array,
+            points: np.array,
+            predictions_variants: Mapping,
+            nn_distances: np.array,
+            nn_indexes: np.array
+    ) -> np.array:
+
         raise NotImplemented()
 
 
@@ -273,14 +279,14 @@ class SmoothingCombiner(PredictionsCombiner):
 
     def __call__(
             self,
-            predictions: List[Mapping],
             n_points: int,
+            list_predictions: List[np.array],
             list_indexes_in_whole: List[np.array],
             list_points: List[np.array],
     ) -> Tuple[np.array, Mapping]:
 
         combined_predictions, predictions_variants = self._combiner(
-            predictions, n_points, list_indexes_in_whole, list_points)
+            n_points, list_predictions, list_indexes_in_whole, list_points)
 
         points = np.zeros((n_points, 3))
         iterable = zip(list_indexes_in_whole, list_points)
@@ -297,14 +303,7 @@ class RobustLocalLinearFit(PredictionsSmoother):
         self._n_jobs = n_jobs
         self._estimator = estimator
 
-    def perform_smoothing(
-            self,
-            predictions: np.array,
-            points: np.array,
-            predictions_variants: Mapping,
-            nn_distances: np.array,
-            nn_indexes: np.array
-    ) -> np.array:
+    def perform_smoothing(self, predictions, points, predictions_variants, nn_distances, nn_indexes):
 
         def make_xy(point_index, points, nn_indexes, predictions_variants):
             X, y = [], []
@@ -349,6 +348,7 @@ class RobustLocalLinearFit(PredictionsSmoother):
         return refined_combined_predictions
 
 
+
 def convert_npylist_to_hdf5(input_dir, output_filename):
     PointPatchPredictionsIO = io_struct.HDF5IO(
         {'distances': io_struct.Float64('distances')},
@@ -382,6 +382,97 @@ def save_full_model_predictions(points, predictions, filename):
         PointPatchPredictionsIO.write(f, 'distances', [predictions])
 
 
+HIGH_RES = 0.02
+
+
+def multi_view_interpolate_predictions(
+        imaging: RaycastingImaging,
+        gt_cameras: List[np.array],
+        gt_images: List[np.array],
+        predictions: List[np.array],
+        verbose: bool = False,
+        distance_interpolation_threshold: float = HIGH_RES * 6.
+):
+    """Interpolates predictions between views.
+
+    :return:
+    """
+    def get_view(i):
+        # use exterior variables
+        pose_i = CameraPose(gt_cameras[i])
+        image_i = gt_images[i]
+        points_i = pose_i.camera_to_world(imaging.image_to_points(image_i))
+        predictions_i = np.zeros(len(points_i))
+        predictions_i[image_i != 0.] = predictions[i][image_i != 0.]
+        return pose_i, image_i, points_i, predictions_i
+
+    n_omp_threads = int(os.environ.get('OMP_NUM_THREADS', 1))
+    image_space_tree = cKDTree(imaging.rays_origins[:, :2], leafsize=100)
+
+    list_predictions, list_indexes_in_whole, list_points = [], [], []
+    n_points_per_image = np.array([len(np.nonzero(image.ravel())[0]) for image in gt_images])
+
+    n_images = len(gt_images)
+    for i in range(n_images):
+        # Propagating predictions from view i into all other views
+        pose_i, image_i, points_i, predictions_i = get_view(i)
+
+        for j in range(n_images):
+            start_idx, end_idx = (0, n_points_per_image[j]) if 0 == j \
+                else (n_points_per_image[j - 1], n_points_per_image[j])
+            indexes_in_whole = np.arange(start_idx, end_idx)
+
+            if verbose:
+                eprint_t('Propagating views {} -> {}'.format(i, j))
+
+            if i == j:
+                list_points.append(points_i)
+                list_predictions.append(predictions_i[image_i != 0.].ravel())
+                list_indexes_in_whole.append(indexes_in_whole)
+
+            else:
+                pose_j, image_j, points_j, predictions_j = get_view(j)
+
+                # reproject points from one view j to view i, to be able to interpolate in view i
+                reprojected = pose_i.world_to_camera(points_j)
+
+                # extract pixel indexes in view i (for each reprojected points),
+                # these are source pixels to interpolate from
+                _, nn_indexes = image_space_tree.query(
+                    reprojected[:, :2],
+                    k=4,
+                    n_jobs=n_omp_threads)
+
+                can_interpolate = np.zeros(len(reprojected)).astype(bool)
+                interpolated_distances_j = np.zeros_like(can_interpolate).astype(float)
+
+                for idx, reprojected_point in enumerate(reprojected):
+                    # build neighbourhood of each reprojected point by taking
+                    # xy values from pixel grid and z value from depth image
+                    nbhood_of_reprojected = np.hstack((
+                        imaging.rays_origins[:, :2][nn_indexes[idx]],
+                        np.atleast_2d(image_i.ravel()[nn_indexes[idx]]).T
+                    ))
+                    distances_to_nearest = np.linalg.norm(reprojected_point - nbhood_of_reprojected, axis=1)
+                    can_interpolate[idx] = np.all(distances_to_nearest < distance_interpolation_threshold)
+
+                    if can_interpolate[idx]:
+                        interpolator = interpolate.interp2d(
+                            nbhood_of_reprojected[:, 0],
+                            nbhood_of_reprojected[:, 1],
+                            predictions_i.ravel()[nn_indexes[idx]],
+                            kind='linear')
+                        interpolated_distances_j[idx] = interpolator(
+                            reprojected_point[0],
+                            reprojected_point[1])[0]
+
+                list_points.append(points_j[can_interpolate])
+                list_predictions.append(interpolated_distances_j[can_interpolate])
+                list_indexes_in_whole.append(indexes_in_whole[can_interpolate])
+
+    return list_predictions, list_indexes_in_whole, list_points
+
+
 def main(options):
     name = os.path.splitext(os.path.basename(options.true_filename))[0]
 
@@ -400,12 +491,10 @@ def main(options):
     gt_distances = [view['distances'] for view in ground_truth]
     gt_cameras = [view['camera_pose'] for view in ground_truth]
 
-    n_points_per_image = np.array([len(np.nonzero(image.ravel())[0]) for image in gt_images])
-    n_points = np.sum(n_points_per_image)
+    n_points = np.sum([len(np.nonzero(image.ravel())[0]) for image in gt_images])
     whole_model_points_gt = []
     whole_model_distances_gt = []
-    for camera_to_world_4x4, image, distances, n_cum_points in \
-            zip(gt_cameras, gt_images, gt_distances, np.cumsum(n_points_per_image)):
+    for camera_to_world_4x4, image, distances in zip(gt_cameras, gt_images, gt_distances):
         points_in_world_frame = CameraPose(camera_to_world_4x4).camera_to_world(imaging.image_to_points(image))
         whole_model_points_gt.append(points_in_world_frame)
         whole_model_distances_gt.append(distances.ravel()[np.nonzero(image.ravel())[0]])
@@ -418,51 +507,50 @@ def main(options):
     # convert and load predictions
     predictions_filename = os.path.join(options.output_dir, '{}__{}.hdf5'.format(name, 'predictions'))
     convert_npylist_to_hdf5(options.pred_dir, predictions_filename)
-    # predictions_dataset = Hdf5File(
-    #     predictions_filename,
-    #     io=sharpf_io.WholePointCloudIO,
-    #     preload=PreloadTypes.LAZY,
-    #     labels='*')
-    # predictions = [patch for patch in predictions_dataset]
+    predictions_dataset = Hdf5File(
+        predictions_filename,
+        io=sharpf_io.WholeDepthMapIO,
+        preload=PreloadTypes.LAZY,
+        labels='*')
+    list_predictions = [view['distances'] for view in predictions_dataset]
 
-    # # run various algorithms for consolidating predictions
-    # combiners = [
-    #     MedianPredictionsCombiner(),
-    #     MinPredictionsCombiner(),
-    #     AvgPredictionsCombiner(),
-    #     TruncatedAvgPredictionsCombiner(),
-    #     CenterCropPredictionsCombiner(brd_thr=80, func=np.min),
-    #     MinsAvgPredictionsCombiner(signal_thr=0.9),
-    #     SmoothingCombiner(
-    #         combiner=CenterCropPredictionsCombiner(brd_thr=80, func=np.min),
-    #         smoother=L2Smoother(regularizer_alpha=0.01)
-    #     ),
-    #     SmoothingCombiner(
-    #         combiner=CenterCropPredictionsCombiner(brd_thr=80, func=np.min),
-    #         smoother=TotalVariationSmoother(regularizer_alpha=0.001)
-    #     ),
-    #     SmoothingCombiner(
-    #         combiner=CenterCropPredictionsCombiner(brd_thr=80, func=np.min),
-    #         smoother=RobustLocalLinearFit(
-    #             HuberRegressor(epsilon=4., alpha=1.),
-    #             n_jobs=32
-    #         )
-    #     ),
-    # ]
-    #
-    # list_indexes_in_whole = [patch['indexes_in_whole'] for patch in ground_truth_dataset]
-    # list_points = [patch['points'].reshape((-1, 3)) for patch in ground_truth_dataset]
-    #
-    # for combiner in combiners:
-    #     if options.verbose:
-    #         print('Running {}'.format(combiner.tag))
-    #
-    #     combined_predictions, prediction_variants = \
-    #         combiner(predictions, n_points, list_indexes_in_whole, list_points)
-    #
-    #     output_filename = os.path.join(options.output_dir, '{}__{}.hdf5'.format(name, combiner.tag))
-    #     save_full_model_predictions(whole_model_points_gt, combined_predictions, output_filename)
-    #
+    list_predictions, list_indexes_in_whole, list_points = multi_view_interpolate_predictions(
+        imaging, gt_cameras, gt_images, list_predictions, verbose=options.verbose)
+
+    # run various algorithms for consolidating predictions
+    combiners = [
+        MedianPredictionsCombiner(),
+        MinPredictionsCombiner(),
+        AvgPredictionsCombiner(),
+        TruncatedAvgPredictionsCombiner(),
+        MinsAvgPredictionsCombiner(signal_thr=0.9),
+        SmoothingCombiner(
+            combiner=MinPredictionsCombiner(),
+            smoother=L2Smoother(regularizer_alpha=0.01)
+        ),
+        SmoothingCombiner(
+            combiner=MinPredictionsCombiner(),
+            smoother=TotalVariationSmoother(regularizer_alpha=0.001)
+        ),
+        SmoothingCombiner(
+            combiner=MinPredictionsCombiner(),
+            smoother=RobustLocalLinearFit(
+                HuberRegressor(epsilon=4., alpha=1.),
+                n_jobs=32
+            )
+        ),
+    ]
+
+    for combiner in combiners:
+        if options.verbose:
+            print('Running {}'.format(combiner.tag))
+
+        combined_predictions, prediction_variants = \
+            combiner(n_points, list_predictions, list_indexes_in_whole, list_points)
+
+        output_filename = os.path.join(options.output_dir, '{}__{}.hdf5'.format(name, combiner.tag))
+        save_full_model_predictions(whole_model_points_gt, combined_predictions, output_filename)
+
 
 def parse_args():
     parser = argparse.ArgumentParser()

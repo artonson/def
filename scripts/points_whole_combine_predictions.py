@@ -70,8 +70,8 @@ class TruncatedMean(object):
 class PredictionsCombiner:
     def __call__(
             self,
-            predictions: List[Mapping],
             n_points: int,
+            list_predictions: List[np.array],
             list_indexes_in_whole: List[np.array],
             list_points: List[np.array],
     ) -> Tuple[np.array, Mapping]:
@@ -94,8 +94,8 @@ class PointwisePredictionsCombiner(PredictionsCombiner):
 
     def __call__(
             self,
-            predictions: List[Mapping],
             n_points: int,
+            list_predictions: List[np.array],
             list_indexes_in_whole: List[np.array],
             list_points: List[np.array],
     ) -> Tuple[np.array, Mapping]:
@@ -104,9 +104,8 @@ class PointwisePredictionsCombiner(PredictionsCombiner):
 
         # step 1: gather predictions
         predictions_variants = defaultdict(list)
-        iterable = zip(predictions, list_indexes_in_whole, list_points)
-        for prediction, indexes_gt, points_gt in tqdm(iterable):
-            distances = prediction['distances']
+        iterable = zip(list_predictions, list_indexes_in_whole, list_points)
+        for distances, indexes_gt, points_gt in tqdm(iterable):
             for i, idx in enumerate(indexes_gt):
                 predictions_variants[idx].append(distances[i])
 
@@ -154,8 +153,8 @@ class CenterCropPredictionsCombiner(PointwisePredictionsCombiner):
 
     def __call__(
             self,
-            predictions: List[Mapping],
             n_points: int,
+            list_predictions: List[np.array],
             list_indexes_in_whole: List[np.array],
             list_points: List[np.array],
     ) -> Tuple[np.array, Mapping]:
@@ -164,9 +163,8 @@ class CenterCropPredictionsCombiner(PointwisePredictionsCombiner):
 
         # step 1: gather predictions
         predictions_variants = defaultdict(list)
-        iterable = zip(predictions, list_indexes_in_whole, list_points)
-        for prediction, indexes_gt, points_gt in tqdm(iterable):
-            distances = prediction['distances']
+        iterable = zip(list_predictions, list_indexes_in_whole, list_points)
+        for distances, indexes_gt, points_gt in tqdm(iterable):
             # here comes difference from the previous variant
             points_radii = np.linalg.norm(points_gt - points_gt.mean(axis=0), axis=1)
             center_indexes = np.where(points_radii < np.percentile(points_radii, self._brd_thr))[0]
@@ -200,7 +198,15 @@ class PredictionsSmoother(ABC):
             predictions, points, predictions_variants, nn_distances, nn_indexes)
         return smoothed_predictions
 
-    def perform_smoothing(self, predictions, points, predictions_variants, nn_distances, nn_indexes):
+    def perform_smoothing(
+            self,
+            predictions: np.array,
+            points: np.array,
+            predictions_variants: Mapping,
+            nn_distances: np.array,
+            nn_indexes: np.array
+    ) -> np.array:
+
         raise NotImplemented()
 
 
@@ -268,14 +274,14 @@ class SmoothingCombiner(PredictionsCombiner):
 
     def __call__(
             self,
-            predictions: List[Mapping],
             n_points: int,
+            list_predictions: List[np.array],
             list_indexes_in_whole: List[np.array],
             list_points: List[np.array],
     ) -> Tuple[np.array, Mapping]:
 
         combined_predictions, predictions_variants = self._combiner(
-            predictions, n_points, list_indexes_in_whole, list_points)
+            n_points, list_predictions, list_indexes_in_whole, list_points)
 
         points = np.zeros((n_points, 3))
         iterable = zip(list_indexes_in_whole, list_points)
@@ -292,14 +298,7 @@ class RobustLocalLinearFit(PredictionsSmoother):
         self._n_jobs = n_jobs
         self._estimator = estimator
 
-    def perform_smoothing(
-            self,
-            predictions: np.array,
-            points: np.array,
-            predictions_variants: Mapping,
-            nn_distances: np.array,
-            nn_indexes: np.array
-    ) -> np.array:
+    def perform_smoothing(self, predictions, points, predictions_variants, nn_distances, nn_indexes):
 
         def make_xy(point_index, points, nn_indexes, predictions_variants):
             X, y = [], []
@@ -414,7 +413,7 @@ def main(options):
         io=sharpf_io.WholePointCloudIO,
         preload=PreloadTypes.LAZY,
         labels='*')
-    predictions = [patch for patch in predictions_dataset]
+    list_predictions = [patch['distances'] for patch in predictions_dataset]
 
     # run various algorithms for consolidating predictions
     combiners = [
@@ -449,7 +448,7 @@ def main(options):
             print('Running {}'.format(combiner.tag))
 
         combined_predictions, prediction_variants = \
-            combiner(predictions, n_points, list_indexes_in_whole, list_points)
+            combiner(n_points, list_predictions, list_indexes_in_whole, list_points)
 
         output_filename = os.path.join(options.output_dir, '{}__{}.hdf5'.format(name, combiner.tag))
         save_full_model_predictions(whole_model_points_gt, combined_predictions, output_filename)
