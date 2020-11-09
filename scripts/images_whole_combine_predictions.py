@@ -410,7 +410,7 @@ def multi_view_interpolate_predictions(
     image_space_tree = cKDTree(imaging.rays_origins[:, :2], leafsize=100)
 
     list_predictions, list_indexes_in_whole, list_points = [], [], []
-    n_points_per_image = np.array([len(np.nonzero(image.ravel())[0]) for image in gt_images])
+    n_points_per_image = np.cumsum([len(np.nonzero(image.ravel())[0]) for image in gt_images])
 
     n_images = len(gt_images)
     for i in range(n_images):
