@@ -351,7 +351,7 @@ class RobustLocalLinearFit(PredictionsSmoother):
 
 def convert_npylist_to_hdf5(input_dir, output_filename):
     PointPatchPredictionsIO = io_struct.HDF5IO(
-        {'distances': io_struct.VarFloat64('distances')},
+        {'distances': io_struct.Float64('distances')},
         len_label='distances',
         compression='lzf')
 
@@ -402,14 +402,15 @@ def main(options):
 
     n_points_per_image = np.array([len(np.nonzero(image.ravel())[0]) for image in gt_images])
     n_points = np.sum(n_points_per_image)
-    whole_model_points_gt = np.zeros((n_points, 3))
-    whole_model_distances_gt = np.ones(n_points)
+    whole_model_points_gt = []
+    whole_model_distances_gt = []
     for camera_to_world_4x4, image, distances, n_cum_points in \
             zip(gt_cameras, gt_images, gt_distances, np.cumsum(n_points_per_image)):
         points_in_world_frame = CameraPose(camera_to_world_4x4).camera_to_world(imaging.image_to_points(image))
-        whole_model_points_gt[n_cum_points:n_cum_points + len(points_in_world_frame)] = points_in_world_frame
-        whole_model_distances_gt[n_cum_points:n_cum_points + len(points_in_world_frame)] = \
-            distances.ravel()[np.nonzero(image.ravel())[0]]
+        whole_model_points_gt.append(points_in_world_frame)
+        whole_model_distances_gt.append(distances.ravel()[np.nonzero(image.ravel())[0]])
+    whole_model_points_gt = np.concatenate(whole_model_points_gt)
+    whole_model_distances_gt = np.concatenate(whole_model_distances_gt)
 
     ground_truth_filename = os.path.join(options.output_dir, '{}__{}.hdf5'.format(name, 'ground_truth'))
     save_full_model_predictions(whole_model_points_gt, whole_model_distances_gt, ground_truth_filename)
