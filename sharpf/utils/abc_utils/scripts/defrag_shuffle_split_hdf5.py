@@ -103,7 +103,7 @@ def main(options):
             writer.extend(filtered_batch)
 
             any_key = next(iter(filtered_batch.keys()))
-            stored_count += len(batch[any_key])
+            stored_count += len(filtered_batch[any_key])
             if options.verbose:
                 eprint_t('Processed {0:d} items ({1:3.1f}% of data), stored {2:d} items'.format(
                     batch_idx * batch_size, seen_fraction * 100, stored_count))
