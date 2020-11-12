@@ -29,8 +29,9 @@ declare -A NOISE_LEVELS
 # NOISE_LEVELS[low_res]="0.5 0.25 0.125 0.0625 0.03125 0.015625 0.0"
 
 # IMAGES IMAGES IMAGES IMAGES
-# NOISE_LEVELS["high_res.json"]="0.0025"
 # NOISE_LEVELS["high_res.json"]="0.0025 0.005 0.01 0.02 0.04 0.08"
+NOISE_LEVELS["high_res.json"]="0.005 0.02 0.08"
+# NOISE_LEVELS["high_res.json"]="0.0"
 NOISE_LEVELS["med_res.json"]="0.0"
 NOISE_LEVELS["low_res.json"]="0.0"
 export NOISE_LEVELS
@@ -44,6 +45,7 @@ run_slurm_jobs() {
   local raw_input_dir=$4
   local dataset_output_dir=$5
   local split=$6
+  local max_items_to_store=$7
 
   local symlinks_dir="${dataset_output_dir}/${split}_symlinks"
   local output_dir="${dataset_output_dir}/${split}"
@@ -52,7 +54,8 @@ run_slurm_jobs() {
 
   for chunk in $( seq -w "${start_chunk}" "${end_chunk}" )
   do
-      find "${raw_input_dir}/${chunk}" \
+      find -L \
+        "${raw_input_dir}/${chunk}" \
         -type f \
         -regextype sed \
         -regex "${pattern}" \
@@ -66,6 +69,7 @@ run_slurm_jobs() {
       "${SHUFFLE_SCRIPT}" \
         -i "${symlinks_dir}" \
         -o "${output_dir}" \
+        -m ${max_items_to_store} \
         -v
 
 }
@@ -99,17 +103,17 @@ do
  
     if [[ -n "${TRAIN_START_CHUNK}" && -n "${TRAIN_END_CHUNK}" ]]
     then
-      run_slurm_jobs "${TRAIN_START_CHUNK}" "${TRAIN_END_CHUNK}" "${pattern}" "${raw_input_dir}" "${dataset_output_dir}" train
+      run_slurm_jobs "${TRAIN_START_CHUNK}" "${TRAIN_END_CHUNK}" "${pattern}" "${raw_input_dir}" "${dataset_output_dir}" train_arbitrary 131072
     fi
  
     if [[ -n "${VAL_START_CHUNK}" && -n "${VAL_END_CHUNK}" ]]
     then
-      run_slurm_jobs "${VAL_START_CHUNK}" "${VAL_END_CHUNK}" "${pattern}" "${raw_input_dir}" "${dataset_output_dir}" val
+      run_slurm_jobs "${VAL_START_CHUNK}" "${VAL_END_CHUNK}" "${pattern}" "${raw_input_dir}" "${dataset_output_dir}" val_arbitrary 65536
     fi
  
     if [[ -n "${TEST_START_CHUNK}" && -n "${TEST_END_CHUNK}" ]]
     then
-      run_slurm_jobs "${TEST_START_CHUNK}" "${TEST_END_CHUNK}" "${pattern}" "${raw_input_dir}" "${dataset_output_dir}" test
+      run_slurm_jobs "${TEST_START_CHUNK}" "${TEST_END_CHUNK}" "${pattern}" "${raw_input_dir}" "${dataset_output_dir}" test_arbitrary 65536
     fi
  
   done
