@@ -3,12 +3,12 @@
 #SBATCH --job-name=sharpf-whole-points
 #SBATCH --output=/trinity/home/a.artemov/tmp/sharpf_points_whole/%A_%a.out
 #SBATCH --error=/trinity/home/a.artemov/tmp/sharpf_points_whole/%A_%a.err
-#SBATCH --array=1-80
-#SBATCH --time=02:00:00
+#SBATCH --array=1-10
+#SBATCH --time=12:00:00
 #SBATCH --partition=htc
 #SBATCH --cpus-per-task=10
 #SBATCH --ntasks=1
-#SBATCH --mem-per-cpu=8g
+#SBATCH --mem-per-cpu=64g
 #SBATCH --oversubscribe
 
 # module load apps/singularity-3.2.0
