@@ -6,12 +6,18 @@ import numpy as np
 from sharpf.utils.abc_utils.mesh.indexing import reindex_array, reindex_zerobased
 
 
-def get_adjacent_features_by_bfs_with_depth1(surface_idx, adjacent_sharp_features, adjacent_surfaces):
+def get_adjacent_features_by_bfs_with_depth1(
+        surface_idx,
+        adjacent_sharp_features,
+        adjacent_surfaces,
+        always_check_adjacent_surfaces=False
+):
     """If adjacent sharp curves exist, return one of them.
     If not, return ones adjacent to adjacent surfaces. """
 
     adjacent_sharp_indexes = deepcopy(adjacent_sharp_features[surface_idx])
-    if not adjacent_sharp_indexes:
+    if always_check_adjacent_surfaces or len(adjacent_sharp_indexes) == 0:
+
         for adjacent_surface_idx in adjacent_surfaces[surface_idx]:
             adjacent_surface_adjacent_sharp_features = \
                 {adjacent_surface_idx: adjacent_sharp_features[adjacent_surface_idx]}

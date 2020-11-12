@@ -33,8 +33,9 @@ class AnnotatorFunc(ABC):
     """Implements obtaining point samples from meshes.
     Given a mesh, extracts a point cloud located on the
     mesh surface, i.e. a set of 3d point locations."""
-    def __init__(self, distance_upper_bound):
+    def __init__(self, distance_upper_bound, always_check_adjacent_surfaces=False):
         self.distance_upper_bound = distance_upper_bound
+        self.always_check_adjacent_surfaces = always_check_adjacent_surfaces
 
     def flat_annotation(self, points):
         projections = np.zeros_like(points)
@@ -142,7 +143,8 @@ class AABBAnnotator(AnnotatorFunc, ABC):
 
     @classmethod
     def from_config(cls, config):
-        return cls(config['distance_upper_bound'])
+        return cls(config['distance_upper_bound'],
+                   always_check_adjacent_surfaces=config.get('always_check_adjacent_surfaces', False))
 
     def _prepare_aabb(self, mesh_patch, features):
         """Creates a set of axis-aligned bboxes """
@@ -288,7 +290,10 @@ def parallel_annotation_by_surface(
     surface = features_patch['surfaces'][surface_idx]
     # constrain distance computation to certain sharp features only
     adjacent_sharp_indexes = get_adjacent_features_by_bfs_with_depth1(
-        surface_idx, adjacent_sharp_features, adjacent_surfaces)
+        surface_idx,
+        adjacent_sharp_features,
+        adjacent_surfaces,
+        always_check_adjacent_surfaces=annotator_obj.always_check_adjacent_surfaces)
     surface_adjacent_features = {
         'curves': [features_patch['curves'][idx]
                    for idx in np.unique(adjacent_sharp_indexes)]

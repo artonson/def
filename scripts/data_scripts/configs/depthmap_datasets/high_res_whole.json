@@ -26,7 +26,8 @@
   },
   "annotation": {
     "type": "surface_based_aabb",
-    "distance_upper_bound": 1.0
+    "distance_upper_bound": 1.0,
+    "always_check_adjacent_surfaces": true
   },
   "smell_coarse_surfaces_by_num_edges": {
     "num_edges_threshold": 8
