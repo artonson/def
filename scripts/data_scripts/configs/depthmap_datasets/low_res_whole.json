@@ -16,7 +16,7 @@
     "type": "raycasting",
     "projection": "ortho",
     "resolution_image": 1024,
-    "resolution_3d": 0.02,
+    "resolution_3d": 0.125,
     "fov": [115, 85, 80],
     "validate_image": true
   },
@@ -35,8 +35,8 @@
     "max_angle_threshold_degrees": 10.0
   },
   "smell_deviating_resolution": {
-    "resolution_3d": 0.02,
-    "resolution_deviation_tolerance": 0.01
+    "resolution_3d": 0.125,
+    "resolution_deviation_tolerance": 0.0625
   },
   "smell_sharpness_discontinuities": { },
   "smell_bad_face_sampling": {

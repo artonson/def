@@ -22,7 +22,7 @@
   },
   "noise": {
     "type": "z_direction",
-    "scale": 0.0
+    "scale": 0.08
   },
   "annotation": {
     "type": "surface_based_aabb",

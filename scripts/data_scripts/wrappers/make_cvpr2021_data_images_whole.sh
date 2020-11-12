@@ -7,14 +7,14 @@ set -e
 export DATA_DIR=/gpfs/gpfs0/3ddl/datasets/abc/
 export INPUT_FILENAME=/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr/printed_models.txt
 export OUTPUT_BASE_DIR=/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr
-export DATATYPE=points_whole
+export DATATYPE=images_whole
 
 # codebase configuration
 export PROJECT_ROOT=/trinity/home/a.artemov/repos/sharp_features
-export GENERATE_DATA_SCRIPT=${PROJECT_ROOT}/scripts/data_scripts/slurm/make_points_whole.sbatch.sh
+export GENERATE_DATA_SCRIPT=${PROJECT_ROOT}/scripts/data_scripts/slurm/make_images_whole.sbatch.sh
 
 # job configuration
-export CONFIG_LIST="med_res_whole.json low_res_whole.json"
+export CONFIG_LIST="high_res_whole.json high_res_whole_0.005.json high_res_whole_0.02.json high_res_whole_0.08.json med_res_whole.json low_res_whole.json"
 
 # data configuration
 #export TRAIN_START_CHUNK="00"

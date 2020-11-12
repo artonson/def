@@ -226,7 +226,7 @@ def get_annotated_patches(data, config, n_jobs):
         n_points += len(points_in_world_frame)
     whole_model_points = np.concatenate(whole_model_points)
 
-    parallel = Parallel(n_jobs=n_jobs, backend='multiprocessing', verbose=100)
+    parallel = Parallel(n_jobs=n_jobs, backend='loky', verbose=100)
     delayed_iterable = (delayed(compute_patches)(
         patch,
         whole_model_points,
