@@ -169,6 +169,7 @@ def get_annotated_patches(data, config, n_jobs):
 
     config_n_points = config['sampling']['n_points']
     n_points = np.ceil(mesh.area / (np.pi * sampler.resolution_3d ** 2 / 4)).astype(int)
+    eprint_t('Going to generate {} samples on whole mesh'.format(n_points))
     sampler.n_points = n_points
     whole_model_points, whole_model_normals = sampler.sample(mesh)
 
@@ -186,7 +187,7 @@ def get_annotated_patches(data, config, n_jobs):
         for surface in features['surfaces']
     ])
 
-    parallel = Parallel(n_jobs=n_jobs, backend='multiprocessing', verbose=100)
+    parallel = Parallel(n_jobs=n_jobs, backend='multiprocessing', verbose=20)
     delayed_iterable = (delayed(compute_patches)(
         patch_idx,
         whole_model_points,
