@@ -515,7 +515,8 @@ def main(options):
     list_predictions = [view['distances'] for view in predictions_dataset]
 
     list_predictions, list_indexes_in_whole, list_points = multi_view_interpolate_predictions(
-        imaging, gt_cameras, gt_images, list_predictions, verbose=options.verbose)
+        imaging, gt_cameras, gt_images, list_predictions, verbose=options.verbose,
+        distance_interpolation_threshold=imaging.resolution_3d * 6.)
 
     # run various algorithms for consolidating predictions
     combiners = [
