@@ -457,14 +457,20 @@ def multi_view_interpolate_predictions(
                     can_interpolate[idx] = np.all(distances_to_nearest < distance_interpolation_threshold)
 
                     if can_interpolate[idx]:
-                        interpolator = interpolate.interp2d(
-                            nbhood_of_reprojected[:, 0],
-                            nbhood_of_reprojected[:, 1],
-                            predictions_i.ravel()[nn_indexes[idx]],
-                            kind='linear')
-                        interpolated_distances_j[idx] = interpolator(
-                            reprojected_point[0],
-                            reprojected_point[1])[0]
+                        try:
+                            interpolator = interpolate.interp2d(
+                                nbhood_of_reprojected[:, 0],
+                                nbhood_of_reprojected[:, 1],
+                                predictions_i.ravel()[nn_indexes[idx]],
+                                kind='linear')
+                            interpolated_distances_j[idx] = interpolator(
+                                reprojected_point[0],
+                                reprojected_point[1])[0]
+                        except ValueError as e:
+                            eprint_t('Error while interpolating point {idx}: {what}, skipping this point'.format(
+                                idx=idx, what=str(e)))
+                            can_interpolate[idx] = False
+
 
                 list_points.append(points_j[can_interpolate])
                 list_predictions.append(interpolated_distances_j[can_interpolate])
