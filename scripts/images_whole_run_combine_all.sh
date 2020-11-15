@@ -55,13 +55,11 @@ for instance_name in $( cat ${INSTANCE_LIST_FILENAME} )
 do
     for res in high_res med_res low_res
     do
-        run_combine ${res} 0.0 d6 regression ${instance_name} ${res}_whole.json
-        run_combine ${res} 0.0 d6-v regression ${instance_name} ${res}_whole.json
+        run_combine ${res} 0.0 resnet152 regression ${instance_name} ${res}_whole.json
     done
     for noise in 0.005 0.02 0.08
     do
-        run_combine high_res ${noise} d6 regression ${instance_name} high_res_whole_${noise}.json
-        run_combine high_res ${noise} d6-v regression ${instance_name} high_res_whole_${noise}.json
+        run_combine high_res ${noise} resnet152 regression ${instance_name} high_res_whole_${noise}.json
     done
 done
 
