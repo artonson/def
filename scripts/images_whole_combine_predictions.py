@@ -134,7 +134,8 @@ class MinPredictionsCombiner(PointwisePredictionsCombiner):
 
 
 class TruncatedAvgPredictionsCombiner(PointwisePredictionsCombiner):
-    def __init__(self): super().__init__(func=TruncatedMean(0.6), tag='adv60')
+    def __init__(self, func=np.mean):
+        super().__init__(func=TruncatedMean(0.6, func=func), tag='adv60__min')
 
 
 class MinsAvgPredictionsCombiner(PointwisePredictionsCombiner):
@@ -153,7 +154,7 @@ class CenterCropPredictionsCombiner(PointwisePredictionsCombiner):
     """Makes a central crop, then performs the same as above."""
 
     def __init__(self, func: Callable = np.median, brd_thr=90):
-        super().__init__(func=func, tag='crop')
+        super().__init__(func=func, tag='crop__adv60')
         self._brd_thr = brd_thr
 
     def __call__(
@@ -482,10 +483,6 @@ def multi_view_interpolate_predictions(
 def main(options):
     name = os.path.splitext(os.path.basename(options.true_filename))[0]
 
-    with open(options.dataset_config) as config_file:
-        config = json.load(config_file)
-    imaging = load_func_from_config(IMAGING_BY_TYPE, config['imaging'])
-
     # load ground truth and save to a single patch
     ground_truth_dataset = Hdf5File(
         options.true_filename,
@@ -494,8 +491,15 @@ def main(options):
         labels='*')
     ground_truth = [view for view in ground_truth_dataset]
     gt_images = [view['image'] for view in ground_truth]
-    gt_distances = [view['distances'] for view in ground_truth]
+    gt_distances = [view.get('distances', np.ones_like(view['image'])) for view in ground_truth]
     gt_cameras = [view['camera_pose'] for view in ground_truth]
+
+    with open(options.dataset_config) as config_file:
+        config = json.load(config_file)
+        config['imaging']['resolution_image'] = gt_images[0].shape[0]
+    imaging = load_func_from_config(IMAGING_BY_TYPE, config['imaging'])
+    print(imaging.resolution_image, gt_images[0].shape)
+
 
     n_points = int(np.sum([len(np.nonzero(image.ravel())[0]) for image in gt_images]))
     whole_model_points_gt = []
@@ -526,26 +530,26 @@ def main(options):
 
     # run various algorithms for consolidating predictions
     combiners = [
-        MedianPredictionsCombiner(),
-        MinPredictionsCombiner(),
-        AvgPredictionsCombiner(),
-        TruncatedAvgPredictionsCombiner(),
-        MinsAvgPredictionsCombiner(signal_thr=0.9),
-        SmoothingCombiner(
-            combiner=MinPredictionsCombiner(),
-            smoother=L2Smoother(regularizer_alpha=0.01)
-        ),
-        SmoothingCombiner(
-            combiner=MinPredictionsCombiner(),
-            smoother=TotalVariationSmoother(regularizer_alpha=0.001)
-        ),
-        SmoothingCombiner(
-            combiner=MinPredictionsCombiner(),
-            smoother=RobustLocalLinearFit(
-                HuberRegressor(epsilon=4., alpha=1.),
-                n_jobs=32
-            )
-        ),
+#       MedianPredictionsCombiner(),
+#       MinPredictionsCombiner(),
+#       AvgPredictionsCombiner(),
+        TruncatedAvgPredictionsCombiner(func=np.min),
+#       MinsAvgPredictionsCombiner(signal_thr=0.9),
+#       SmoothingCombiner(
+#           combiner=MinPredictionsCombiner(),
+#           smoother=L2Smoother(regularizer_alpha=0.01)
+#       ),
+#       SmoothingCombiner(
+#           combiner=MinPredictionsCombiner(),
+#           smoother=TotalVariationSmoother(regularizer_alpha=0.001)
+#       ),
+#       SmoothingCombiner(
+#           combiner=MinPredictionsCombiner(),
+#           smoother=RobustLocalLinearFit(
+#               HuberRegressor(epsilon=4., alpha=1.),
+#               n_jobs=32
+#           )
+#       ),
     ]
 
     for combiner in combiners:

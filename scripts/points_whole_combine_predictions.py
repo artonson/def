@@ -29,9 +29,10 @@ from torch import optim
 from scipy.spatial import cKDTree
 from scipy.stats.mstats import mquantiles
 from sklearn.decomposition import PCA
+from sklearn.pipeline import Pipeline
 from sklearn.linear_model import (
     LinearRegression, TheilSenRegressor, RANSACRegressor, HuberRegressor)
-from sklearn.preprocessing import PolynomialFeatures
+from sklearn.preprocessing import PolynomialFeatures, StandardScaler
 from joblib import Parallel, delayed
 
 
@@ -116,6 +117,18 @@ class PointwisePredictionsCombiner(PredictionsCombiner):
         return whole_model_distances_pred, predictions_variants
 
 
+class AvgProbaPredictionsCombiner(PointwisePredictionsCombiner):
+    def __init__(self, thr=0.5):
+        def maj_voting(values):
+            values = np.array(values)
+            if np.mean(values) > thr:
+                return 1.0
+            else:
+                return 0.0
+
+        super().__init__(func=maj_voting, tag='vote_{0:3.2f}'.format(thr))
+
+
 class MedianPredictionsCombiner(PointwisePredictionsCombiner):
     def __init__(self): super().__init__(func=np.median, tag='median')
 
@@ -147,8 +160,8 @@ class MinsAvgPredictionsCombiner(PointwisePredictionsCombiner):
 class CenterCropPredictionsCombiner(PointwisePredictionsCombiner):
     """Makes a central crop, then performs the same as above."""
 
-    def __init__(self, func: Callable = np.median, brd_thr=90):
-        super().__init__(func=func, tag='crop')
+    def __init__(self, func: Callable = np.median, brd_thr=90, tag='crop'):
+        super().__init__(func=func, tag=tag)
         self._brd_thr = brd_thr
 
     def __call__(
@@ -314,6 +327,18 @@ class RobustLocalLinearFit(PredictionsSmoother):
                 X, y, uniq_indexes = make_xy(point_index, points, nn_indexes, predictions_variants)
                 yield point_index, X, y, uniq_indexes
 
+        def local_linear_fit_with_pipe(X, y):
+            pipe = Pipeline([
+                ('scaler', StandardScaler()),
+                ('pca', PCA(n_components=2)),
+                ('feat', PolynomialFeatures(2)),
+                ('reg', HuberRegressor(epsilon=4., alpha=1., max_iter=1000))])
+            try:
+                y_pred = pipe.fit(X, y).predict(X)
+            except ValueError:
+                y_pred = None
+            return y_pred
+
         def local_linear_fit(X, y, estimator):
             X_trans = PCA(n_components=2).fit_transform(X)
             X_trans = PolynomialFeatures(2).fit_transform(X_trans)
@@ -324,7 +349,9 @@ class RobustLocalLinearFit(PredictionsSmoother):
             return y_pred
 
         parallel = Parallel(n_jobs=self._n_jobs, backend='loky', verbose=100)
-        delayed_iterable = (delayed(local_linear_fit)(X, y, deepcopy(self._estimator))
+#       delayed_iterable = (delayed(local_linear_fit)(X, y, deepcopy(self._estimator))
+#                           for point_index, X, y, uniq_indexes in data_maker(points, nn_indexes, predictions_variants))
+        delayed_iterable = (delayed(local_linear_fit_with_pipe)(X, y)
                             for point_index, X, y, uniq_indexes in data_maker(points, nn_indexes, predictions_variants))
         refined_predictions = parallel(delayed_iterable)
 
@@ -379,10 +406,24 @@ def save_full_model_predictions(points, predictions, filename):
 def main(options):
     name = os.path.splitext(os.path.basename(options.true_filename))[0]
 
+    UnlabeledPointCloudIO = io_struct.HDF5IO({
+            'points': io_struct.Float64('points'),
+            'indexes_in_whole': io_struct.Int32('indexes_in_whole'),
+            'distances': io_struct.Float64('distances'),
+            'item_id': io_struct.AsciiString('item_id'),
+        },
+        len_label='has_sharp',
+        compression='lzf')
+
+    if options.unlabeled:
+        data_io = UnlabeledPointCloudIO
+    else:
+        data_io = sharpf_io.WholePointCloudIO
+
     # load ground truth and save to a single patch
     ground_truth_dataset = Hdf5File(
         options.true_filename,
-        io=sharpf_io.WholePointCloudIO,
+        io=data_io,
         preload=PreloadTypes.LAZY,
         labels='*')
     ground_truth = [patch for patch in ground_truth_dataset]
@@ -395,7 +436,7 @@ def main(options):
     for patch in tqdm(ground_truth):
         distances = patch['distances']
         directions = patch['directions'].reshape((-1, 3))
-        indexes = patch['indexes_in_whole']
+        indexes = patch['indexes_in_whole'].astype(int)
         whole_model_points_gt[indexes] = patch['points'].reshape((-1, 3))
 
         assign_mask = whole_model_distances_gt[indexes] > distances
@@ -406,31 +447,55 @@ def main(options):
     save_full_model_predictions(whole_model_points_gt, whole_model_distances_gt, ground_truth_filename)
 
     # convert and load predictions
-    predictions_filename = os.path.join(options.output_dir, '{}__{}.hdf5'.format(name, 'predictions'))
-    convert_npylist_to_hdf5(options.pred_dir, predictions_filename)
-    predictions_dataset = Hdf5File(
-        predictions_filename,
-        io=sharpf_io.WholePointCloudIO,
-        preload=PreloadTypes.LAZY,
-        labels='*')
-    list_predictions = [patch['distances'] for patch in predictions_dataset]
+    if options.pred_key is not None:
+        ComparisonsIO = io_struct.HDF5IO({
+                'points': io_struct.VarFloat64('points'),
+                'indexes_in_whole': io_struct.VarInt32('indexes_in_whole'),
+                'distances': io_struct.VarFloat64('distances'),
+                'item_id': io_struct.AsciiString('item_id'),
+                'voronoi': io_struct.VarFloat64('voronoi'),
+                'ecnet': io_struct.VarFloat64('ecnet'),
+                'sharpness': io_struct.VarFloat64('sharpness'),
+            },
+            len_label='points',
+            compression='lzf')
+        predictions_dataset = Hdf5File(
+            options.pred_dir,
+            io=ComparisonsIO,
+            preload=PreloadTypes.LAZY,
+            labels=[options.pred_key, 'points', 'indexes_in_whole'])
+        list_predictions = [patch[options.pred_key] for patch in predictions_dataset]
+        
+    else:
+        predictions_filename = os.path.join(options.output_dir, '{}__{}.hdf5'.format(name, 'predictions'))
+        convert_npylist_to_hdf5(options.pred_dir, predictions_filename)
+        predictions_dataset = Hdf5File(
+            predictions_filename,
+            io=sharpf_io.WholePointCloudIO,
+            preload=PreloadTypes.LAZY,
+            labels='*')
+        list_predictions = [patch['distances'] for patch in predictions_dataset]
 
     # run various algorithms for consolidating predictions
     combiners = [
-        MedianPredictionsCombiner(),
-        MinPredictionsCombiner(),
-        AvgPredictionsCombiner(),
-        TruncatedAvgPredictionsCombiner(),
-        CenterCropPredictionsCombiner(brd_thr=80, func=np.min),
-        MinsAvgPredictionsCombiner(signal_thr=0.9),
-        SmoothingCombiner(
-            combiner=CenterCropPredictionsCombiner(brd_thr=80, func=np.min),
-            smoother=L2Smoother(regularizer_alpha=0.01)
-        ),
-        SmoothingCombiner(
-            combiner=CenterCropPredictionsCombiner(brd_thr=80, func=np.min),
-            smoother=TotalVariationSmoother(regularizer_alpha=0.001)
-        ),
+#       AvgProbaPredictionsCombiner(thr=0.25),
+#       AvgProbaPredictionsCombiner(thr=0.5),
+#       AvgProbaPredictionsCombiner(thr=0.75),
+#       MedianPredictionsCombiner(),
+#       MinPredictionsCombiner(),
+#       AvgPredictionsCombiner(),
+#       TruncatedAvgPredictionsCombiner(),
+#       CenterCropPredictionsCombiner(brd_thr=80, func=np.min, tag='crop__min'),
+#       CenterCropPredictionsCombiner(brd_thr=80, func=TruncatedMean(0.6, func=np.min), tag='crop__adv60__min'),
+#       MinsAvgPredictionsCombiner(signal_thr=0.9),
+#       SmoothingCombiner(
+#           combiner=CenterCropPredictionsCombiner(brd_thr=80, func=np.min),
+#           smoother=L2Smoother(regularizer_alpha=0.01)
+#       ),
+#       SmoothingCombiner(
+#           combiner=CenterCropPredictionsCombiner(brd_thr=80, func=np.min),
+#           smoother=TotalVariationSmoother(regularizer_alpha=0.001)
+#       ),
         SmoothingCombiner(
             combiner=CenterCropPredictionsCombiner(brd_thr=80, func=np.min),
             smoother=RobustLocalLinearFit(
@@ -465,6 +530,9 @@ def parse_args():
                         help='Path to prediction directory with npy files.')
     parser.add_argument('-o', '--output-dir', dest='output_dir', required=True,
                         help='Path to output (suffixes indicating various methods will be added).')
+    parser.add_argument('-u', '--unlabeled', dest='unlabeled', action='store_true', default=False,
+                        help='set if input data is unlabeled.')
+    parser.add_argument('-k', '--key', dest='pred_key', help='if set, switch to compare-io and use this key.')
     return parser.parse_args()
 
 
