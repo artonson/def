@@ -22,7 +22,8 @@ run_combine() {
     gt_filename=${BASE_GT_DIR}/${res}/${noise}/abc_0050_${instance_name}.hdf5
     pred_dir=${BASE_PREDICTIONS_DIR}/${res}/${noise}/${model}/${task}/abc_0050_${instance_name}/predictions
     output_dir=${BASE_OUTPUT_DIR}/${res}/${noise}/${model}/${task}
-    output_filename=${BASE_OUTPUT_DIR}/${res}/${noise}/${model}/${task}/abc_0050_${instance_name}__ground_truth.hdf5
+    # output_filename=${BASE_OUTPUT_DIR}/${res}/${noise}/${model}/${task}/abc_0050_${instance_name}__ground_truth.hdf5
+    output_filename=${BASE_OUTPUT_DIR}/${res}/${noise}/${model}/${task}/abc_0050_${instance_name}__crop__linreg.hdf5
 
     if [ ! -f ${gt_filename} ] ; then
         echo "GT file ${gt_filename} not available, skipping" && return
@@ -39,11 +40,11 @@ run_combine() {
     echo "Will compute ${output_filename}"
     echo "python3 ${COMBINE_SCRIPT} -t ${gt_filename} -p ${pred_dir} -o ${output_dir} -v 1>${output_filename}.out 2>${output_filename}.err &"
 
-#   python3 ${COMBINE_SCRIPT} \
-#       -t ${gt_filename} \
-#       -p ${pred_dir} \
-#       -o ${output_dir} \
-#       -v
+    python3 ${COMBINE_SCRIPT} \
+        -t ${gt_filename} \
+        -p ${pred_dir} \
+        -o ${output_dir} \
+        -v
 }
 
 

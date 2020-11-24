@@ -360,8 +360,8 @@ class RobustLocalLinearFit(PredictionsSmoother):
                 zip(refined_predictions, data_maker(points, nn_indexes, predictions_variants))):
             if None is refined_prediction:
                 continue
-            for i, nn_index in enumerate(nn_indexes[point_index]):
-                refined_predictions_variants[nn_index].append(refined_prediction[uniq_indexes[i]])
+            for ui, nn_index in zip(uniq_indexes, nn_indexes[point_index]):
+                refined_predictions_variants[nn_index].append(refined_prediction[ui])
 
         refined_combined_predictions = np.zeros_like(predictions)
         for idx, values in refined_predictions_variants.items():
@@ -429,6 +429,10 @@ def main(options):
     ground_truth = [patch for patch in ground_truth_dataset]
 
     n_points = np.concatenate([patch['indexes_in_whole'] for patch in ground_truth]).max() + 1
+    if n_points >= 1000000:
+        print('Too large file ({} points); not computing'.format(n_points))
+        return
+
     whole_model_points_gt = np.zeros((n_points, 3))
     whole_model_distances_gt = np.ones(n_points) * np.inf
     whole_model_directions_gt = np.ones((n_points, 3)) * np.inf
@@ -500,7 +504,7 @@ def main(options):
             combiner=CenterCropPredictionsCombiner(brd_thr=80, func=np.min),
             smoother=RobustLocalLinearFit(
                 HuberRegressor(epsilon=4., alpha=1.),
-                n_jobs=32
+                n_jobs=36
             )
         ),
     ]

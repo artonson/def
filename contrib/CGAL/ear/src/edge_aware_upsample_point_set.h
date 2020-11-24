@@ -41,7 +41,7 @@
 #include <math.h>
 
 
-//#define  CGAL_PSP3_VERBOSE
+#define  CGAL_PSP3_VERBOSE
 
 namespace CGAL {
 
