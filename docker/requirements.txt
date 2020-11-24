@@ -13,7 +13,7 @@ PyYAML
 joblib
 tensorboardX
 pylzma
-k3d==2.7
+k3d==2.9
 randomcolor
 nose==1.3
 scikit-learn==0.23
