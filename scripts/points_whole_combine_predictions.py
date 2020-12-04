@@ -95,6 +95,10 @@ def main(options):
     ground_truth = [patch for patch in ground_truth_dataset]
 
     n_points = np.concatenate([patch['indexes_in_whole'] for patch in ground_truth]).max() + 1
+    if n_points >= 1000000:
+        print('Too large file ({} points); not computing'.format(n_points))
+        return
+
     whole_model_points_gt = np.zeros((n_points, 3))
     whole_model_distances_gt = np.ones(n_points) * np.inf
     whole_model_directions_gt = np.ones((n_points, 3)) * np.inf
