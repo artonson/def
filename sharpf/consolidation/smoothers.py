@@ -112,6 +112,8 @@ class RobustLocalLinearFit(PredictionsSmoother):
         def make_xy(point_index, points, nn_indexes, predictions_variants):
             X, y = [], []
             for neighbour_index in nn_indexes[point_index]:
+                X.extend([points[neighbour_index]] * len(predictions_variants[neighbour_index]))
+                y.extend(predictions_variants[neighbour_index])
                 for y_value in predictions_variants[neighbour_index]:
                     X.append(points[neighbour_index])
                     y.append(y_value)
@@ -156,8 +158,8 @@ class RobustLocalLinearFit(PredictionsSmoother):
                 zip(refined_predictions, data_maker(points, nn_indexes, predictions_variants))):
             if None is refined_prediction:
                 continue
-            for i, nn_index in enumerate(nn_indexes[point_index]):
-                refined_predictions_variants[nn_index].append(refined_prediction[uniq_indexes[i]])
+            for ui, nn_index in enumerate(zip(uniq_indexes, nn_indexes[point_index])):
+                refined_predictions_variants[nn_index].append(refined_prediction[ui])
 
         refined_combined_predictions = np.zeros_like(predictions)
         for idx, values in refined_predictions_variants.items():
