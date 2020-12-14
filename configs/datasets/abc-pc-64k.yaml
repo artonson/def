@@ -33,19 +33,6 @@ val:
       transform: ${transform.val}
       max_loaded_files: 2
 test:
-  #  - dataset_name: val
-  #    dataset_class:
-  #      _target_: defs.utils.abc_utils.LotsOfHdf5Files
-  #      io:
-  #        _target_: defs.data.PointCloudIO
-  #      filenames: [
-  #        '${hydra:runtime.cwd}/data/points/${datasets.resolution}_res.json/${datasets.noise}/val/train_0.hdf5',
-  #        '${hydra:runtime.cwd}/data/points/${datasets.resolution}_res.json/${datasets.noise}/val/train_1.hdf5'
-  #      ]
-  #      labels: ${datasets.test_labels}
-  #      transform: ${transform.test}
-  #      max_loaded_files: 2
-  #      return_index: true
   - dataset_name: test
     dataset_class:
       _target_: defs.utils.abc_utils.LotsOfHdf5Files
