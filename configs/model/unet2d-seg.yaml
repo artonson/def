@@ -11,18 +11,25 @@ example_input_array:
     - 64
     - 64
 
+output_elements:
+  - key: preds_sharp
+    channel_range:
+      - 0
+      - ${model.out_channels}
+
 model_class:
-  _target_: sharpf.modeling.PixelSegmentator
+  _target_: defs.modeling.PixelSegmentator
   feature_extractor:
-    _target_: sharpf.modeling.Unet2D
-    encoder_name: resnet50
+    _target_: defs.modeling.Unet2D
+    encoder_name: resnet152
     decoder_channels: [512, 256, 128, 64]
     decoder_layers: [2, 2, 2, 2]
     in_channels: ${model.in_channels}
-  #    avg_down: true
+    avg_down: false
+    act_layer: torch.nn.ReLU
   #    base_width: 66
   segmentation_head:
-    _target_: sharpf.modeling.Sequential
+    _target_: defs.modeling.Sequential
     modules:
       - _target_: torch.nn.Dropout
         p: 0.0

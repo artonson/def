@@ -1,7 +1,0 @@
-# @package _group_
-
-val:
-  - _target_: sharpf.evaluation.QuantileEvaluator
-
-test:
-  - _target_: sharpf.evaluation.QuantileEvaluator

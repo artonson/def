@@ -75,6 +75,18 @@ cs.store(
 
 
 @dataclass
+class Exponential09Conf(ExponentialConf):
+    gamma: float = 0.9
+
+
+cs.store(
+    group="scheduler",
+    name="exponential09",
+    node=Exponential09Conf(),
+)
+
+
+@dataclass
 class RedPlatConf(TargetConf):
     _target_: str = "torch.optim.lr_scheduler.ReduceLROnPlateau"
     mode: str = "min"

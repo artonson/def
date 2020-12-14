@@ -18,21 +18,21 @@ output_elements:
       - ${model.out_channels}
 
 model_class:
-  _target_: sharpf.modeling.PixelRegressorHist
+  _target_: defs.modeling.PixelRegressorHist
   a: 0.0
   b: 1.0
   discretization: 240
   margin: 2
   feature_extractor:
-    _target_: sharpf.modeling.Unet2D
-    encoder_name: resnet50
+    _target_: defs.modeling.Unet2D
+    encoder_name: resnet152
     decoder_channels: [512, 256, 128, 64]
     decoder_layers: [2, 2, 2, 2]
     in_channels: ${model.in_channels}
     avg_down: true
     act_layer: torch.nn.LeakyReLU
   regression_head:
-    _target_: sharpf.modeling.Sequential
+    _target_: defs.modeling.Sequential
     modules:
       - _target_: torch.nn.Dropout
         p: 0.0

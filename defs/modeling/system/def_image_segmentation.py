@@ -1,0 +1,172 @@
+import logging
+from typing import Optional, Dict, List, Tuple
+
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from omegaconf import DictConfig, OmegaConf
+from pytorch_lightning.core.lightning import LightningModule
+from torch.utils.data import Dataset
+
+from defs.data import build_loaders, build_datasets
+from .. import logits_to_scalar, PixelRegressorHist
+from ..metrics.badpoints import MeanBadPoints
+from ..metrics.miou import MIOU
+from ..metrics.rmse import MRMSE, Q95RMSE
+from ...optim import get_params_for_optimizer
+from ...utils.hydra import instantiate, call
+
+log = logging.getLogger(__name__)
+
+
+class DEFImageSegmentation(LightningModule):
+
+    def __init__(self, cfg: DictConfig):
+        super().__init__()
+        self.hparams = cfg
+        self.configs = cfg
+        self.datasets: Dict[str, Optional[List[Tuple[str, Dataset]]]] = {'train': None, 'val': None, 'test': None}
+        self.model = instantiate(self.hparams.model.model_class)
+        self.example_input_array = instantiate(self.hparams.model.example_input_array)
+
+        self.miou_sharp: Dict[str, nn.ModuleList] = {
+            'val': nn.ModuleList([MIOU() for _ in range(len(self.hparams.datasets.val))]),
+            'test': nn.ModuleList([MIOU() for _ in range(len(self.hparams.datasets.test))]),
+        }
+
+    def forward(self, x, as_mask=True):
+        out: Dict[str, torch.Tensor] = {}
+
+        output = self.model(x)  # (B, C, H, W)
+        for output_element in self.hparams.model.output_elements:
+            key = output_element['key']
+            left, right = output_element['channel_range']
+            out[key] = output[:, left:right, :, :]
+
+        ##### post-process preds_sharp
+        if as_mask:
+            out['preds_sharp_probs'] = out['preds_sharp'].sigmoid()
+            out['preds_sharp'] = (out['preds_sharp'].sigmoid() > 0.5).long()
+        out['preds_sharp'] = out['preds_sharp'].squeeze(1)  # (B, 1, H, W) -> (B, H, W)
+
+        ##### post-process normals
+        if 'normals' in out:
+            assert out['normals'].size(1) == 3
+            out['normals'] = F.normalize(out['normals'], dim=1)
+
+        ##### post-process directions
+        if 'directions' in out:
+            assert out['directions'].size(1) == 3
+            out['directions'] = F.normalize(out['directions'], dim=1)
+
+        return out
+
+    def _check_range(self, tensor, left=0.0, right=1.0):
+        min_value, max_value = tensor.min().item(), tensor.max().item()
+        if not (left <= min_value and max_value <= right):
+            log.warning(f"The violation of assumed range: min={min_value}, max={max_value}")
+
+    def training_step(self, batch, batch_idx: int):
+        self._check_range(batch['distances'])
+        outputs = self.forward(batch['points'], as_mask=False)
+
+        loss = 0
+        loss_dict = {}
+        for loss_param in self.hparams.system.losses:
+            if loss_param.out_key == 'directions':
+                assert 'background_mask' not in batch, "not yet considered"
+                batch_size, h, w = batch['distances'].shape
+                num_points = h * w
+                mask = (batch['distances'] < 1.0).unsqueeze(1).expand_as(batch['directions'])
+                loss_value = call(
+                    loss_param.loss_func,
+                    torch.masked_select(outputs['directions'], mask),
+                    torch.masked_select(batch['directions'], mask), reduction='sum')
+                loss_value = loss_value / (batch_size * num_points)
+            elif loss_param.out_key == 'preds_sharp' and 'background_mask' in batch:
+                batch_size, h, w = outputs['preds_sharp'].shape
+                num_points = h * w
+                mask = ~batch['background_mask']
+                loss_value = call(loss_param.loss_func,
+                                  torch.masked_select(outputs[loss_param.out_key], mask),
+                                  torch.masked_select(batch[loss_param.gt_key], mask).float(), reduction='sum') / (
+                                     batch_size * num_points)
+            else:
+                assert 'background_mask' not in batch, "not yet considered"
+                loss_value = call(loss_param.loss_func, outputs[loss_param.out_key], batch[loss_param.gt_key].float())
+
+            loss_dict[loss_param.name] = loss_value  # log original loss value for easy comparison
+            loss += loss_value * loss_param['lambda']
+
+        self.log('train_loss', loss, prog_bar=True, sync_dist=True)
+        return loss
+
+    def _shared_eval_step(self, batch, batch_idx: int, dataloader_idx: Optional[int], partition: str):
+        self._check_range(batch['distances'])
+        batch_size = batch['distances'].size(0)
+
+        result = self.forward(batch['points'])
+
+        for i in range(batch_size):
+
+            if 'background_mask' in batch:
+                foreground_mask = ~batch['background_mask'][i]
+            else:
+                foreground_mask = torch.ones(batch['distances'][i].shape, device=self.device, dtype=torch.bool)
+
+            if not torch.any(foreground_mask):
+                continue
+
+            if torch.any(batch['target_sharp'][i][foreground_mask].bool()):
+                self.miou_sharp[partition][dataloader_idx].update(
+                    result['preds_sharp'][i][foreground_mask].view(1, -1).bool(),
+                    batch['target_sharp'][i][foreground_mask].view(1, -1).bool())
+
+    def _shared_eval_epoch_end(self, outputs, partition: str):
+        for i, (dataset_name, _) in enumerate(self.datasets[partition]):
+            self.miou_sharp[partition][i].iou_sum = self.miou_sharp[partition][i].iou_sum.to(self.device)
+            self.miou_sharp[partition][i].total = self.miou_sharp[partition][i].total.to(self.device)
+            self.log(f'mIOU-Sharp/{dataset_name}',
+                     self.miou_sharp[partition][i].compute(),
+                     prog_bar=True, logger=True)
+
+    def validation_step(self, batch, batch_idx: int, *args):
+        dataloader_idx = args[0] if len(args) == 1 else 0
+        return self._shared_eval_step(batch, batch_idx, dataloader_idx, 'val')
+
+    def test_step(self, batch, batch_idx: int, *args):
+        dataloader_idx = args[0] if len(args) == 1 else 0
+        return self._shared_eval_step(batch, batch_idx, dataloader_idx, 'test')
+
+    def validation_epoch_end(self, outputs):
+        return self._shared_eval_epoch_end(outputs, 'val')
+
+    def test_epoch_end(self, outputs):
+        return self._shared_eval_epoch_end(outputs, 'test')
+
+    def configure_optimizers(self):
+        params = get_params_for_optimizer(self.model, self.hparams.opt.lr, self.hparams.opt.weight_decay,
+                                          self.hparams.opt.weight_decay_norm)
+        opt_param = OmegaConf.to_container(self.hparams.opt, resolve=True)
+        del opt_param['weight_decay']
+        del opt_param['weight_decay_norm']
+        opt_param = DictConfig(opt_param)
+        optimizer = instantiate(opt_param, params=params, lr=self.hparams.opt.lr)
+        if 'scheduler' in self.hparams:
+            scheduler = instantiate(self.hparams.scheduler, optimizer=optimizer)
+            return [optimizer], [scheduler]
+        return optimizer
+
+    def train_dataloader(self):
+        self.datasets['train'] = build_datasets(self.hparams, 'train')
+        loaders = build_loaders(self.hparams, self.datasets['train'], 'train')
+        assert len(loaders) == 1, "There must be only one train dataloader"
+        return loaders[0]
+
+    def val_dataloader(self):
+        self.datasets['val'] = build_datasets(self.hparams, 'val')
+        return build_loaders(self.hparams, self.datasets['val'], 'val')
+
+    def test_dataloader(self):
+        self.datasets['test'] = build_datasets(self.hparams, 'test')
+        return build_loaders(self.hparams, self.datasets['test'], 'test')

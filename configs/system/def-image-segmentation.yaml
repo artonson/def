@@ -1,0 +1,12 @@
+# @package _group_
+
+system_class:
+  _target_: defs.modeling.DEFImageSegmentation
+
+losses:
+  - name: segmentatoin_loss
+    out_key: preds_sharp
+    gt_key: target_sharp
+    lambda: 1.0
+    loss_func:
+      _target_: torch.nn.functional.binary_cross_entropy_with_logits

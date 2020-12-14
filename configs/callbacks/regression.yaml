@@ -1,0 +1,19 @@
+# @package _group_
+
+fit:
+  - _target_: defs.utils.callbacks.FitDurationCallback
+  - _target_: pytorch_lightning.callbacks.ModelCheckpoint
+    monitor: 'mRMSE-ALL/val'
+    verbose: false
+    save_last: true
+    save_top_k: 1
+    mode: min
+    period: 1
+  - _target_: pytorch_lightning.callbacks.early_stopping.EarlyStopping
+    monitor: 'mRMSE-ALL/val'
+    min_delta: 0.001
+    patience: 10
+    verbose: false
+    mode: min
+
+test: ~

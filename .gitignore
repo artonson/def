@@ -125,5 +125,8 @@ venv.bak/
 
 # project
 lightning_logs/
+pretrained_models/
+experiments/
+test/
 MNIST
 .DS_Store

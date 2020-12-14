@@ -1,30 +1,14 @@
 defaults:
-  - datasets: abc-pc-64k
-  - model: dgcnn-4k-hist
-  - transform: pc-basic
-  - task: regression
-  - evaluators: regression-pc
-  - trainer: trainer
-  - scheduler: exponential
+  - callbacks: ???
+  - dataloader: standard
+  - datasets: ???
+  - loggers: test_tube
+  - model: ???
+  - transform: ???
+  - system: ???
+  - trainer: project
+  - scheduler: exponential09
   - opt: adam
-
-total_batch_size: 32
-
-data_loader:
-  sampler: ~
-  train:
-    total_batch_size: ${total_batch_size}
-    num_workers: 3  # depending on RAM capacity set this value carefully
-    shuffle: true
-    pin_memory: false
-  val:
-    total_batch_size: ${total_batch_size}
-    num_workers: 3  # depending on RAM capacity set this value carefully
-    pin_memory: false
-  test:
-    total_batch_size: ${total_batch_size}
-    num_workers: 3  # depending on RAM capacity set this value carefully
-    pin_memory: false
 
 eval_only: false
 
@@ -32,5 +16,3 @@ eval_only: false
 # otherwise use `null` if you want to use the last checkpoint after training or `best` to choose the checkpoint
 # performing best on the validation set
 test_weights: best
-
-seed: 123

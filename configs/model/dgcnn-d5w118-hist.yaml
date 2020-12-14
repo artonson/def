@@ -17,87 +17,87 @@ output_elements:
       - ${model.out_channels}
 
 model_class:
-  _target_: sharpf.modeling.DGCNNHist
+  _target_: defs.modeling.DGCNNHist
   a: 0.0
   b: 1.0
   discretization: 240
   margin: 2
   encoder_blocks:
-    - _target_: sharpf.modeling.PointOpBlock
+    - _target_: defs.modeling.PointOpBlock
       neighbours:
-        _target_: sharpf.modeling.NeighbourKNN
+        _target_: defs.modeling.NeighbourKNN
         k: 30
       local_transform:
-        _target_: sharpf.modeling.LocalDynamicGraph
+        _target_: defs.modeling.LocalDynamicGraph
       feature_extractor:
-        _target_: sharpf.modeling.StackedConv
+        _target_: defs.modeling.StackedConv
         channels:
           - ${mul:2,${model.in_channels}}
           - 118
           - 118
       aggregation:
-        _target_: sharpf.modeling.AggregationMax
-    - _target_: sharpf.modeling.PointOpBlock
+        _target_: defs.modeling.AggregationMax
+    - _target_: defs.modeling.PointOpBlock
       neighbours:
-        _target_: sharpf.modeling.NeighbourKNN
+        _target_: defs.modeling.NeighbourKNN
         k: 30
       local_transform:
-        _target_: sharpf.modeling.LocalDynamicGraph
+        _target_: defs.modeling.LocalDynamicGraph
       feature_extractor:
-        _target_: sharpf.modeling.StackedConv
+        _target_: defs.modeling.StackedConv
         channels: [236, 118, 118]
       aggregation:
-        _target_: sharpf.modeling.AggregationMax
-    - _target_: sharpf.modeling.PointOpBlock
+        _target_: defs.modeling.AggregationMax
+    - _target_: defs.modeling.PointOpBlock
       neighbours:
-        _target_: sharpf.modeling.NeighbourKNN
+        _target_: defs.modeling.NeighbourKNN
         k: 30
       local_transform:
-        _target_: sharpf.modeling.LocalDynamicGraph
+        _target_: defs.modeling.LocalDynamicGraph
       feature_extractor:
-        _target_: sharpf.modeling.StackedConv
+        _target_: defs.modeling.StackedConv
         channels: [236, 118, 118]
       aggregation:
-        _target_: sharpf.modeling.AggregationMax
-    - _target_: sharpf.modeling.PointOpBlock
+        _target_: defs.modeling.AggregationMax
+    - _target_: defs.modeling.PointOpBlock
       neighbours:
-        _target_: sharpf.modeling.NeighbourKNN
+        _target_: defs.modeling.NeighbourKNN
         k: 30
       local_transform:
-        _target_: sharpf.modeling.LocalDynamicGraph
+        _target_: defs.modeling.LocalDynamicGraph
       feature_extractor:
-        _target_: sharpf.modeling.StackedConv
+        _target_: defs.modeling.StackedConv
         channels: [236, 118, 118]
       aggregation:
-        _target_: sharpf.modeling.AggregationMax
-    - _target_: sharpf.modeling.PointOpBlock
+        _target_: defs.modeling.AggregationMax
+    - _target_: defs.modeling.PointOpBlock
       neighbours:
-        _target_: sharpf.modeling.NeighbourKNN
+        _target_: defs.modeling.NeighbourKNN
         k: 30
       local_transform:
-        _target_: sharpf.modeling.LocalDynamicGraph
+        _target_: defs.modeling.LocalDynamicGraph
       feature_extractor:
-        _target_: sharpf.modeling.StackedConv
+        _target_: defs.modeling.StackedConv
         channels: [236, 118, 118]
       aggregation:
-        _target_: sharpf.modeling.AggregationMax
+        _target_: defs.modeling.AggregationMax
   decoder_blocks:
-    - _target_: sharpf.modeling.PointOpBlock
+    - _target_: defs.modeling.PointOpBlock
       in_features: [0, 1, 2, 3, 4]
       feature_extractor:
-        _target_: sharpf.modeling.StackedConv
+        _target_: defs.modeling.StackedConv
         channels: [590, 4096]
       aggregation:
-        _target_: sharpf.modeling.GlobalMaxPooling
-    - _target_: sharpf.modeling.PointOpBlock
+        _target_: defs.modeling.GlobalMaxPooling
+    - _target_: defs.modeling.PointOpBlock
       in_features: [0, 1, 2, 3, 4]
       feature_extractor:
-        _target_: sharpf.modeling.StackedConv
+        _target_: defs.modeling.StackedConv
         channels: [4686, 512, 256]
         dropout_prob: 0.0
-    - _target_: sharpf.modeling.PointOpBlock
+    - _target_: defs.modeling.PointOpBlock
       feature_extractor:
-        _target_: sharpf.modeling.StackedConv
+        _target_: defs.modeling.StackedConv
         channels:
           - 256
           - ${model.out_channels}

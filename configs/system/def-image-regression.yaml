@@ -1,0 +1,16 @@
+# @package _group_
+
+system_class:
+  _target_: defs.modeling.DEFImageRegression
+
+losses:
+  - name: distances_loss
+    out_key: distances
+    gt_key: distances
+    lambda: 1.0
+    loss_func:
+      _target_: defs.modeling.kl_div_loss
+      a: ${model.model_class.a}
+      b: ${model.model_class.b}
+      discretization: ${model.model_class.discretization}
+      margin: ${model.model_class.margin}
