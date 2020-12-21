@@ -41,6 +41,9 @@ python train_net.py trainer.gpus=4 callbacks=segmentation datasets=abc-image-64k
 
 ##### DEF-Image-Arbitrary (high-res, zero noise, regression)
 ```bash
+# test on patches from the whole model
+python train_net.py trainer.gpus=1 datasets.path=\${hydra:runtime.cwd}/examples/20201113_castle_45.hdf5 callbacks=regression datasets=unlabeled-image model=unet2d-hist transform=depth-sl-regression-arbitrary system=def-image-regression hydra.run.dir=test/20201113_castle_45 eval_only=true test_weights=pretrained_models/def-image-arbitrary-regression-high-0.ckpt
+
 # test on patches
 python train_net.py trainer.gpus=1 callbacks=regression datasets=abc-image-arbitrary-64k model=unet2d-hist transform=depth-regression-arbitrary system=def-image-regression hydra.run.dir=test/def-image-arbitrary-regression eval_only=true test_weights=pretrained_models/def-image-arbitrary-regression-high-0.ckpt
 

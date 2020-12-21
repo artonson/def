@@ -1,0 +1,22 @@
+# @package _group_
+
+high_res_quantile: 5.331804347038269 # 35.782 if sharpf.utils.abc_utils.torch.PreprocessDepth
+# high-noise-0.08
+# med: 9.145356798171989
+# low:  16.203841590881346,
+
+train: ${transform.test}
+
+val: ${transform.test}
+
+test:
+  _target_: defs.utils.abc_utils.torch.CompositeTransform
+  transforms:
+    - _target_: defs.utils.abc_utils.torch.ToTensor
+      keys: ['image','distances']
+      type: torch.FloatTensor
+    - _target_: defs.utils.abc_utils.torch.PreprocessArbitrarySLDepth
+    - _target_: defs.utils.abc_utils.torch.RenameKeys
+      old_keys: ['image']
+      new_keys: ['points']
+    - _target_: defs.utils.abc_utils.torch.ComputeIsFlatProperty

@@ -3,6 +3,8 @@
 resolution: high
 resolution_q: 0.02
 noise: 0.0
+compute_metrics: true
+save_predictions: false
 
 train:
   - dataset_name: train

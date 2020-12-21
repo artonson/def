@@ -37,7 +37,7 @@ def main(cfg: DictConfig):
     else:
         test_weights_path = hydra.utils.to_absolute_path(cfg.test_weights)
         assert os.path.exists(test_weights_path), f"{test_weights_path} does not exist"
-        model.load_state_dict(torch.load(test_weights_path)['state_dict'], strict=False)
+        model.load_state_dict(torch.load(test_weights_path)['state_dict'], strict=True)
         log.info("Loaded weights successfully!")
         trainer.test(model)
 

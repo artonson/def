@@ -178,7 +178,11 @@ class PreprocessArbitrarySLDepth(AbstractTransform):
         if 'directions' in item:
             item['directions'] = item['directions'].permute(2, 0, 1).contiguous()
         item['background_mask'] = (item['image'] == 0.0)
+
+        # mark: take into account in which direction the z axis is directed
+        # the model assumes that z axis is directed from us
         item['image'] = -item['image']
+
         item['image'] = torch.where(item['background_mask'], item['image'],
                                     item['image'] - torch.masked_select(item['image'], ~item['background_mask']).min())
         item['image'] /= np.quantile(item['image'].numpy(), 0.95)

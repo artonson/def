@@ -1,6 +1,8 @@
 import logging
+import os
 from typing import Optional, Dict, List, Tuple
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -14,6 +16,7 @@ from ..metrics.badpoints import MeanBadPoints
 from ..metrics.miou import MIOU
 from ..metrics.rmse import MRMSE, Q95RMSE
 from ...optim import get_params_for_optimizer
+from ...utils.comm import is_main_process, synchronize
 from ...utils.hydra import instantiate, call
 
 log = logging.getLogger(__name__)
@@ -29,30 +32,43 @@ class DEFPointsRegression(LightningModule):
         self.model = instantiate(self.hparams.model.model_class)
         self.example_input_array = instantiate(self.hparams.model.example_input_array)
 
-        self.mrmse_all: Dict[str, nn.ModuleList] = {
-            'val': nn.ModuleList([MRMSE() for _ in range(len(self.hparams.datasets.val))]),
-            'test': nn.ModuleList([MRMSE() for _ in range(len(self.hparams.datasets.test))]),
-        }
-        self.q95rmse_all: Dict[str, nn.ModuleList] = {
-            'val': nn.ModuleList([Q95RMSE() for _ in range(len(self.hparams.datasets.val))]),
-            'test': nn.ModuleList([Q95RMSE() for _ in range(len(self.hparams.datasets.test))]),
-        }
-        self.bp1r_close_sharp: Dict[str, nn.ModuleList] = {
-            'val': nn.ModuleList(
-                [MeanBadPoints(1.0 * cfg.datasets.resolution_q) for _ in range(len(self.hparams.datasets.val))]),
-            'test': nn.ModuleList(
-                [MeanBadPoints(1.0 * cfg.datasets.resolution_q) for _ in range(len(self.hparams.datasets.test))]),
-        }
-        self.bp4r_close_sharp: Dict[str, nn.ModuleList] = {
-            'val': nn.ModuleList(
-                [MeanBadPoints(4.0 * cfg.datasets.resolution_q) for _ in range(len(self.hparams.datasets.val))]),
-            'test': nn.ModuleList(
-                [MeanBadPoints(4.0 * cfg.datasets.resolution_q) for _ in range(len(self.hparams.datasets.test))]),
-        }
-        self.miou_sharp: Dict[str, nn.ModuleList] = {
-            'val': nn.ModuleList([MIOU() for _ in range(len(self.hparams.datasets.val))]),
-            'test': nn.ModuleList([MIOU() for _ in range(len(self.hparams.datasets.test))]),
-        }
+        self.save_predictions = self.hparams.datasets.save_predictions
+        if self.save_predictions:
+            self.save_dir = os.path.join(os.getcwd(), 'predictions')
+            if is_main_process() and not os.path.exists(self.save_dir):
+                os.mkdir(self.save_dir)
+            log.info(f"The predictions will be saved in {self.save_dir}")
+            synchronize()
+
+        self.compute_metrics = self.hparams.datasets.compute_metrics
+        mrmse_all: Dict[str, nn.ModuleList] = {}
+        q95rmse_all: Dict[str, nn.ModuleList] = {}
+        bp1r_close_sharp: Dict[str, nn.ModuleList] = {}
+        bp4r_close_sharp: Dict[str, nn.ModuleList] = {}
+        miou_sharp: Dict[str, nn.ModuleList] = {}
+        if self.compute_metrics and self.hparams.datasets.val is not None and len(self.hparams.datasets.val) > 0:
+            mrmse_all['val'] = nn.ModuleList([MRMSE() for _ in range(len(self.hparams.datasets.val))])
+            q95rmse_all['val'] = nn.ModuleList([Q95RMSE() for _ in range(len(self.hparams.datasets.val))])
+            bp1r_close_sharp['val'] = nn.ModuleList(
+                [MeanBadPoints(1.0 * cfg.datasets.resolution_q) for _ in range(len(self.hparams.datasets.val))])
+            bp4r_close_sharp['val'] = nn.ModuleList(
+                [MeanBadPoints(4.0 * cfg.datasets.resolution_q) for _ in range(len(self.hparams.datasets.val))])
+            miou_sharp['val'] = nn.ModuleList([MIOU() for _ in range(len(self.hparams.datasets.val))])
+        if self.compute_metrics and self.hparams.datasets.test is not None and len(self.hparams.datasets.test) > 0:
+            mrmse_all['test'] = nn.ModuleList([MRMSE() for _ in range(len(self.hparams.datasets.test))])
+            q95rmse_all['test'] = nn.ModuleList([Q95RMSE() for _ in range(len(self.hparams.datasets.test))])
+            bp1r_close_sharp['test'] = nn.ModuleList(
+                [MeanBadPoints(1.0 * cfg.datasets.resolution_q) for _ in range(len(self.hparams.datasets.test))])
+            bp4r_close_sharp['test'] = nn.ModuleList(
+                [MeanBadPoints(4.0 * cfg.datasets.resolution_q) for _ in range(len(self.hparams.datasets.test))])
+            miou_sharp['test'] = nn.ModuleList([MIOU() for _ in range(len(self.hparams.datasets.test))])
+
+        if len(miou_sharp) > 0:
+            self.mrmse_all = nn.ModuleDict(mrmse_all)
+            self.q95rmse_all = nn.ModuleDict(q95rmse_all)
+            self.bp1r_close_sharp = nn.ModuleDict(bp1r_close_sharp)
+            self.bp4r_close_sharp = nn.ModuleDict(bp4r_close_sharp)
+            self.miou_sharp = nn.ModuleDict(miou_sharp)
 
     def forward(self, x, clamp=True):
         out: Dict[str, torch.Tensor] = {}
@@ -115,11 +131,19 @@ class DEFPointsRegression(LightningModule):
         return loss
 
     def _shared_eval_step(self, batch, batch_idx: int, dataloader_idx: Optional[int], partition: str):
+        result = self.forward(batch['points'])
+
+        if self.save_predictions:
+            for i, index in enumerate(batch['index']):
+                dataset_name, _ = self.datasets[partition][dataloader_idx]
+                np.save(os.path.join(self.save_dir, f"{dataset_name}_{index.item()}.npy"),
+                        result['distances'][i].cpu().numpy())
+
+        if not self.compute_metrics:
+            return
         self._check_range(batch['distances'])
         resolution = self.hparams.datasets.resolution_q
         batch_size = batch['distances'].size(0)
-
-        result = self.forward(batch['points'])
         self.mrmse_all[partition][dataloader_idx].update(result['distances'], batch['distances'])
         self.q95rmse_all[partition][dataloader_idx].update(result['distances'], batch['distances'])
 
@@ -136,6 +160,8 @@ class DEFPointsRegression(LightningModule):
                                                                         batch['distances'][i][close_mask].view(1, -1))
 
     def _shared_eval_epoch_end(self, outputs, partition: str):
+        if not self.compute_metrics:
+            return
         for i, (dataset_name, _) in enumerate(self.datasets[partition]):
             self.mrmse_all[partition][i].rmse_sum = self.mrmse_all[partition][i].rmse_sum.to(self.device)
             self.mrmse_all[partition][i].total = self.mrmse_all[partition][i].total.to(self.device)

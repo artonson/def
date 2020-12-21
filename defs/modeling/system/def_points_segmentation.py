@@ -1,6 +1,8 @@
 import logging
+import os
 from typing import Optional, Dict, List, Tuple
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -11,6 +13,7 @@ from torch.utils.data import Dataset
 from defs.data import build_loaders, build_datasets
 from ..metrics.miou import MIOU
 from ...optim import get_params_for_optimizer
+from ...utils.comm import is_main_process, synchronize
 from ...utils.hydra import instantiate, call
 
 log = logging.getLogger(__name__)
@@ -26,10 +29,23 @@ class DEFPointsSegmentation(LightningModule):
         self.model = instantiate(self.hparams.model.model_class)
         self.example_input_array = instantiate(self.hparams.model.example_input_array)
 
-        self.miou_sharp: Dict[str, nn.ModuleList] = {
-            'val': nn.ModuleList([MIOU() for _ in range(len(self.hparams.datasets.val))]),
-            'test': nn.ModuleList([MIOU() for _ in range(len(self.hparams.datasets.test))]),
-        }
+        self.save_predictions = self.hparams.datasets.save_predictions
+        if self.save_predictions:
+            self.save_dir = os.path.join(os.getcwd(), 'predictions')
+            if is_main_process() and not os.path.exists(self.save_dir):
+                os.mkdir(self.save_dir)
+            log.info(f"The predictions will be saved in {self.save_dir}")
+            synchronize()
+
+        self.compute_metrics = self.hparams.datasets.compute_metrics
+        miou_sharp: Dict[str, nn.ModuleList] = {}
+        if self.compute_metrics and self.hparams.datasets.val is not None and len(self.hparams.datasets.val) > 0:
+            miou_sharp['val'] = nn.ModuleList([MIOU() for _ in range(len(self.hparams.datasets.val))])
+        if self.compute_metrics and self.hparams.datasets.test is not None and len(self.hparams.datasets.test) > 0:
+            miou_sharp['test'] = nn.ModuleList([MIOU() for _ in range(len(self.hparams.datasets.test))])
+
+        if len(miou_sharp) > 0:
+            self.miou_sharp = nn.ModuleDict(miou_sharp)
 
     def forward(self, x, as_mask=True):
         out: Dict[str, torch.Tensor] = {}
@@ -87,16 +103,26 @@ class DEFPointsSegmentation(LightningModule):
         return loss
 
     def _shared_eval_step(self, batch, batch_idx: int, dataloader_idx: Optional[int], partition: str):
-        batch_size = batch['distances'].size(0)
-
         result = self.forward(batch['points'])
 
+        if self.save_predictions:
+            for i, index in enumerate(batch['index']):
+                dataset_name, _ = self.datasets[partition][dataloader_idx]
+                np.save(os.path.join(self.save_dir, f"{dataset_name}_{index.item()}.npy"),
+                        result['preds_sharp_probs'][i].cpu().numpy())
+
+        if not self.compute_metrics:
+            return
+
+        batch_size = batch['target_sharp'].size(0)
         for i in range(batch_size):
             if torch.any(batch['target_sharp'][i].bool()):  # != not batch['is_flat'][i].item()
                 self.miou_sharp[partition][dataloader_idx].update(result['preds_sharp'][i].view(1, -1).bool(),
                                                                   batch['target_sharp'][i].view(1, -1).bool())
 
     def _shared_eval_epoch_end(self, outputs, partition: str):
+        if not self.compute_metrics:
+            return
         for i, (dataset_name, _) in enumerate(self.datasets[partition]):
             self.miou_sharp[partition][i].iou_sum = self.miou_sharp[partition][i].iou_sum.to(self.device)
             self.miou_sharp[partition][i].total = self.miou_sharp[partition][i].total.to(self.device)
