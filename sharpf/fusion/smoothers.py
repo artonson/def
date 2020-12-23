@@ -25,7 +25,7 @@ class PredictionsSmoother(ABC):
             predictions: np.array,
             points: np.array,
             predictions_variants: Mapping
-    ) -> Tuple[np.array, Mapping]:
+    ) -> np.array:
 
         n_omp_threads = int(os.environ.get('OMP_NUM_THREADS', 1))
         nn_distances, nn_indexes = cKDTree(points, leafsize=100) \
