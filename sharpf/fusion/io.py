@@ -30,18 +30,27 @@ ComparisonsIO = io_struct.HDF5IO({
     len_label='points',
     compression='lzf')
 
+PointPatchPredictionsIO = io_struct.HDF5IO({
+    'distances': io_struct.VarFloat64('distances')
+},
+    len_label='distances',
+    compression='lzf')
 
-def convert_npylist_to_hdf5(input_dir, output_filename):
-    PointPatchPredictionsIO = io_struct.HDF5IO(
-        {'distances': io_struct.VarFloat64('distances')},
-        len_label='distances',
-        compression='lzf')
+ImagePredictionsIO = io_struct.HDF5IO({
+    'distances': io_struct.Float64('distances')
+},
+    len_label='distances',
+    compression='lzf')
+
+
+def convert_npylist_to_hdf5(input_dir, output_filename, io):
+    assert 'distances' in io.datasets
 
     def save_predictions(patches, filename):
-        collate_fn = partial(io_struct.collate_mapping_with_io, io=PointPatchPredictionsIO)
+        collate_fn = partial(io_struct.collate_mapping_with_io, io=io)
         patches = collate_fn(patches)
         with h5py.File(filename, 'w') as f:
-            PointPatchPredictionsIO.write(f, 'distances', patches['distances'])
+            io.write(f, 'distances', patches['distances'])
 
     def get_num(basename):
         match = re.match('^test_(\d+)\.npy$', basename)
@@ -54,12 +63,11 @@ def convert_npylist_to_hdf5(input_dir, output_filename):
 
 
 def save_full_model_predictions(points, predictions, filename):
-    PointPatchPredictionsIO = io_struct.HDF5IO(
+    FusedPredictionsIO = io_struct.HDF5IO(
         {'points': io_struct.Float64('points'),
          'distances': io_struct.Float64('distances')},
         len_label='distances',
         compression='lzf')
     with h5py.File(filename, 'w') as f:
-        PointPatchPredictionsIO.write(f, 'points', [points])
-        PointPatchPredictionsIO.write(f, 'distances', [predictions])
-
+        FusedPredictionsIO.write(f, 'points', [points])
+        FusedPredictionsIO.write(f, 'distances', [predictions])

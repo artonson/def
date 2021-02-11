@@ -70,6 +70,54 @@ def get_camera_extrinsic(angles, translation):
     )
 
 
+def assign_by_min_depth(
+        image_size,
+        image_offset,
+        x_pixel: np.ndarray,
+        depth: np.ndarray,
+        func=np.min
+):
+    """Given a [n, 3] array of rounded pixel coordinates (indexes)
+    and corresponding [n,] array of depth values,
+    return a 2d image with pixel values assigned to smallest (closest to camera) depth values.
+
+    Normally we do:
+    >>> image = np.zeros((image_size[1], image_size[0]))
+    >>> image[
+    >>>     x_pixel[:, 1] - image_offset[1],
+    >>>     x_pixel[:, 0] - image_offset[0]] = depth
+
+    However, if multiple values in x_pixel index into the same (x, y) pixel in image,
+    i.e. for i != j we have x_pixel[i] == x_pixel[j],
+    we end up assigning arbitrary depth value in image.
+
+    Instead we do (conceptually):
+    >>> image[x_pixel] = func(depth[i] for i where x_pixel[i] == c)
+    """
+
+    # sort XY array by row/col index
+    sort_idx_1 = x_pixel[:, 1].argsort()
+    x_pixel = x_pixel[sort_idx_1]
+    sort_idx_0 = x_pixel[:, 0].argsort(kind='mergesort')
+    x_pixel = x_pixel[sort_idx_0]
+
+    idx_sort = sort_idx_1[sort_idx_0]
+
+    # returns the unique values, the index of the first occurrence of a value, and the count for each element
+    vals, idx_start, count = np.unique(x_pixel, axis=0, return_counts=True, return_index=True)
+
+    # splits the indices into separate arrays
+    res = np.split(idx_sort, idx_start[1:])
+
+    image = np.zeros((image_size[1], image_size[0]))
+    for pixel_xy, idx_arr in zip(vals, res):
+        image[
+            pixel_xy[1] - image_offset[1],
+            pixel_xy[0] - image_offset[0]] = func(depth[idx_arr])
+
+    return x_pixel, image
+
+
 def project_to_camera(
         points,
         pose: CameraPose,
@@ -99,15 +147,18 @@ def project_to_camera(
     image_size = np.max(x_pixel, axis=0) - np.min(x_pixel, axis=0) + 1
     print('Overwriting image_size with ', (image_size[1], image_size[0]))
 
-    image = np.zeros((image_size[1], image_size[0]))
-    image[
-        x_pixel[:, 1] - image_offset[1],
-        x_pixel[:, 0] - image_offset[0]] = depth
+    x_pixel, image = assign_by_min_depth(
+        image_size, image_offset, x_pixel, depth, func=np.max)
+
+#     image = np.zeros((image_size[1], image_size[0]))
+#     image[
+#         x_pixel[:, 1] - image_offset[1],
+#         x_pixel[:, 0] - image_offset[0]] = depth
 
     # image = np.zeros((image_size[1] + 1, image_size[0] + 1))
     # image[x_pixel[:, 1], x_pixel[:, 0]] = depth
 
-    return X_camera, x_pixel, x_image_saved, image, (image_offset[0], image_offset[1]),
+    return X_camera, x_pixel, x_image_saved, image, (image_offset[0], image_offset[1])
 
 
 def pad_to_size(image, target_size=(512, 512), pad_value=1.0):
@@ -135,9 +186,9 @@ def reproject_image_to_points(
         Ks: np.array,
         image_offset: Tuple[int, int],
 ):
-    # image_size = (
-    #     image.shape[1] + image_offset[0],
-    #     image.shape[0] + image_offset[1])
+    image_size = (
+        image.shape[1] + image_offset[0],
+        image.shape[0] + image_offset[1])
 
     #     x_mm = np.linspace(0, 2048 / s_x, 2048)
     #     y_mm = np.linspace(0, 1536 / s_y, 1536)
