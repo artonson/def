@@ -18,6 +18,14 @@ UnlabeledPointCloudIO = io_struct.HDF5IO({
     len_label='has_sharp',
     compression='lzf')
 
+UnlabeledImageIO = io_struct.HDF5IO({
+    'image': io_struct.Float64('image'),
+    'distances': io_struct.Float64('distances'),
+    'item_id': io_struct.AsciiString('item_id'),
+},
+    len_label='has_sharp',
+    compression='lzf')
+
 ComparisonsIO = io_struct.HDF5IO({
     'points': io_struct.VarFloat64('points'),
     'indexes_in_whole': io_struct.VarInt32('indexes_in_whole'),

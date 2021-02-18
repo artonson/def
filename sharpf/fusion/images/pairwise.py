@@ -1,94 +1,144 @@
+from abc import abstractmethod
+from functools import partial
+import itertools
+from typing import Callable, List, Mapping, Tuple
+
 import numpy as np
-from scipy.interpolate import fitpack
 
-from sharpf.utils.numpy_utils.masking import compress_mask
-
-
-def bisplrep_interpolate():
-    pass
+from sharpf.utils.py_utils.parallel import multiproc_parallel
 
 
-def interp2d_interpolate():
-    pass
-
-
-def pointwise_interpolate_image(
-        source_points,
-        source_signal,
-        target_points,
-        source_image_tree: cKDTree = None,
-        neighbours_to_interpolate: int = 6,
-        distance_interpolation_threshold='auto',
-        z_distance_threshold: int = 2.0,
-        verbose: bool = False,
-        interpolator_function: str = 'bisplrep',
+def get_orthogonal_view(
+        view_index,
+        images,
+        predictions,
+        camera_parameters,
 ):
-    if 'auto' == distance_interpolation_threshold:
-        mean_nn_distance = cKDTree(source_points).query(source_points, k=2)[0][:, 1].mean()
-        distance_interpolation_threshold = mean_nn_distance * 4.
+    # use exterior variables
+    pose_i = CameraPose(gt_cameras[view_index])
+    image_i = images[view_index]
+    points_i = pose_i.camera_to_world(imaging.image_to_points(image_i))
+    predictions_i = np.zeros_like(image_i)
+    predictions_i[image_i != 0.] = predictions[view_index][image_i != 0.]
+    return pose_i, image_i, points_i, predictions_i
+
+
+def get_perspective_view(
+        view_index
+):
+    # use exterior variables
+    pose_i = CameraPose(gt_extrinsics_[view_index])
+    Kf_i, Ks_i = gt_intrinsics_f_[i], gt_intrinsics_s_[i]
+    offset_i = gt_offsets_[i].astype(int)
+    image_i = gt_images_[i]
+
+    image_crop_i = data_crop(image_i)
+    _, _, _, points_i = reproject_image_to_points(
+        image_crop_i, pose_i, Kf_i, Ks_i, offset_i)
+
+    transform_i = transforms_[i]
+    assert None is not transform_i
+    points_i = tt.transform_points(points_i, transform_i, translate=True)
+
+    predictions_i = np.zeros_like(image_i)
+    predictions_i[image_i != 0.] = pred_images_distances_masked_[i][image_i != 0.]
+    return (transform_i, pose_i, Kf_i, Ks_i, offset_i), image_i, points_i, predictions_i
+
+
+def interpolate_images(
+        source_view_idx,
+        target_view_idx,
+        source_view: Tuple,
+        target_view: Tuple,
+        verbose: bool = False,
+):
+    """
+
+    :param i:
+    :param j:
+    :param view_i_info:
+    :param view_j_info:
+    :param verbose:
+    :return:
+    """
 
     n_omp_threads = int(os.environ.get('OMP_NUM_THREADS', 1))
-    _, nn_indexes = source_image_tree.query(
-        target_points[:, :2],
-        k=neighbours_to_interpolate,
-        n_jobs=n_omp_threads,
-        distance_upper_bound=distance_interpolation_threshold)
+    image_space_tree = cKDTree(imaging.rays_origins[:, :2], leafsize=100)
 
-    xy_mask = np.all(nn_indexes != source_image_tree.n, axis=1)
+    list_predictions, list_indexes_in_whole, list_points = [], [], []
+    n_points_per_image = np.cumsum([len(np.nonzero(image.ravel())[0]) for image in images])
 
-    z_distances = np.abs(
-        target_points[:, 2][xy_mask, np.newaxis] -
-        source_points[:, 2][nn_indexes[xy_mask]])
+    # Propagating predictions from view i into all other views
+    pose_i, image_i, points_i, predictions_i = view_i_info
 
-    z_mask = np.all(z_distances < z_distance_threshold, axis=1)
+    start_idx, end_idx = (0, n_points_per_image[j]) if 0 == j \
+        else (n_points_per_image[j - 1], n_points_per_image[j])
+    indexes_in_whole = np.arange(start_idx, end_idx)
 
-    can_interpolate = compress_mask(xy_mask, z_mask)
-    can_interpolate_indexes = np.where(can_interpolate)[0]
-    #     print(target_points.shape, can_interpolate.shape, xy_mask.shape, nn_indexes.shape)
+    if verbose:
+        eprint_t('Propagating views {} -> {}'.format(i, j))
 
-    target_signal = np.zeros(len(target_points), dtype=float)
+    if i == j:
+        list_points.append(points_i)
+        list_predictions.append(predictions_i[image_i != 0.].ravel())
+        list_indexes_in_whole.append(indexes_in_whole)
 
-    for idx in tqdm(can_interpolate_indexes):
-        x, y, _ = target_points[idx]
+    else:
+        pose_j, image_j, points_j, predictions_j = view_j_info
 
-        xs, ys, zs = np.split(
-            source_points[nn_indexes[idx]],
-            [1, 2],
-            axis=1)
-        ps = source_signal[nn_indexes[idx]]
+        # reproject points from one view j to view i, to be able to interpolate in view i
+        reprojected = pose_i.world_to_camera(points_j)
 
-        try:
-            x_min, x_max = np.amin(xs), np.amax(xs)
-            y_min, y_max = np.amin(ys), np.amax(ys)
+        # extract pixel indexes in view i (for each reprojected points),
+        # these are source pixels to interpolate from
+        _, nn_indexes = image_space_tree.query(
+            reprojected[:, :2],
+            k=4,
+            n_jobs=n_omp_threads)
 
-            out_of_bounds_x = (x < x_min) | (x > x_max)
-            out_of_bounds_y = (y < y_min) | (y > y_max)
+        can_interpolate = np.zeros(len(reprojected)).astype(bool)
+        interpolated_distances_j = np.zeros_like(can_interpolate).astype(float)
 
-            any_out_of_bounds_x = np.any(out_of_bounds_x)
-            any_out_of_bounds_y = np.any(out_of_bounds_y)
+        for idx, reprojected_point in enumerate(reprojected):
+            # build neighbourhood of each reprojected point by taking
+            # xy values from pixel grid and z value from depth image
+            nbhood_of_reprojected = np.hstack((
+                imaging.rays_origins[:, :2][nn_indexes[idx]],
+                np.atleast_2d(image_i.ravel()[nn_indexes[idx]]).T
+            ))
+            distances_to_nearest = np.linalg.norm(reprojected_point - nbhood_of_reprojected, axis=1)
+            can_interpolate[idx] = np.all(distances_to_nearest < distance_interpolation_threshold)
 
-            if any_out_of_bounds_x or any_out_of_bounds_y:
-                raise ValueError("Values out of range; x must be in %r, y in %r"
-                                 % ((x_min, x_max),
-                                    (y_min, y_max)))
+            if can_interpolate[idx]:
+                try:
+                    interpolator = interpolate.interp2d(
+                        nbhood_of_reprojected[:, 0],
+                        nbhood_of_reprojected[:, 1],
+                        predictions_i.ravel()[nn_indexes[idx]],
+                        kind='linear')
+                    interpolated_distances_j[idx] = interpolator(
+                        reprojected_point[0],
+                        reprojected_point[1])[0]
+                except ValueError as e:
+                    eprint_t('Error while interpolating point {idx}: {what}, skipping this point'.format(
+                        idx=idx, what=str(e)))
+                    can_interpolate[idx] = False
 
-            tck = fitpack.bisplrep(
-                xs.squeeze(), ys.squeeze(), ps.squeeze(),
-                kx=1, ky=1, s=len(xs.squeeze()))
-            target_signal[idx] = fitpack.bisplev(x, y, tck)
 
-        #             interpolator = interpolate.interp2d(
-        #                 xs.squeeze(), ys.squeeze(), ps.squeeze(),
-        #                 kind='linear',
-        #                 bounds_error=True)
-        #             target_signal[idx] = interpolator(x, y)[0]
-        except ValueError as e:
-            #             eprint_t('Error while interpolating point {idx}: {what}, skipping this point'.format(
-            #                 idx=idx, what=str(e)))
-            can_interpolate[idx] = False
+        list_points.append(points_j[can_interpolate])
+        list_predictions.append(interpolated_distances_j[can_interpolate])
+        list_indexes_in_whole.append(indexes_in_whole[can_interpolate])
 
-        except RuntimeWarning as w:
-            break
+    return list_predictions, list_indexes_in_whole, list_points
 
-    return target_signal, can_interpolate
 
+def interpolate_pixels(
+
+):
+    pass
+
+
+def interpolate_3d_points(
+
+):
+    pass

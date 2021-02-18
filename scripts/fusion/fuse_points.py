@@ -18,14 +18,14 @@ import sklearn.linear_model as lm
 
 __dir__ = os.path.normpath(
     os.path.join(
-        os.path.dirname(os.path.realpath(__file__)), '..')
+        os.path.dirname(os.path.realpath(__file__)), '../..')
 )
 sys.path[1:1] = [__dir__]
 
 from sharpf.utils.abc_utils.hdf5.dataset import Hdf5File, PreloadTypes
 import sharpf.data.datasets.sharpf_io as sharpf_io
-import sharpf.fusion.combiners as fc
-import sharpf.fusion.smoothers as fs
+import sharpf.fusion.combiners as combiners
+import sharpf.fusion.smoothers as smoothers
 import sharpf.fusion.io as fusion_io
 
 
@@ -60,7 +60,10 @@ def load_predictions(pred_data, name, pred_key='distances'):
         predictions_filename = os.path.join(
             options.output_dir,
             '{}__{}.hdf5'.format(name, 'predictions'))
-        fusion_io.convert_npylist_to_hdf5(pred_data, predictions_filename)
+        fusion_io.convert_npylist_to_hdf5(
+            pred_data,
+            predictions_filename,
+            fusion_io.PointPatchPredictionsIO)
 
     else:
         assert os.path.isfile(pred_data)
@@ -88,7 +91,7 @@ def main(options):
         options.true_filename,
         unlabeled=options.unlabeled)
 
-    fused_points_gt, fused_distances_gt, prediction_variants_gt = fc.GroundTruthCombiner()(
+    fused_points_gt, fused_distances_gt, _ = combiners.GroundTruthCombiner()(
         n_points,
         list_distances,
         list_indexes_in_whole,
@@ -109,7 +112,7 @@ def main(options):
 
     # run various algorithms for consolidating predictions
     # this selection is up to you, user
-    combiners = [
+    combiners_list = [
         # combiners for probabilities
         # AvgProbaPredictionsCombiner(thr=0.25),
         # AvgProbaPredictionsCombiner(thr=0.5),
@@ -133,20 +136,20 @@ def main(options):
         #     combiner=CenterCropPredictionsCombiner(brd_thr=80, func=np.min),
         #     smoother=TotalVariationSmoother(regularizer_alpha=0.001)
         # ),
-        fc.SmoothingCombiner(
-            combiner=fc.CenterCropPredictionsCombiner(brd_thr=80, func=np.min),
-            smoother=fs.RobustLocalLinearFit(
+        combiners.SmoothingCombiner(
+            combiner=combiners.CenterCropPredictionsCombiner(brd_thr=80, func=np.min),
+            smoother=smoothers.RobustLocalLinearFit(
                 lm.HuberRegressor(epsilon=4., alpha=1.),
                 n_jobs=32
             )
         ),
     ]
 
-    for combiner in combiners:
+    for combiner in combiners_list:
         if options.verbose:
             print('Running {}'.format(combiner.tag))
 
-        fused_points_pred, fused_distances_pred, prediction_variants = combiner(
+        fused_points_pred, fused_distances_pred, _ = combiner(
             n_points,
             list_predictions,
             list_indexes_in_whole,
