@@ -51,7 +51,7 @@ def pointwise_interpolate_image(
     for idx in tqdm(can_interpolate_indexes):
         x, y, _ = target_points[idx]
 
-        xs, ys, zs = np.split(
+        xs, ys, _ = np.split(
             source_points[nn_indexes[idx]],
             [1, 2],
             axis=1)

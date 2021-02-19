@@ -5,6 +5,7 @@ from typing import Callable, List, Mapping, Tuple
 
 import numpy as np
 
+from sharpf.utils.camera_utils.view import CameraView, view_to_points
 from sharpf.utils.py_utils.parallel import multiproc_parallel
 
 
@@ -45,22 +46,54 @@ def get_perspective_view(
     return (transform_i, pose_i, Kf_i, Ks_i, offset_i), image_i, points_i, predictions_i
 
 
-def interpolate_images(
-        source_view_idx,
-        target_view_idx,
-        source_view: Tuple,
-        target_view: Tuple,
+def interpolate_wrapper(f):
+    # source_view_idx,
+    # target_view_idx,
+    # if verbose:
+    #     eprint_t('Propagating views {} -> {}'.format(i, j))
+    pass
+
+
+def interpolate_views_as_images(
+        source_view: CameraView,
+        target_view: CameraView,
         verbose: bool = False,
 ):
-    """
+    """Given two views represented as depth/prediction images +
+    camera parameters, run view-view interpolation in image space.
 
-    :param i:
-    :param j:
-    :param view_i_info:
-    :param view_j_info:
+    :param source_view:
+    :param target_view:
     :param verbose:
     :return:
+
     """
+
+
+    if source_view_idx == target_view_idx:
+        source_view = source_view.to_points()
+        source_indexes = np.arange(len(source_view.depth))
+        return source_view.signal, source_indexes, source_view.depth
+
+    source_view = source_view.to_image()
+    target_view = target_view.to_other(source_view)
+
+    image_pixelizer = load_func_from_config(source_view)
+    source_image = image_pixelizer.unpixelize(source_view.image)
+
+    image_pixelizer = load_func_from_config(target_view)
+    target_image = image_pixelizer.unpixelize(target_view.image)
+
+    target_view = target_view.to_other(source_view)
+    target_view = target_view.to_image(to_other=source_view)
+
+    target_signal, can_interpolate = pointwise_interpolate_image(
+        source_view.depth,
+        source_view.signal,
+        target_view.depth,
+    )
+
+
 
     n_omp_threads = int(os.environ.get('OMP_NUM_THREADS', 1))
     image_space_tree = cKDTree(imaging.rays_origins[:, :2], leafsize=100)
@@ -75,8 +108,6 @@ def interpolate_images(
         else (n_points_per_image[j - 1], n_points_per_image[j])
     indexes_in_whole = np.arange(start_idx, end_idx)
 
-    if verbose:
-        eprint_t('Propagating views {} -> {}'.format(i, j))
 
     if i == j:
         list_points.append(points_i)

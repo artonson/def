@@ -5,7 +5,7 @@ from typing import List, Tuple, Mapping
 import numpy as np
 
 import sharpf.fusion.images.pairwise as pairwise
-from sharpf.utils.camera_utils.camera_pose import CameraPose
+from sharpf.utils.camera_utils.view import CameraView, view_to_points
 from sharpf.utils.py_utils.parallel import multiproc_parallel
 
 
@@ -13,12 +13,7 @@ class MultiViewInterpolatorBase(ABC, Configurable):
     @abstractmethod
     def __call__(
             self,
-            list_images_preds: List[np.array],
-            list_images: List[np.array],
-            list_extrinsics: List[np.array],
-            list_intrinsics: List,
-            projection_type: str = 'orthogonal',
-            pixelizer_type: str = 'default',
+            views: List[CameraView],
     ) -> Tuple[np.array, np.array, np.array]:
 
         """Given a set of (image I, prediction D) pairs and corresponding
@@ -47,32 +42,20 @@ class GroundTruthInterpolator(MultiViewInterpolatorBase):
     """Combine ground-truth distances and directions."""
     def __call__(
             self,
-            list_images_preds: List[np.array],
-            list_images: List[np.array],
-            list_extrinsics: List[np.array],
-            list_intrinsics: List,
-            projection_type: str = 'orthogonal',
-            pixelizer_type: str = 'default',
+            views: List[CameraView],
     ) -> Tuple[np.array, np.array, np.array]:
 
         list_predictions, list_indexes_in_whole, list_points = [], [], []
         n_points = 0
 
-        for pixel_image, pixel_prediction, extrinsics, intrinsics in zip(
-                list_images, list_images_preds, list_extrinsics, list_intrinsics):
-            camera_pose = CameraPose(extrinsics)
-            camera_projection = load_func_from_config()
-            image_pixelizer = load_func_from_config()
-
-            image = image_pixelizer.unpixelize(pixel_image)
-            points_in_camera_frame = camera_projection.unproject(image)
-            points_in_world_frame = camera_pose.camera_to_world(points_in_camera_frame)
-
+        for pixels_view in views:
+            points_view = pixels_view.to_points()
+            points, signal = view_to_points(view)
             list_indexes_in_whole.append(
-                np.arange(n_points, n_points + len(points_in_world_frame)))
-            list_points.append(points_in_world_frame)
-            list_predictions.append(pixel_prediction.ravel()[np.flatnonzero(image)])
-            n_points += len(points_in_world_frame)
+                np.arange(n_points, n_points + len(points)))
+            list_points.append(points)
+            list_predictions.append(signal)
+            n_points += len(points)
 
         return list_predictions, list_indexes_in_whole, list_points
 
@@ -87,12 +70,7 @@ class MultiViewPredictionsInterpolator(MultiViewInterpolatorBase):
 
     def __call__(
             self,
-            list_images_preds: List[np.array],
-            list_images: List[np.array],
-            list_extrinsics: List[np.array],
-            list_intrinsics: List,
-            projection_type: str = 'orthogonal',
-            pixelizer_type: str = 'default',
+            views: List[CameraView],
     ) -> Tuple[np.array, np.array, np.array]:
         #
         #
@@ -109,18 +87,14 @@ class MultiViewPredictionsInterpolator(MultiViewInterpolatorBase):
         #     predictions=predictions,
         #     camera_parameters=camera_parameters)
         #
-        def get_view(i):
-            return (list_images_preds[i], list_images[i], list_extrinsics[i],
-                list_intrinsics[i], projection_type, pixelizer_type)
-
         list_predictions, list_indexes_in_whole, list_points = [], [], []
 
-        n_images = len(list_images)
+        n_images = len(views)
         n_cum_points_per_image = np.cumsum([
-            np.count_nonzero(image) for image in list_images])
+            np.count_nonzero(view.image) for view in views])
 
         data_iterable = (
-            (self, i, j, get_view(i), get_view(j), n_cum_points_per_image)
+            (self, i, j, views[i], views[j], n_cum_points_per_image)
             for i, j in itertools.product(range(n_images), range(n_images)))
 
         for predictions, indexes_in_whole, points in multiproc_parallel(

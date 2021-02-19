@@ -100,11 +100,7 @@ def main(options):
     # per-view ground truth depth images, distances, and
     # view parameters). If running inference, distances
     # can be absent (run with --unlabeled flag).
-    n_points, \
-    list_images_preds, \
-    list_images, \
-    list_extrinsics, \
-    list_intrinsics = load_ground_truth(
+    n_points, views = load_ground_truth(
         options.true_filename,
         unlabeled=options.unlabeled)
 
@@ -112,11 +108,8 @@ def main(options):
     # perform un-projection and transform all points into
     # world coordinate frame. If running inference, distances
     # can be absent (run with --unlabeled flag).
-    list_predictions, list_indexes_in_whole, list_points = interpolators.GroundTruthInterpolator()(
-        list_images_preds,
-        list_images,
-        list_extrinsics,
-        list_intrinsics)
+    list_predictions, list_indexes_in_whole, list_points = \
+        interpolators.GroundTruthInterpolator()(views)
     fused_points_gt, fused_distances_gt, prediction_variants_gt = combiners.GroundTruthCombiner()(
         n_points,
         list_predictions,

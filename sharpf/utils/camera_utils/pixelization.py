@@ -10,8 +10,8 @@ import numpy as np
 class ImagePixelizer(ABC):
     @abstractmethod
     def pixelize(self, image: np.ndarray) -> np.ndarray:
-        """Given a  3D points [n, 3] onto the image plane.
-        This does not compute a rasterized pixel image."""
+        """Given 3D points [n, 3] defined in the image plane,
+        compute a rasterized [h, w] pixel image."""
         pass
 
     @abstractmethod
