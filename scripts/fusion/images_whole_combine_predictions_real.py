@@ -432,7 +432,7 @@ def pointwise_interpolate_pixels(
     return target_signal
 
 
-dfrom typing import Callable, List, Mapping, Tuple
+from typing import Callable, List, Mapping, Tuple
 
 
 def multi_view_interpolate_predictions_1(

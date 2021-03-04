@@ -140,7 +140,7 @@ def main(options):
             combiner=combiners.CenterCropPredictionsCombiner(brd_thr=80, func=np.min),
             smoother=smoothers.RobustLocalLinearFit(
                 lm.HuberRegressor(epsilon=4., alpha=1.),
-                n_jobs=32
+                n_jobs=16
             )
         ),
     ]

@@ -158,9 +158,11 @@ class RobustLocalLinearFit(PredictionsSmoother):
                 zip(refined_predictions, data_maker(points, nn_indexes, predictions_variants))):
             if None is refined_prediction:
                 continue
-            for ui, nn_index in enumerate(zip(uniq_indexes, nn_indexes[point_index])):
+            # for ui, nn_index in enumerate(zip(uniq_indexes, nn_indexes[point_index])):
+            for ui, nn_index in zip(uniq_indexes, nn_indexes[point_index]):
                 refined_predictions_variants[nn_index].append(refined_prediction[ui])
 
+        import pdb; pdb.set_trace()
         refined_combined_predictions = np.zeros_like(predictions)
         for idx, values in refined_predictions_variants.items():
             refined_combined_predictions[idx] = np.mean(values)

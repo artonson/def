@@ -146,7 +146,7 @@ class PointsViewState(CameraViewState):
 
 
 def view_to_points(view: CameraView) -> Tuple[np.ndarray, np.ndarray]:
-
+    pass
 
 def points_to_view(image, signal, view: CameraView) -> Tuple[np.ndarray, np.ndarray]:
     pass
