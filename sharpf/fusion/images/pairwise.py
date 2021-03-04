@@ -76,7 +76,7 @@ def interpolate_views_as_images(
         return source_view.signal, source_indexes, source_view.depth
 
     source_view = source_view.to_image()
-    target_view = target_view.to_other(source_view)
+    target_view = target_view.reproject_to(source_view)
 
     image_pixelizer = load_func_from_config(source_view)
     source_image = image_pixelizer.unpixelize(source_view.image)
@@ -84,7 +84,7 @@ def interpolate_views_as_images(
     image_pixelizer = load_func_from_config(target_view)
     target_image = image_pixelizer.unpixelize(target_view.image)
 
-    target_view = target_view.to_other(source_view)
+    target_view = target_view.reproject_to(source_view)
     target_view = target_view.to_image(to_other=source_view)
 
     target_signal, can_interpolate = pointwise_interpolate_image(

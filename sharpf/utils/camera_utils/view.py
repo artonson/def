@@ -42,7 +42,7 @@ class CameraView:
         view = self.state.to_pixels(inplace=inplace)
         return view
 
-    def to_other(self, other: 'CameraView') -> 'CameraView':
+    def reproject_to(self, other: 'CameraView') -> 'CameraView':
         pass
 
     @classmethod
@@ -54,6 +54,10 @@ class CameraView:
             deepcopy(other.extrinsics),
             deepcopy(other.intrinsics),
             deepcopy(other.params))
+
+    @property
+    def as_dict(self):
+        return { }
 
 
 class CameraViewState(ABC):
@@ -80,7 +84,7 @@ class CameraViewState(ABC):
     def __str__(self): pass
 
 
-def maybe_inplace(other_view: CameraView, inplace=False) -> CameraView:
+def _maybe_inplace(other_view: CameraView, inplace=False) -> CameraView:
     """Create a copy of other_view if inplace=False,
     otherwise return other_view."""
     view = other_view
@@ -99,7 +103,7 @@ class PixelViewState(CameraViewState):
     def __str__(self): return 'pixels'
 
     def to_pixels(self, inplace=False) -> CameraView:
-        return maybe_inplace(self.view)
+        return _maybe_inplace(self.view)
 
     def to_image(self, inplace=False) -> CameraView:
         assert None is not self.view.intrinsics
@@ -110,7 +114,7 @@ class PixelViewState(CameraViewState):
         if self.view.signal is not None:
             signal = self.view.signal.ravel()[np.flatnonzero(view.image)]
 
-        view = maybe_inplace(self.view)
+        view = _maybe_inplace(self.view)
         view.depth = image
         view.signal = signal
         view.state = ImageViewState(view)
