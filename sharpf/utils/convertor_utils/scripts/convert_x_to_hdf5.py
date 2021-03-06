@@ -23,6 +23,7 @@ sys.path[1:1] = [__dir__]
 import sharpf.utils.abc_utils.hdf5.io_struct as io_struct
 import sharpf.utils.camera_utils.rangevision_utils as rv_utils
 import sharpf.utils.convertor_utils.directx_parsers as dp
+from sharpf.utils.py_utils.os import change_ext
 
 
 def create_parser():
@@ -87,10 +88,11 @@ def transform_parse_results(result: pp.ParseResults):
         alignment_parser.parse(transform[:])
         alignment_transform = np.array(alignment_parser.value).reshape((4, 4)).T
 
-        points, _ = mesh_parser.value
+        points, faces = mesh_parser.value
 
         scans.append({
             'points': np.ravel(points),
+            'faces': np.ravel(faces),
             'extrinsics': extrinsics,
             'intrinsics': intrinsics,
             'alignment': alignment_transform,
@@ -100,9 +102,10 @@ def transform_parse_results(result: pp.ParseResults):
     return scans
 
 
-def write_scans(output_filename, scans):
+def write_scans_to_hdf5(output_filename, scans):
     RangeVisionIO = io_struct.HDF5IO({
         'points': io_struct.VarFloat64('points'),
+        'faces': io_struct.VarInt32('faces'),
         'extrinsics': io_struct.Float64('extrinsics'),
         'intrinsics': io_struct.Float64('intrinsics'),
         'alignment': io_struct.Float64('alignment'),
@@ -119,6 +122,44 @@ def write_scans(output_filename, scans):
             RangeVisionIO.write(f, key, scans[key].numpy())
         RangeVisionIO.write(f, 'item_id', scans['item_id'])
         RangeVisionIO.write(f, 'points', scans['points'])
+        RangeVisionIO.write(f, 'faces', scans['faces'])
+
+    print(output_filename)
+
+
+def write_scans_to_ply(output_filename, scans):
+    import open3d as o3d
+    import trimesh.transformations as tt
+
+    def open3d_pointcloud_from_numpy(points):
+        pcd = o3d.geometry.PointCloud()
+        pcd.points = o3d.utility.Vector3dVector(points)
+        return pcd
+
+    def open3d_mesh_from_numpy(points, faces):
+        mesh = o3d.geometry.TriangleMesh()
+        mesh.vertices = o3d.utility.Vector3dVector(points)
+        mesh.triangles = o3d.utility.Vector3iVector(faces)
+        return mesh
+
+    for scan_index, scan in enumerate(scans):
+        points = np.array(scan['points']).reshape((-1, 3))
+        faces = np.array(scan['faces']).reshape((-1, 3))
+        extrinsics = np.array(scan['extrinsics'])
+        alignment = np.array(scan['alignment'])
+
+        transform = np.dot(extrinsics, alignment)
+        points_global = tt.transform_points(points, transform)
+
+        mesh = open3d_mesh_from_numpy(points_global, faces)
+        output_filename_scan = "{}_{}.ply".format(change_ext(output_filename, ''), scan_index)
+        o3d.io.write_triangle_mesh(
+            output_filename_scan,
+            mesh,
+            write_ascii=True)
+
+        print(output_filename_scan)
+
 
 
 def main(options):
@@ -135,8 +176,11 @@ def main(options):
     print('Converting to standard representation...')
     scans = transform_parse_results(result)
 
-    print('Writing scans to output...')
-    write_scans(options.output_filename, scans)
+    print('Writing scans to output HDF5 container...')
+    write_scans_to_hdf5(options.output_filename, scans)
+
+    print('Writing scans to output PLY containers...')
+    write_scans_to_ply(options.output_filename, scans)
 
 
 def parse_args():

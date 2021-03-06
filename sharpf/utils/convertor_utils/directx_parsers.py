@@ -162,7 +162,7 @@ class ParsableMeshFace(ParsableTemplate):
 
     @property
     def value(self):
-        return self.vertex_indexes
+        return self.vertex_indexes.value
 
 
 class ParsableMesh(ParsableTemplate):
