@@ -1,16 +1,24 @@
 #!/usr/bin/env python3
 
+# This script is based on the DirectX format presented in
+# http://paulbourke.net/dataformats/directx/
+# (but may not 100% fully implement everything).
+
 import argparse
 from functools import partial
+import os
+import sys
 
 import h5py
 import numpy as np
 import pyparsing as pp
-
-# This script is based on the DirectX format presented in
-# http://paulbourke.net/dataformats/directx/
-# (but may not 100% fully implement everything).
 from tqdm import tqdm
+
+__dir__ = os.path.normpath(
+    os.path.join(
+        os.path.dirname(os.path.realpath(__file__)), '../../../..')
+)
+sys.path[1:1] = [__dir__]
 
 import sharpf.utils.abc_utils.hdf5.io_struct as io_struct
 import sharpf.utils.camera_utils.rangevision_utils as rv_utils
