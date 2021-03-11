@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from typing import Tuple
 
 import numpy as np
 
@@ -25,13 +26,21 @@ class ImagePixelizerBase(ABC):
               Y looks in direction of increasing Y (up, inverse wrt pixels space)
     """
     @abstractmethod
-    def pixelize(self, canvas: np.ndarray) -> np.ndarray:
+    def pixelize(
+            self,
+            image: np.ndarray,
+            signal: np.ndarray = None
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """Given 3D points [n, 3] defined in the image plane,
         compute a rasterized [h, w] pixel image."""
         pass
 
     @abstractmethod
-    def unpixelize(self, pixels: np.ndarray) -> np.ndarray:
+    def unpixelize(
+            self,
+            pixels: np.ndarray,
+            signal: np.ndarray = None
+    ) -> Tuple[np.ndarray, np.ndarray]:
         """Un-project a rasterized [h, w] pixel image
         into 3D points [n, 3] onto the 3D space.
         This assumes we start with , not a rasterized pixel image."""
@@ -46,13 +55,25 @@ class ImagePixelizer(ImagePixelizerBase):
     def from_params(cls, pixel_size=None, camera_center=None):
         pass
 
-    def pixelize(self, canvas: np.ndarray) -> np.ndarray:
+    def pixelize(
+            self,
+            image: np.ndarray,
+            signal: np.ndarray = None
+    ) -> Tuple[np.ndarray, np.ndarray]:
+
         # assume [n, 3] array
         assert len(canvas.shape) == 2 and canvas.shape[-1] == 3, 'cannot pixelize image'
         pixels = np.dot(self.intrinsics, canvas[:, :2].T).T
 
+        signal = None
+        if self.view.signal is not None:
+            signal = self.view.signal.ravel()[np.flatnonzero(view.image)]
         return pixels
 
-    def unpixelize(self, pixels: np.ndarray) -> np.ndarray:
+    def unpixelize(
+            self,
+            image: np.ndarray,
+            signal: np.ndarray = None
+    ) -> Tuple[np.ndarray, np.ndarray]:
 
 

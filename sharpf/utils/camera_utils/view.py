@@ -3,8 +3,8 @@ from typing import Mapping, Tuple
 
 import numpy as np
 
-from .camera_pose import CameraPose
-from .pixelization import ImagePixelizerBase
+import sharpf.utils.camera_utils.projection as projection
+import sharpf.utils.camera_utils.pixelization as pixelization
 
 
 class CameraView:
@@ -92,8 +92,13 @@ class CameraViewStateBase(ABC):
     def to_image(self, inplace=False) -> CameraView:
         """Convert the representation of the container view
         to image (i.e., after calling this function, we guarantee
-        that view.depth is [n, 3] array of point coordinates
-        in the canvas plane.
+        that view.depth has shape [n, 3], where
+         - view.depth[:, [0, 1]] is the array of point XY coordinates
+           in the canvas plane,
+         - view.depth[:, 2] is the point depth (Z coordinate)
+           in the camera reference frame.
+        Moreover, view.signal has the shape [n, d] and is ordered
+        in the same way as view.depth.
 
         Subclasses should override this method to provide the
         non-trivial implementation.
@@ -128,9 +133,16 @@ class CameraViewStateBase(ABC):
     def __str__(self): pass
 
 
-def pixelizer_from_view(view: CameraView) -> ImagePixelizerBase:
-    view.params
-    pixelizer =
+def pixelizer_from_view(view: CameraView) -> pixelization.ImagePixelizerBase:
+    pixelizer_type = view.params['projection']
+
+    projection_by_type = {
+        'parallel': pixelization.ParallelProjection,
+        'perspective': projection.PerspectiveProjectionBase,
+    }
+    assert pixelizer_type in projection_by_type, 'unknown projection type: {}'.format(pixelizer_type)
+    projection_cls = projection_by_type[pixelizer_type]
+    return projection_cls()
     return pixelizer
 
 
@@ -143,15 +155,12 @@ class PixelViewState(CameraViewStateBase):
         return view
 
     def to_image(self, inplace=False) -> CameraView:
-        assert None is not self.view.intrinsics
+        assert None is not self.view.intrinsics, 'view intrinsics not available'
 
         pixelizer = pixelizer_from_view(self.view)
-        image = pixelizer.unpixelize(self.view.depth)
-        signal = None
-        if self.view.signal is not None:
-            signal = self.view.signal.ravel()[np.flatnonzero(view.image)]
+        image, signal = pixelizer.unpixelize(self.view.depth, self.view.signal)
 
-        view = _maybe_inplace(self.view)
+        view = _maybe_inplace(self.view, inplace=inplace)
         view.depth = image
         view.signal = signal
         view.state = ImageViewState(view)
@@ -159,24 +168,29 @@ class PixelViewState(CameraViewStateBase):
         return view
 
 
-def projection_from_view(view):
-    pass
+def projection_from_view(view: CameraView) -> projection.CameraProjectionBase:
+    projection_type = view.params['projection']
+
+    projection_by_type = {
+        'parallel': projection.ParallelProjectionBase,
+        'perspective': projection.PerspectiveProjectionBase,
+    }
+    assert projection_type in projection_by_type, 'unknown projection type: {}'.format(projection_type)
+    projection_cls = projection_by_type[projection_type]
+    return projection_cls(view.intrinsics)
 
 
 class ImageViewState(CameraViewStateBase):
     def __str__(self): return 'image'
 
     def to_points(self, inplace=False) -> CameraView:
-        assert None is not self.view.intrinsics, 'View intrinsics not present'
-        assert None is not self.view.extrinsics, 'View extrinsics not present'
+        assert None is not self.view.intrinsics, 'view intrinsics not available'
+        assert None is not self.view.params.get('projection'), 'view projection type unknown'
 
         projection = projection_from_view(self.view)
-        image = projection.unproject(self.view.depth)
-        signal = None
-        if self.view.signal is not None:
-            signal = self.view.signal.ravel()[np.flatnonzero(view.image)]
+        image, signal = projection.unproject(self.view.depth, self.view.signal)
 
-        view = _maybe_inplace(self.view)
+        view = _maybe_inplace(self.view, inplace=inplace)
         view.depth = image
         view.signal = signal
         view.state = PointsViewState(view)
@@ -186,13 +200,10 @@ class ImageViewState(CameraViewStateBase):
     def to_pixels(self, inplace=False) -> CameraView:
         assert None is not self.view.intrinsics
 
-        image_pixelizer = image_pixelizer_from_view(self.view)
-        image = image_pixelizer.pixelize(self.view.depth)
-        signal = None
-        if self.view.signal is not None:
-            signal = image_pixelizer.pixelize(self.view.signal)
+        pixelizer = pixelizer_from_view(self.view)
+        image, signal = pixelizer.pixelize(self.view.depth, self.view.signal)
 
-        view = _maybe_inplace(self.view)
+        view = _maybe_inplace(self.view, inplace=inplace)
         view.depth = image
         view.signal = signal
         view.state = PixelViewState(view)
@@ -201,34 +212,26 @@ class ImageViewState(CameraViewStateBase):
 
 
 class PointsViewState(CameraViewStateBase):
-    def __init__(self, view: CameraView):
-        super().__init__(view)
+    def __str__(self): return 'points'
 
     def to_image(self, inplace=False) -> CameraView:
-        pass
+        assert None is self.view.intrinsics, 'view intrinsics not available'
+        assert None is self.view.params.get('projection'), 'view projection type unknown'
+
+        projection = projection_from_view(self.view)
+        image, signal = projection.project(self.view.depth, self.view.signal)
+
+        view = _maybe_inplace(self.view, inplace=inplace)
+        view.depth = image
+        view.signal = signal
+        view.state = ImageViewState(view)
+
+        return view
 
     def to_pixels(self, inplace=False) -> CameraView:
-        pass
+        view = self.to_image(inplace=inplace)
+        view = view.to_pixels()  # calls ImageViewState.to_pixels()
+        return view
 
     def reproject_to(self, other: CameraView) -> CameraView:
         pass
-
-    @abstractmethod
-    def __str__(self): pass
-
-
-
-def view_to_points(view: CameraView) -> Tuple[np.ndarray, np.ndarray]:
-
-
-def points_to_view(image, signal, view: CameraView) -> Tuple[np.ndarray, np.ndarray]:
-    pass
-
-
-def view_to_image(view: CameraView) -> Tuple[np.ndarray, np.ndarray]:
-    pass
-
-
-def image_to_view(image, signal, view: CameraView) -> Tuple[np.ndarray, np.ndarray]:
-    pass
-
