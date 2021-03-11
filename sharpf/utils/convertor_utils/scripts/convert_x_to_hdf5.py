@@ -176,11 +176,13 @@ def main(options):
     print('Converting to standard representation...')
     scans = transform_parse_results(result)
 
-    print('Writing scans to output HDF5 container...')
-    write_scans_to_hdf5(options.output_filename, scans)
+    if options.is_output_hdf5:
+        print('Writing scans to output HDF5 container...')
+        write_scans_to_hdf5(options.output_filename, scans)
 
-    print('Writing scans to output PLY containers...')
-    write_scans_to_ply(options.output_filename, scans)
+    if options.is_output_ply:
+        print('Writing scans to output PLY containers...')
+        write_scans_to_ply(options.output_filename, scans)
 
 
 def parse_args():
@@ -192,6 +194,10 @@ def parse_args():
                         required=True, help='output .hdf5 filename.')
     parser.add_argument('--verbose', dest='verbose', action='store_true', default=False,
                         required=False, help='be verbose')
+    parser.add_argument('--hdf5', dest='is_output_hdf5', action='store_true', default=False,
+                        required=False, help='produce HDF5 output (default: no).')
+    parser.add_argument('--ply', dest='is_output_ply', action='store_true', default=False,
+                        required=False, help='produce PLY output (default: no).')
     return parser.parse_args()
 
 
