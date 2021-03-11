@@ -58,14 +58,14 @@ def interpolate_views_as_images(
         source_view: CameraView,
         target_view: CameraView,
         verbose: bool = False,
-):
+) -> CameraView:
     """Given two views represented as depth/prediction images +
     camera parameters, run view-view interpolation in image space.
 
     :param source_view:
     :param target_view:
     :param verbose:
-    :return:
+    :return: a view
 
     """
 
@@ -93,7 +93,13 @@ def interpolate_views_as_images(
         target_view.depth,
     )
 
+    camera_pose = CameraPose(self.view.extrinsics)
+    camera_projection = load_func_from_config()
+    image_pixelizer = load_func_from_config()
 
+    image = image_pixelizer.unpixelize(view.image)
+    points_in_camera_frame = camera_projection.unproject(image)
+    points_in_world_frame = camera_pose.camera_to_world(points_in_camera_frame)
 
     n_omp_threads = int(os.environ.get('OMP_NUM_THREADS', 1))
     image_space_tree = cKDTree(imaging.rays_origins[:, :2], leafsize=100)
