@@ -3,6 +3,8 @@ from typing import Union, Tuple
 
 import numpy as np
 
+from sharpf.utils.camera_utils.common import check_is_image, check_is_points
+
 
 class CameraProjectionBase(ABC):
     @abstractmethod
@@ -47,19 +49,15 @@ class PerspectiveProjectionBase(CameraProjectionBase):
             signal: np.ndarray=None
     ) -> Tuple[np.ndarray, np.ndarray]:
 
-        # assume [n, 3] array for points, [n, d] array for signal
-        assert len(points.shape) == 2 and points.shape[-1] == 3, \
-            'cannot project points to image: expected shape [n, 3], got: {}'.format(points.shape)
+        check_is_points(points, signal)
+
         if None is not signal:
-            assert len(signal.shape) in [1, 2], \
-                'cannot project signal: expected shape [n, d] or [n, ], got: {}'.format(signal.shape)
-            assert points.shape[0] == signal.shape[0], \
-                'cannot project points/signal: points and signal have different shapes'
             signal = np.atleast_2d(signal)
 
         image = np.dot(
             self.intrinsics,
             points.T).T
+
         return image, signal
 
     def unproject(
@@ -68,14 +66,9 @@ class PerspectiveProjectionBase(CameraProjectionBase):
             signal: np.ndarray = None
     ) -> Tuple[np.ndarray, np.ndarray]:
 
-        # assume [n, 3] array for canvas, [n, d] array for signal
-        assert len(image.shape) == 2 and image.shape[-1] == 3, \
-            'cannot unproject image to points: expected shape [n, 3], got: {}'.format(image.shape)
+        check_is_image(image, signal)
+
         if None is not signal:
-            assert len(signal.shape) in [1, 2], \
-                'cannot project signal: expected shape [n, d] or [n, ], got: {}'.format(signal.shape)
-            assert image.shape[0] == signal.shape[0], \
-                'cannot project points/signal: points and signal have different shapes'
             signal = np.atleast_2d(signal)
 
         points = np.dot(

@@ -13,6 +13,7 @@ import numpy as np
 #  - carefully use z-buffer to avoid projecting
 #    'invisible' (from a particular viewing direction) surfaces
 #  - evaluate the resulting function on a regular grid
+from sharpf.utils.camera_utils.common import check_is_image, check_is_pixels
 
 
 class ImagePixelizerBase(ABC):
@@ -55,15 +56,35 @@ class ImagePixelizer(ImagePixelizerBase):
     def from_params(cls, pixel_size=None, camera_center=None):
         pass
 
+    def __transform_coords(self, image, signal=None):
+        pixels_realvalued = np.dot(
+            self.intrinsics,
+            image[:, :2].T
+        ).T
+        return pixels_realvalued, signal
+
+    def __compute_visibility(self, image, signal=None):
+        pass
+
+    def __assign_pixels(self, image, signal=None):
+        pass
+
     def pixelize(
             self,
             image: np.ndarray,
             signal: np.ndarray = None
     ) -> Tuple[np.ndarray, np.ndarray]:
 
+        check_is_image(image, signal)
+
+        pixels_realvalued, signal_realvalued = self.__transform_coords(image)
+
+        pixels_visible, signal_visible = self.__compute_visibility(image)
+
+        pixels, signal_visible = self.__compute_visibility(image)
+
         # assume [n, 3] array
         assert len(canvas.shape) == 2 and canvas.shape[-1] == 3, 'cannot pixelize image'
-        pixels = np.dot(self.intrinsics, canvas[:, :2].T).T
 
         signal = None
         if self.view.signal is not None:
@@ -76,4 +97,5 @@ class ImagePixelizer(ImagePixelizerBase):
             signal: np.ndarray = None
     ) -> Tuple[np.ndarray, np.ndarray]:
 
+        check_is_pixels(image, signal)
 

@@ -21,6 +21,9 @@ __dir__ = os.path.normpath(
     os.path.join(
         os.path.dirname(os.path.realpath(__file__)), '../..')
 )
+
+from sharpf.utils.camera_utils.view import CameraView
+
 sys.path[1:1] = [__dir__]
 
 import sharpf.data.datasets.sharpf_io as sharpf_io
@@ -45,23 +48,17 @@ def load_ground_truth(true_filename, unlabeled=False):
         io=data_io,
         preload=PreloadTypes.LAZY,
         labels='*')
-    ground_truth = [view for view in ground_truth_dataset]
 
-    list_images = [view['image'] for view in ground_truth]
-    list_distances = [view.get('distances', np.ones_like(view['image'])) for view in ground_truth]
-    list_extrinsics = [view['camera_pose'] for view in ground_truth]
-    list_intrinsics = [view['???'] for view in ground_truth]
-    #
-    # with open(options.dataset_config) as config_file:
-    #     config = json.load(config_file)
-    #     config['imaging']['resolution_image'] = gt_images[0].shape[0]
-    # imaging = load_func_from_config(IMAGING_BY_TYPE, config['imaging'])
-    # print(imaging.resolution_image, gt_images[0].shape)
-
-    n_points = np.sum([
-        np.count_nonzero(image) for image in list_images],
-        dtype=np.int)
-    return n_points, list_distances, list_images, list_extrinsics, list_intrinsics
+    views = [
+        CameraView(
+            depth=view['image'],
+            signal=view.get('distances', np.ones_like(view['image'])),
+            extrinsics=view['extrinsics'],
+            intrinsics=view['intrinsics'],
+            params=view['params'])
+        for view in ground_truth_dataset
+    ]
+    return views
 
 
 def load_predictions(pred_data, name, pred_key='distances'):
@@ -100,7 +97,7 @@ def main(options):
     # per-view ground truth depth images, distances, and
     # view parameters). If running inference, distances
     # can be absent (run with --unlabeled flag).
-    n_points, views = load_ground_truth(
+    views = load_ground_truth(
         options.true_filename,
         unlabeled=options.unlabeled)
 

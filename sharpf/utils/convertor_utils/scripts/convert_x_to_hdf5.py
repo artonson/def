@@ -157,9 +157,7 @@ def write_scans_to_ply(output_filename, scans):
             output_filename_scan,
             mesh,
             write_ascii=True)
-
         print(output_filename_scan)
-
 
 
 def main(options):
