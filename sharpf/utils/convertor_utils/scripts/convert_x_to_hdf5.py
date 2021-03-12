@@ -82,7 +82,7 @@ def extract_scans(result: pp.ParseResults):
             rvn.faces: np.ravel(faces),
             rvn.vertex_matrix: np.array(calibration_parser.vertex_matrix.value),
             rvn.rxyz_euler_angles: np.array(calibration_parser.angles.value),
-            rvn.translation: np.array(calibration_parser.angles.value),
+            rvn.translation: np.array(calibration_parser.translation.value),
             rvn.focal_length: np.array(calibration_parser.focal_length.value),
             rvn.pixel_size_xy: np.array(calibration_parser.pixel_size_xy.value),
             rvn.center_xy: np.array(calibration_parser.center_xy.value),
