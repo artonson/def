@@ -18,10 +18,11 @@ def load_meshlab_project(meshlab_project_filename):
 
     points_by_scan = []
     transform_by_scan_4x4 = []
-
     item_id = None
+
     for type_tag in root.findall('MeshGroup/MLMesh'):
         filename = type_tag.get('filename')
+        print(filename)
         if filename.endswith('.obj') or filename.endswith('.stl'):
             item_id = filename
 
@@ -29,11 +30,17 @@ def load_meshlab_project(meshlab_project_filename):
             try:
                 transform = np.loadtxt(
                     StringIO(type_tag.find('MLMatrix44').text))
+            except ValueError as e:
+                pass
+            else:
+                transform_by_scan_4x4.append(transform)
+
+            try:
                 points = trimesh.load(os.path.join(base_dir, filename)).vertices
             except ValueError as e:
-                continue
+                pass
+            else:
 
-            transform_by_scan_4x4.append(transform)
-            points_by_scan.append(points)
+                points_by_scan.append(points)
 
     return points_by_scan, transform_by_scan_4x4, item_id
