@@ -96,6 +96,23 @@ def get_camera_extrinsic(angles, translation):
     )
 
 
+def get_right_camera_extrinsics(angles, translation):
+    R = tt.euler_matrix(*angles, axes='rxyz')[:3, :3]
+    R = R[[1, 0, 2]].T[[1, 0, 2]]
+    flip_z = [[1, 0, 0], [0, 1, 0], [0, 0, -1]]
+    flip_y = [[1, 0, 0], [0, -1, 0], [0, 0, 1]]
+    R = np.dot(
+        flip_z,
+        np.dot(flip_y, R))
+
+    g = np.zeros((4, 4))
+    g[3, 3] = 1
+    g[:3, :3] = R
+    g[:3, 3] = np.dot(-R, translation)
+
+    return CameraPose(np.linalg.inv(g))
+
+
 def assign_by_min_depth(
         image_size,
         image_offset,

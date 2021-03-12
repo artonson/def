@@ -5,11 +5,9 @@
 # (but may not 100% fully implement everything).
 
 import argparse
-from functools import partial
 import os
 import sys
 
-import h5py
 import numpy as np
 import pyparsing as pp
 from tqdm import tqdm
@@ -18,9 +16,11 @@ __dir__ = os.path.normpath(
     os.path.join(
         os.path.dirname(os.path.realpath(__file__)), '../../../..')
 )
+
+from sharpf.utils.convertor_utils.convertors_io import write_raw_rv_scans_to_hdf5
+
 sys.path[1:1] = [__dir__]
 
-import sharpf.utils.abc_utils.hdf5.io_struct as io_struct
 from sharpf.utils.convertor_utils.rangevision_utils import \
     RangeVisionNames as rvn, get_camera_extrinsic
 import sharpf.utils.convertor_utils.directx_parsers as dp
@@ -92,43 +92,6 @@ def extract_scans(result: pp.ParseResults):
     return scans
 
 
-RangeVisionIO = io_struct.HDF5IO({
-    rvn.points: io_struct.VarFloat64(rvn.points),
-    rvn.faces: io_struct.VarInt32(rvn.faces),
-    rvn.vertex_matrix: io_struct.Float64(rvn.vertex_matrix),
-    rvn.rxyz_euler_angles: io_struct.Float64(rvn.rxyz_euler_angles),
-    rvn.translation: io_struct.Float64(rvn.translation),
-    rvn.focal_length: io_struct.Float64(rvn.focal_length),
-    rvn.pixel_size_xy: io_struct.Float64(rvn.pixel_size_xy),
-    rvn.center_xy: io_struct.Float64(rvn.center_xy),
-    rvn.alignment: io_struct.Float64(rvn.alignment),
-    'scan_id': io_struct.AsciiString('scan_id'),
-},
-    len_label='scan_id',
-    compression='lzf')
-
-
-def write_scans_to_hdf5(output_filename, scans):
-    collate_fn = partial(io_struct.collate_mapping_with_io, io=RangeVisionIO)
-    scans = collate_fn(scans)
-
-    with h5py.File(output_filename, 'w') as f:
-        for key in [
-                rvn.vertex_matrix,
-                rvn.rxyz_euler_angles,
-                rvn.translation,
-                rvn.focal_length,
-                rvn.pixel_size_xy,
-                rvn.center_xy,
-                rvn.alignment]:
-            RangeVisionIO.write(f, key, scans[key].numpy())
-        RangeVisionIO.write(f, 'scan_id', scans['scan_id'])
-        RangeVisionIO.write(f, rvn.points, scans[rvn.points])
-        RangeVisionIO.write(f, rvn.faces, scans[rvn.faces])
-
-    print(output_filename)
-
-
 def write_scans_to_ply(output_filename, scans):
     import open3d as o3d
     import trimesh.transformations as tt
@@ -187,7 +150,7 @@ def main(options):
 
     if options.is_output_hdf5:
         print('Writing scans to output HDF5 container...')
-        write_scans_to_hdf5(options.output_filename, scans)
+        write_raw_rv_scans_to_hdf5(options.output_filename, scans)
 
     if options.is_output_ply:
         print('Writing scans to output PLY containers...')

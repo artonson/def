@@ -8,45 +8,89 @@ import sys
 
 import numpy as np
 import trimesh.transformations as tt
+from tqdm import tqdm
 import yaml
 
 __dir__ = os.path.normpath(
     os.path.join(
-        os.path.dirname(os.path.realpath(__file__)), '../../../..')
+        os.path.dirname(os.path.realpath(__file__)), '../..')
 )
 sys.path[1:1] = [__dir__]
 
 from sharpf.utils.abc_utils.hdf5.dataset import Hdf5File, PreloadTypes
 from sharpf.utils.abc_utils.mesh.io import trimesh_load
 from sharpf.utils.convertor_utils.meshlab_project_parsers import load_meshlab_project
+from sharpf.utils.convertor_utils.convertors_io import RangeVisionIO, write_realworld_views_to_hdf5
 import sharpf.utils.convertor_utils.rangevision_utils as rv_utils
+from sharpf.utils.abc_utils.abc.feature_utils import get_curves_extents
 
 
-def main(options):
-    stl_filename = glob(os.path.join(options.input_dir, '*.stl'))[0]
-    obj_filename = glob(os.path.join(options.input_dir, '*.obj'))[0]
-    yml_filename = glob(os.path.join(options.input_dir, '*.yml'))[0]
-    hdf5_filename = glob(os.path.join(options.input_dir, '*.hdf5'))[0]
-    meshlab_filename = glob(os.path.join(options.input_dir, '*.mlp'))[0]
+def scale_mesh(
+        mesh,
+        features,
+        default_mesh_extent_mm,
+        resolution_mm_per_point,
+        short_curve_quantile=0.05,
+        n_points_per_curve=4
+):
+    """Scale the mesh to achieve a desired sampling on feature curves.
 
-    print('Reading input data...')
-    with open(obj_filename, 'rb') as obj_file:
-        obj_mesh, _, _ = trimesh_load(BytesIO(obj_file.read()))
+    :param mesh: input mesh
+    :param features: feature description for input mesh
+    :param default_mesh_extent_mm: some default size of the mesh
+    :param resolution_mm_per_point: inter-measurement distance (scanning resolution)
+    :param short_curve_quantile: percentage of feature curves, below which we allow
+                                 the curves to be undersampled
+    :param n_points_per_curve: number of measurement samples that should be landing
+                               on a typical feature curve along its linear spatial extent
+    :return: scaled mesh
+    """
 
-    with open(yml_filename, 'rb') as yml_file:
-        yml_features = yaml.load(BytesIO(yml_file.read()), Loader=yaml.Loader)
+    # First, make our mesh have some "default" spatial extent (in mm).
+    scale_to_default = default_mesh_extent_mm / np.max(mesh.bounding_box.extents)
+    mesh = mesh.apply_scale(scale_to_default)
 
-    _, manual_alignment_transforms, _ = load_meshlab_project(meshlab_filename)
+    # Our goal is to sample each feature with a specified
+    # number of point samples. For this, we first compute distribution of
+    # feature curve extents (measured by bounding boxes) in "default" scale.
+    curves_extents_mm = get_curves_extents(mesh, features)
 
-    dataset = Hdf5File(
-        hdf5_filename,
-        io=RangeVisionIO,
-        preload=PreloadTypes.LAZY,
-        labels='*')
+    # We compute feature curve extents that we want sampled exactly
+    # with the specified number of points.
+    # Longer curves shall receive larger number of points,
+    # while shorter curves will be under-sampled.
+    default_curve_extent_mm = np.quantile(curves_extents_mm, short_curve_quantile)
 
+    # We compute spatial extents that the specified number of points
+    # must take when sampling the curve with the specified resolution.
+    resolution_mm_per_curve = resolution_mm_per_point * n_points_per_curve
+
+    scale_to_resolution = resolution_mm_per_curve / default_curve_extent_mm
+    mesh = mesh.apply_scale(scale_to_resolution)
+
+    return mesh, scale_to_default * scale_to_resolution
+
+
+# parameters used to generate the fabricated mesh
+DEFAULT_MESH_EXTENT_MM = 10.0  # mm
+BASE_N_POINTS_PER_SHORT_CURVE = 8
+BASE_RESOLUTION_3D = 0.15  # mm
+SHORT_CURVE_QUANTILE = 0.25  # 25%
+TARGET_RESOLUTION_3D = 1.0  # mm
+
+
+def process_scans(
+        dataset,
+        obj_mesh,
+        yml_features,
+        manual_alignment_transforms,
+        stl_transform,
+        item_id
+):
     rvn = rv_utils.RangeVisionNames
 
-    for scan_index, scan in enumerate(dataset):
+    output_scans = []
+    for scan_index, scan in tqdm(enumerate(dataset)):
 
         # The algorithm:
         # * check if scan is usable?
@@ -77,44 +121,105 @@ def main(options):
 
         # >>>> You are here: we have precisely aligned scans <<<<
 
-        # * get obj aligned / mirrored
-        # * annotate
-        #
-        #  2) load the scanner-to-calibration board transformation
-        # * transform back to scanner frame
-        # * transform to right camera frame
-        # * project / pixelize
+        #  5) get obj aligned / mirrored
+        obj_mesh, obj_scale = scale_mesh(
+            obj_mesh.copy(),
+            yml_features,
+            DEFAULT_MESH_EXTENT_MM,
+            TARGET_RESOLUTION_3D,
+            short_curve_quantile=SHORT_CURVE_QUANTILE,
+            n_points_per_curve=BASE_N_POINTS_PER_SHORT_CURVE)
+        # obj_mesh = obj_mesh.apply_transform(stl_transform)
 
+        #  6) undo transform to wrong global frame
+        points_aligned = tt.transform_points(
+            points_wrong_aligned, np.linalg.inv(wrong_extrinsics))
 
-
-
-
-
-
+        #  7a) load vertex_matrix, this is transform to board coordinate system
         scan_to_board_transform = np.array(scan[rvn.vertex_matrix]).reshape((4, 4))
 
+        #  7b) transform into calibration board coordinate system
+        points_aligned_wrt_calib_board = tt.transform_points(
+            points_aligned, np.linalg.inv(scan_to_board_transform))
 
-        intrinsics_f = rv_utils.get_camera_intrinsic_f(
-            calibration_parser.focal_length.value)
+        #  8) get extrinsics of right camera
+        right_extrinsics_4x4 = rv_utils.get_right_camera_extrinsics(
+            rxyz_euler_angles, translation).camera_to_world_4x4
 
+        #  9) get projection matrix
+        focal_length = scan[rvn.focal_length]
+        intrinsics_f = rv_utils.get_camera_intrinsic_f(focal_length)
+
+        #  10) get intrinsics matrix
+        pixel_size_xy = scan[rvn.pixel_size_xy]
+        center_xy = scan[rvn.pixel_size_xy]
         intrinsics_s = rv_utils.get_camera_intrinsic_s(
-            calibration_parser.pixel_size_xy.value[0] * 1e3,
-            calibration_parser.pixel_size_xy.value[1] * 1e3,
-            calibration_parser.center_xy.value[0],
-            calibration_parser.center_xy.value[1])
+            pixel_size_xy[0] * 1e3,
+            pixel_size_xy[1] * 1e3,
+            center_xy[0],
+            center_xy[1])
         intrinsics = np.dstack((intrinsics_f, intrinsics_s))
 
+        #  11) compute final scan-to-mesh alignment
+        obj_alignment = np.dot(
+            np.linalg.inv(scan_to_board_transform),
+            np.dot(
+                np.linalg.inv(wrong_extrinsics),
+                stl_transform))
+
+        output_scan = {
+            'points': np.ravel(points_aligned_wrt_calib_board),
+            'faces': np.ravel(faces),
+            'extrinsics': right_extrinsics_4x4,
+            'intrinsics': intrinsics,
+            'obj_alignment': obj_alignment,
+            'obj_scale': obj_scale,
+            'item_id': item_id,
+        }
+
+        output_scans.append(output_scan)
+
+    return output_scans
 
 
+def main(options):
+    stl_filename = glob(os.path.join(options.input_dir, '*.stl'))[0]
+    obj_filename = glob(os.path.join(options.input_dir, '*.obj'))[0]
+    yml_filename = glob(os.path.join(options.input_dir, '*.yml'))[0]
+    hdf5_filename = glob(os.path.join(options.input_dir, '*.hdf5'))[0]
+    meshlab_filename = glob(os.path.join(options.input_dir, '*.mlp'))[0]
+    item_id = os.path.basename(stl_filename).split('__')[0]
 
-        distances, directions, has_sharp = annotator.annotate(
-            obj_mesh,
-            yml_features,
-            points)
+    print('Reading input data...', end='')
+    with open(obj_filename, 'rb') as obj_file:
+        print('obj...', end='')
+        obj_mesh, _, _ = trimesh_load(BytesIO(obj_file.read()))
 
+    with open(yml_filename, 'rb') as yml_file:
+        print('yml...', end='')
+        yml_features = yaml.load(BytesIO(yml_file.read()), Loader=yaml.Loader)
 
+    print('meshlab...', end='')
+    _, manual_alignment_transforms, _, stl_transform = load_meshlab_project(meshlab_filename)
 
+    print('hdf5...')
+    dataset = Hdf5File(
+        hdf5_filename,
+        io=RangeVisionIO,
+        preload=PreloadTypes.LAZY,
+        labels='*')
 
+    print('Converting scans...')
+    output_scans = process_scans(
+        dataset,
+        obj_mesh,
+        yml_features,
+        manual_alignment_transforms,
+        stl_transform,
+        item_id)
+
+    print('Writing output file...')
+    write_realworld_views_to_hdf5(options.output_filename, output_scans)
 
 
 def parse_args():
