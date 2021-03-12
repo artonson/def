@@ -1,4 +1,5 @@
 from collections import defaultdict
+from dataclasses import dataclass
 from glob import glob
 from io import StringIO
 import os
@@ -12,18 +13,43 @@ from tqdm import tqdm
 from sharpf.utils.camera_utils.camera_pose import CameraPose
 
 
+@dataclass
+class RangeVisionNames:
+    points: str = 'points'
+    faces: str = 'faces'
+    vertex_matrix: str = 'vertex_matrix'
+    rxyz_euler_angles: str = 'alf,om,kap'
+    translation = 'X0'
+    focal_length: str = 'f'
+    focal_length_nom: str = 'fnom'
+    pixel_size_xy: str = 'm'
+    center_xy: str = 'b'
+    alignment: str = 'alignment'
+    correction: str = 'adp'
+
+    sec_image_geometry: str = 'CImgGeom'
+    sec_projective_transform : str = 'CProjCentr'
+    sec_camera_params: str = 'CParamDig1i'
+
+
+
 def read_calibration_params(filename):
-    PARAM_NAMES = ['CImgGeom',
-                   'CProjCentr',
-                   'f',
-                   'fnom',
-                   'alf,om,kap',
-                   'X0',
-                   'CParamDig1i',
-                   'm',
-                   'b',
-                   'adp']
+    PARAM_NAMES = [
+        RangeVisionNames.sec_image_geometry,
+
+        RangeVisionNames.sec_projective_transform,
+        RangeVisionNames.focal_length,
+        RangeVisionNames.focal_length_nom,
+        RangeVisionNames.rxyz_euler_angles,
+        RangeVisionNames.translation,
+
+        RangeVisionNames.sec_camera_params,
+        RangeVisionNames.pixel_size_xy,
+        RangeVisionNames.center_xy,
+        RangeVisionNames.correction]
+
     params_by_name = defaultdict(list)
+
     with open(filename) as f:
         for line in f:
             s = line.strip()

@@ -185,7 +185,7 @@ class ParsableMesh(ParsableTemplate):
 
 class ParsableRVCalibration(ParsableTemplate):
     def __init__(self):
-        self.rotation_matrix = ParsableMatrix4x4()
+        self.vertex_matrix = ParsableMatrix4x4()
         self.focal_length = ParsableFloat()
         self.angles = ParsableArray(ParsableFloat, num_elements=3)
         self.translation = ParsableArray(ParsableFloat, num_elements=3)
@@ -193,7 +193,7 @@ class ParsableRVCalibration(ParsableTemplate):
         self.center_xy = ParsableArray(ParsableFloat, num_elements=2)
         self.correction = ParsableArray(ParsableFloat, num_elements=6)
         super().__init__(fields=[
-            self.rotation_matrix,
+            self.vertex_matrix,
             self.focal_length,
             self.angles,
             self.translation,

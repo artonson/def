@@ -21,7 +21,8 @@ __dir__ = os.path.normpath(
 sys.path[1:1] = [__dir__]
 
 import sharpf.utils.abc_utils.hdf5.io_struct as io_struct
-import sharpf.utils.camera_utils.rangevision_utils as rv_utils
+from sharpf.utils.convertor_utils.rangevision_utils import \
+    RangeVisionNames as rvn, get_camera_extrinsic
 import sharpf.utils.convertor_utils.directx_parsers as dp
 from sharpf.utils.py_utils.os import change_ext
 
@@ -56,7 +57,7 @@ def create_parser():
     return directx_parser
 
 
-def transform_parse_results(result: pp.ParseResults):
+def extract_scans(result: pp.ParseResults):
     header, frame_side = result[:-1], result[-1]
     frame_group = frame_side[1]
 
@@ -70,20 +71,6 @@ def transform_parse_results(result: pp.ParseResults):
         mesh_parser = dp.ParsableMesh()
         mesh_parser.parse(mesh[:])
 
-        extrinsics = rv_utils.get_camera_extrinsic(
-            calibration_parser.angles.value,
-            calibration_parser.translation.value).camera_to_world_4x4
-
-        intrinsics_f = rv_utils.get_camera_intrinsic_f(
-            calibration_parser.focal_length.value)
-
-        intrinsics_s = rv_utils.get_camera_intrinsic_s(
-            calibration_parser.pixel_size_xy.value[0] * 1e3,
-            calibration_parser.pixel_size_xy.value[1] * 1e3,
-            calibration_parser.center_xy.value[0],
-            calibration_parser.center_xy.value[1])
-        intrinsics = np.dstack((intrinsics_f, intrinsics_s))
-
         alignment_parser = dp.ParsableMatrix4x4()
         alignment_parser.parse(transform[:])
         alignment_transform = np.array(alignment_parser.value).reshape((4, 4)).T
@@ -91,38 +78,53 @@ def transform_parse_results(result: pp.ParseResults):
         points, faces = mesh_parser.value
 
         scans.append({
-            'points': np.ravel(points),
-            'faces': np.ravel(faces),
-            'extrinsics': extrinsics,
-            'intrinsics': intrinsics,
-            'alignment': alignment_transform,
-            'item_id': '123',
+            rvn.points: np.ravel(points),
+            rvn.faces: np.ravel(faces),
+            rvn.vertex_matrix: np.array(calibration_parser.vertex_matrix.value),
+            rvn.rxyz_euler_angles: np.array(calibration_parser.angles.value),
+            rvn.translation: np.array(calibration_parser.angles.value),
+            rvn.focal_length: np.array(calibration_parser.focal_length.value),
+            rvn.pixel_size_xy: np.array(calibration_parser.pixel_size_xy.value),
+            rvn.center_xy: np.array(calibration_parser.center_xy.value),
+            rvn.alignment: alignment_transform,
         })
 
     return scans
 
 
+RangeVisionIO = io_struct.HDF5IO({
+    rvn.points: io_struct.VarFloat64(rvn.points),
+    rvn.faces: io_struct.VarInt32(rvn.faces),
+    rvn.vertex_matrix: io_struct.Float64(rvn.vertex_matrix),
+    rvn.rxyz_euler_angles: io_struct.Float64(rvn.rxyz_euler_angles),
+    rvn.translation: io_struct.Float64(rvn.translation),
+    rvn.focal_length: io_struct.Float64(rvn.focal_length),
+    rvn.pixel_size_xy: io_struct.Float64(rvn.pixel_size_xy),
+    rvn.center_xy: io_struct.Float64(rvn.center_xy),
+    rvn.alignment: io_struct.Float64(rvn.alignment),
+    'scan_id': io_struct.AsciiString('scan_id'),
+},
+    len_label='scan_id',
+    compression='lzf')
+
+
 def write_scans_to_hdf5(output_filename, scans):
-    RangeVisionIO = io_struct.HDF5IO({
-        'points': io_struct.VarFloat64('points'),
-        'faces': io_struct.VarInt32('faces'),
-        'extrinsics': io_struct.Float64('extrinsics'),
-        'intrinsics': io_struct.Float64('intrinsics'),
-        'alignment': io_struct.Float64('alignment'),
-        'item_id': io_struct.AsciiString('item_id'),
-    },
-        len_label='has_sharp',
-        compression='lzf')
-    
     collate_fn = partial(io_struct.collate_mapping_with_io, io=RangeVisionIO)
     scans = collate_fn(scans)
 
     with h5py.File(output_filename, 'w') as f:
-        for key in ['extrinsics', 'intrinsics', 'alignment']:
+        for key in [
+                rvn.vertex_matrix,
+                rvn.rxyz_euler_angles,
+                rvn.translation,
+                rvn.focal_length,
+                rvn.pixel_size_xy,
+                rvn.center_xy,
+                rvn.alignment]:
             RangeVisionIO.write(f, key, scans[key].numpy())
-        RangeVisionIO.write(f, 'item_id', scans['item_id'])
-        RangeVisionIO.write(f, 'points', scans['points'])
-        RangeVisionIO.write(f, 'faces', scans['faces'])
+        RangeVisionIO.write(f, 'scan_id', scans['scan_id'])
+        RangeVisionIO.write(f, rvn.points, scans[rvn.points])
+        RangeVisionIO.write(f, rvn.faces, scans[rvn.faces])
 
     print(output_filename)
 
@@ -143,10 +145,14 @@ def write_scans_to_ply(output_filename, scans):
         return mesh
 
     for scan_index, scan in enumerate(scans):
-        points = np.array(scan['points']).reshape((-1, 3))
-        faces = np.array(scan['faces']).reshape((-1, 3))
-        extrinsics = np.array(scan['extrinsics'])
-        alignment = np.array(scan['alignment'])
+
+        points = np.array(scan[rvn.points]).reshape((-1, 3))
+        faces = np.array(scan[rvn.faces]).reshape((-1, 3))
+
+        extrinsics = get_camera_extrinsic(
+            scan[rvn.rxyz_euler_angles],
+            scan[rvn.translation]).camera_to_world_4x4
+        alignment = np.array(scan[rvn.alignment])
 
         transform = np.dot(extrinsics, alignment)
         points_global = tt.transform_points(points, transform)
@@ -161,6 +167,9 @@ def write_scans_to_ply(output_filename, scans):
 
 
 def main(options):
+    scan_name = change_ext(
+        os.path.basename(options.input_filename), '')
+
     print('Reading input data...')
     with open(options.input_filename) as input_file:
         input_data = input_file.read()
@@ -172,7 +181,9 @@ def main(options):
     result = parser.parseString(input_data)
 
     print('Converting to standard representation...')
-    scans = transform_parse_results(result)
+    scans = extract_scans(result)
+    for scan_index, scan in enumerate(scans):
+        scan.update({'scan_id': '{}_{}'.format(scan_name, scan_index)})
 
     if options.is_output_hdf5:
         print('Writing scans to output HDF5 container...')
