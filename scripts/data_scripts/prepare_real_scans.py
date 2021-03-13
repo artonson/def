@@ -23,6 +23,7 @@ from sharpf.utils.abc_utils.mesh.io import trimesh_load
 from sharpf.utils.convertor_utils.meshlab_project_parsers import load_meshlab_project
 from sharpf.utils.convertor_utils.convertors_io import RangeVisionIO, write_realworld_views_to_hdf5
 import sharpf.utils.convertor_utils.rangevision_utils as rv_utils
+from sharpf.utils.camera_utils import matrix
 from sharpf.utils.abc_utils.abc.feature_utils import get_curves_extents
 
 
@@ -157,12 +158,12 @@ def process_scans(
 
         #  9) get projection matrix
         focal_length = scan[rvn.focal_length]
-        intrinsics_f = rv_utils.get_camera_intrinsic_f(focal_length)
+        intrinsics_f = matrix.get_camera_intrinsic_f(focal_length)
 
         #  10) get intrinsics matrix
         pixel_size_xy = scan[rvn.pixel_size_xy]
         center_xy = scan[rvn.pixel_size_xy]
-        intrinsics_s = rv_utils.get_camera_intrinsic_s(
+        intrinsics_s = matrix.get_camera_intrinsic_s(
             pixel_size_xy[0] * 1e3,
             pixel_size_xy[1] * 1e3,
             center_xy[0],

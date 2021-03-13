@@ -1,29 +1,31 @@
 from abc import ABC, abstractmethod
-from typing import Mapping, Tuple
+from typing import Mapping
 
 import numpy as np
 
-import sharpf.utils.camera_utils.projection as projection
-import sharpf.utils.camera_utils.pixelization as pixelization
+import sharpf.utils.camera_utils.projection as cam_proj
+import sharpf.utils.camera_utils.pixelization as cam_pix
 
 
-def pixelizer_from_view(view: 'CameraView') -> pixelization.ImagePixelizerBase:
-    pixelizer_type = view.params['projection']
+def pixelizer_from_view(view: 'CameraView') -> cam_pix.ImagePixelizerBase:
+    pixelizer_type = view.params['pixelization']
+
     pixelizer_by_type = {
-        'parallel': pixelization.ImagePixelizer,
+        'default': cam_pix.ImagePixelizer,
     }
-    assert pixelizer_type in projection_by_type, 'unknown projection type: {}'.format(pixelizer_type)
-    projection_cls = projection_by_type[pixelizer_type]
-    return projection_cls()
-    return pixelizer
+    assert pixelizer_type in pixelizer_by_type, 'unknown pixelizer type: {}'.format(pixelizer_type)
+
+    pixelizer_cls = pixelizer_by_type[pixelizer_type]
+    pixelizer_obj = pixelizer_cls(view.intrinsics[1])
+    return pixelizer_obj
 
 
-def projection_from_view(view: 'CameraView') -> projection.CameraProjectionBase:
+def projection_from_view(view: 'CameraView') -> cam_proj.CameraProjectionBase:
     projection_type = view.params['projection']
 
     projection_by_type = {
-        'parallel': projection.ParallelProjectionBase,
-        'perspective': projection.PerspectiveProjectionBase,
+        'parallel': cam_proj.ParallelProjection,
+        'perspective': cam_proj.PerspectiveProjection,
     }
     assert projection_type in projection_by_type, 'unknown projection type: {}'.format(projection_type)
 
@@ -74,7 +76,10 @@ class CameraView:
 
         :param params: Dict, a description of the extrinsic and intrinsic parameters
                        of the view. Description contains the following keys:
-                       'extrinsic':
+                       1) 'projection': one of 'perspective', 'parallel' -- defines
+                       the type of projection to use.
+                       2) 'pixelization': one of 'default' -- defines
+                       the pixelization class to use.
 
         :param state: The state of the view (either PointsViewState, ImageViewState or PixelViewState)
                       which determines the view behaviour.
@@ -107,9 +112,9 @@ class CameraView:
         view = self.state.to_pixels(inplace=inplace)
         return view
 
-    def reproject_to(self, other: 'CameraView') -> 'CameraView':
-        view = self.state.reproject_to(other)
-        return view
+    # def reproject_to(self, other: 'CameraView') -> 'CameraView':
+    #     view = self.state.reproject_to(other)
+    #     return view
 
     def copy(self) -> 'CameraView':
         from copy import deepcopy
@@ -122,7 +127,7 @@ class CameraView:
 
     @property
     def as_dict(self):
-        return { }
+        return {}
 
 
 def _maybe_inplace(other_view: CameraView, inplace=False) -> CameraView:
@@ -189,9 +194,9 @@ class CameraViewStateBase(ABC):
         """
         return _maybe_inplace(self.view)
 
-    @abstractmethod
-    def reproject_to(self, other: CameraView) -> CameraView:
-        pass
+    # @abstractmethod
+    # def reproject_to(self, other: CameraView) -> CameraView:
+    #     pass
 
     @abstractmethod
     def __str__(self): pass
@@ -272,5 +277,5 @@ class PointsViewState(CameraViewStateBase):
         view = view.to_pixels()  # calls ImageViewState.to_pixels()
         return view
 
-    def reproject_to(self, other: CameraView) -> CameraView:
-        pass
+    # def reproject_to(self, other: CameraView) -> CameraView:
+    #     pass

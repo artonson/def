@@ -10,6 +10,7 @@ import trimesh.transformations as tt
 import trimesh
 from tqdm import tqdm
 
+from sharpf.utils.camera_utils import matrix
 from sharpf.utils.camera_utils.camera_pose import CameraPose
 
 
@@ -73,22 +74,6 @@ def read_calibration_params(filename):
     return params_by_name
 
 
-def get_camera_intrinsic_f(f):
-    return np.array([
-        [f, 0, 0],
-        [0, f, 0],
-        [0, 0, 1],
-    ])
-
-
-def get_camera_intrinsic_s(s_x, s_y, o_x, o_y):
-    return np.array([
-        [1. / s_x, 0, o_x],
-        [0, 1. / s_y, o_y],
-        [0, 0, 1]
-    ])
-
-
 def get_camera_extrinsic(angles, translation):
     return CameraPose.from_camera_axes(
         R=tt.euler_matrix(*angles, axes='sxyz')[:3, :3],
@@ -112,53 +97,6 @@ def get_right_camera_extrinsics(angles, translation):
 
     return CameraPose(np.linalg.inv(g))
 
-
-def assign_by_min_depth(
-        image_size,
-        image_offset,
-        x_pixel: np.ndarray,
-        depth: np.ndarray,
-        func=np.min
-):
-    """Given a [n, 3] array of rounded pixel coordinates (indexes)
-    and corresponding [n,] array of depth values,
-    return a 2d image with pixel values assigned to smallest (closest to camera) depth values.
-
-    Normally we do:
-    >>> image = np.zeros((image_size[1], image_size[0]))
-    >>> image[
-    >>>     x_pixel[:, 1] - image_offset[1],
-    >>>     x_pixel[:, 0] - image_offset[0]] = depth
-
-    However, if multiple values in x_pixel index into the same (x, y) pixel in image,
-    i.e. for i != j we have x_pixel[i] == x_pixel[j],
-    we end up assigning arbitrary depth value in image.
-
-    Instead we do (conceptually):
-    >>> image[x_pixel] = func(depth[i] for i where x_pixel[i] == c)
-    """
-
-    # sort XY array by row/col index
-    sort_idx_1 = x_pixel[:, 1].argsort()
-    x_pixel = x_pixel[sort_idx_1]
-    sort_idx_0 = x_pixel[:, 0].argsort(kind='mergesort')
-    x_pixel = x_pixel[sort_idx_0]
-
-    idx_sort = sort_idx_1[sort_idx_0]
-
-    # returns the unique values, the index of the first occurrence of a value, and the count for each element
-    vals, idx_start, count = np.unique(x_pixel, axis=0, return_counts=True, return_index=True)
-
-    # splits the indices into separate arrays
-    res = np.split(idx_sort, idx_start[1:])
-
-    image = np.zeros((image_size[1], image_size[0]))
-    for pixel_xy, idx_arr in zip(vals, res):
-        image[
-            pixel_xy[1] - image_offset[1],
-            pixel_xy[0] - image_offset[0]] = func(depth[idx_arr])
-
-    return x_pixel, image
 
 
 def project_to_camera(
@@ -280,8 +218,8 @@ def rangevision_project_to_hdf5(
         o_x, o_y = params_by_name['b']
 
         pose = get_camera_extrinsic(angles, X0)
-        Kf = get_camera_intrinsic_f(f)
-        Ks = get_camera_intrinsic_s(s_x, s_y, o_x, o_y)
+        Kf = matrix.get_camera_intrinsic_f(f)
+        Ks = matrix.get_camera_intrinsic_s(s_x, s_y, o_x, o_y)
 
         X_camera, x_pixel, x_image, image, image_offset = project_to_camera(
             scan.vertices,

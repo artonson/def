@@ -3,6 +3,9 @@ from typing import Tuple
 
 import numpy as np
 
+from sharpf.utils.camera_utils import matrix
+from sharpf.utils.camera_utils.common import check_is_image, check_is_pixels
+
 # This should generally be called rasterization, but I was afraid
 # to get something wrong, so I called it pixelization instead,
 # which kind of has the same aim, but a toy background.
@@ -13,7 +16,6 @@ import numpy as np
 #  - carefully use z-buffer to avoid projecting
 #    'invisible' (from a particular viewing direction) surfaces
 #  - evaluate the resulting function on a regular grid
-from sharpf.utils.camera_utils.common import check_is_image, check_is_pixels
 
 
 class ImagePixelizerBase(ABC):
@@ -30,7 +32,8 @@ class ImagePixelizerBase(ABC):
     def pixelize(
             self,
             image: np.ndarray,
-            signal: np.ndarray = None
+            signal: np.ndarray = None,
+            faces: np.ndarray = None
     ) -> Tuple[np.ndarray, np.ndarray]:
         """Given 3D points [n, 3] defined in the image plane,
         compute a rasterized [h, w] pixel image."""
@@ -48,48 +51,132 @@ class ImagePixelizerBase(ABC):
         pass
 
 
+def simple_z_buffered_rendering(
+        pixels: np.ndarray,
+        depth: np.ndarray,
+        signal: np.ndarray,
+        depth_func=np.min,
+        signal_func=np.min,
+):
+    """A (over-)simplified z-buffer implementation.
+
+    Given a [n, 3] array of rounded pixel coordinates (indexes)
+    and corresponding [n,] array of depth values,
+    return a 2d image with pixel values assigned to smallest (closest to camera) depth values.
+
+    Normally we do:
+    >>> image = np.zeros((image_size[1], image_size[0]))
+    >>> depth_out[
+    >>>     pixels[:, 1] - image_offset[1],
+    >>>     pixels[:, 0] - image_offset[0]] = depth
+
+    However, if multiple values in x_pixel index into the same (x, y) pixel in image,
+    i.e. for i != j we have x_pixel[i] == x_pixel[j],
+    we end up assigning arbitrary depth value in image.
+
+    Instead we do (conceptually):
+    >>> depth_out[pixels] = func(depth[i] for i where pixels[i] == c)
+    """
+
+    # sort XY array by row/col index
+    sort_idx_1 = pixels[:, 1].argsort()
+    pixels = pixels[sort_idx_1]
+    sort_idx_0 = pixels[:, 0].argsort(kind='mergesort')
+    pixels = pixels[sort_idx_0]
+
+    idx_sort = sort_idx_1[sort_idx_0]
+
+    # returns the unique values, the index of the first occurrence of a value, and the count for each element
+    unique_pixels_xy, unique_pixels_indexes, _ = np.unique(
+        pixels,
+        axis=0,
+        return_counts=True,
+        return_index=True)
+
+    # splits the indices into separate arrays
+    same_point_indexes = np.split(idx_sort, unique_pixels_indexes[1:])
+
+    image_offset = np.min(pixels, axis=0)  # must know the offset
+    image_size = np.max(pixels, axis=0) - image_offset + 1  # will store only significant pixels
+    depth_out = np.zeros(image_size[::-1])
+    signal_out = np.zeros(image_size[::-1])
+
+    for pixel_xy, point_indexes in zip(unique_pixels_xy, same_point_indexes):
+        target_ji = (pixel_xy[1] - image_offset[1],
+                     pixel_xy[0] - image_offset[0])
+        depth_out[target_ji] = depth_func(depth[point_indexes])
+        signal_out[target_ji] = signal_func(signal[point_indexes])
+
+    return pixels, depth_out, signal_out
+
+
 class ImagePixelizer(ImagePixelizerBase):
     def __init__(self, intrinsics: np.ndarray):
         self.intrinsics = intrinsics
+        self.intrinsics_inv = np.linalg.inv(self.intrinsics)
 
     @classmethod
-    def from_params(cls, pixel_size=None, camera_center=None):
-        pass
+    def from_params(cls, pixel_size, camera_center):
+        intrinsics = matrix.get_camera_intrinsic_s(
+            pixel_size[0] * 1e3,
+            pixel_size[1] * 1e3,
+            camera_center[0],
+            camera_center[1])
+        return cls(intrinsics)
 
-    def __transform_coords(self, image, signal=None):
+    def __split_input(self, image, signal=None):
+        image_in = image.copy()
+        depth_in = image_in[:, 2].copy()
+        image_in[:, 2] = 1.
+        return image_in, depth_in, signal
+
+    def __transform_coords(self, image, depth, signal=None):
         pixels_realvalued = np.dot(
             self.intrinsics,
-            image[:, :2].T
+            image.T
         ).T
-        return pixels_realvalued, signal
+        return pixels_realvalued, depth, signal
 
-    def __compute_visibility(self, image, signal=None):
-        pass
+    def __compute_visibility(self, pixels, depth, signal=None):
+        return pixels, depth, signal
 
-    def __assign_pixels(self, image, signal=None):
-        pass
+    def __assign_pixels(self, pixels, depth, signal=None):
+
+        # Here we could interpolate depth and signal values
+        # into the regular grid, if we wanted to.
+        pixels = np.round(pixels).astype(np.int32)
+
+        pixels_out, depth_out, signal_out = simple_z_buffered_rendering(
+            pixels, depth, signal, depth_func=np.max)
+
+        return pixels_out, depth_out, signal_out
 
     def pixelize(
             self,
             image: np.ndarray,
-            signal: np.ndarray = None
+            signal: np.ndarray = None,
+            faces: np.ndarray = None
     ) -> Tuple[np.ndarray, np.ndarray]:
 
         check_is_image(image, signal)
 
-        pixels_realvalued, signal_realvalued = self.__transform_coords(image)
+        # separate XY (image coordinates) and Z
+        image_in, depth_in, signal_in = self.__split_input(image, signal)
 
-        pixels_visible, signal_visible = self.__compute_visibility(image)
+        # obtain XY in floating-point pixel coordinates (no rounding, nothing)
+        pixels_realvalued, depth_realvalued, signal_realvalued = self.__transform_coords(
+            image_in, depth_in, signal_in)
 
-        pixels, signal_visible = self.__compute_visibility(image)
+        # computes a mask indicating which pixels are visible
+        # and returns only visible pixels, associated depth, and signals
+        pixels_visible, depth_visible, signal_visible = self.__compute_visibility(
+            pixels_realvalued, depth_realvalued, signal_realvalued)
 
-        # assume [n, 3] array
-        assert len(canvas.shape) == 2 and canvas.shape[-1] == 3, 'cannot pixelize image'
+        # compute actual pixel depth image and signal
+        pixels_out, depth_out, signal_out = self.__assign_pixels(
+            pixels_visible, depth_visible, signal_visible)
 
-        signal = None
-        if self.view.signal is not None:
-            signal = self.view.signal.ravel()[np.flatnonzero(view.image)]
-        return pixels
+        return depth_out, signal_out
 
     def unpixelize(
             self,
@@ -98,4 +185,5 @@ class ImagePixelizer(ImagePixelizerBase):
     ) -> Tuple[np.ndarray, np.ndarray]:
 
         check_is_pixels(image, signal)
+
 
