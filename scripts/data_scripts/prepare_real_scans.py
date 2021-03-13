@@ -7,6 +7,7 @@ import os
 import sys
 
 import numpy as np
+import trimesh
 import trimesh.transformations as tt
 from tqdm import tqdm
 import yaml
@@ -85,7 +86,8 @@ def process_scans(
         yml_features,
         manual_alignment_transforms,
         stl_transform,
-        item_id
+        item_id,
+        is_mirrored=False,
 ):
     rvn = rv_utils.RangeVisionNames
 
@@ -97,6 +99,13 @@ def process_scans(
         #  1) load the raw scanned 3D points from HDF5 (directly exported from scanner)
         points = np.array(scan[rvn.points]).reshape((-1, 3))
         faces = np.array(scan[rvn.faces]).reshape((-1, 3))
+
+        #  1a)
+        if is_mirrored:
+            scan_mesh = trimesh.base.Trimesh(points, faces, process=False, validate=False)
+            scan_mesh.vertices[:, 2] = -scan_mesh.vertices[:, 2]
+            scan_mesh.invert()
+            points, faces = scan_mesh.vertices, scan_mesh.faces
 
         #  2a) load the automatic scanner alignment transformation
         rv_alignment_transform = np.array(scan[rvn.alignment]).reshape((4, 4))
@@ -216,7 +225,8 @@ def main(options):
         yml_features,
         manual_alignment_transforms,
         stl_transform,
-        item_id)
+        item_id,
+        is_mirrored=options.is_mirrored)
 
     print('Writing output file...')
     write_realworld_views_to_hdf5(options.output_filename, output_scans)
@@ -229,6 +239,8 @@ def parse_args():
                         required=True, help='input directory with scans.')
     parser.add_argument('-o', '--output', dest='output_filename',
                         required=True, help='output .hdf5 filename.')
+    parser.add_argument('--mirrored', dest='is_mirrored', action='store_true', default=False,
+                        required=False, help='treat data as mirrored')
     parser.add_argument('--verbose', dest='verbose', action='store_true', default=False,
                         required=False, help='be verbose')
     return parser.parse_args()
