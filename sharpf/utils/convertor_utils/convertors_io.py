@@ -47,6 +47,7 @@ def write_raw_rv_scans_to_hdf5(output_filename, scans):
 ViewIO = io_struct.HDF5IO({
     'points': io_struct.VarFloat64('points'),
     'faces': io_struct.VarInt32('faces'),
+    'points_alignment': io_struct.Float64('points_alignment'),
     'extrinsics': io_struct.Float64('extrinsics'),
     'intrinsics': io_struct.Float64('intrinsics'),
     'obj_alignment': io_struct.Float64('obj_alignment'),
@@ -62,10 +63,10 @@ def write_realworld_views_to_hdf5(output_filename, scans):
     scans = collate_fn(scans)
 
     with h5py.File(output_filename, 'w') as f:
-        for key in ['extrinsics', 'intrinsics', 'obj_alignment', 'obj_scale']:
+        for key in ['extrinsics', 'intrinsics', 'points_alignment',
+                    'obj_alignment', 'obj_scale']:
             ViewIO.write(f, key, scans[key].numpy())
-        ViewIO.write(f, 'item_id', scans['item_id'])
-        ViewIO.write(f, 'points', scans['points'])
-        ViewIO.write(f, 'faces', scans['faces'])
+        for key in ['item_id', 'points', 'faces']:
+            ViewIO.write(f, key, scans[key])
 
     print(output_filename)

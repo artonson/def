@@ -92,6 +92,15 @@ def process_scans(
 ):
     rvn = rv_utils.RangeVisionNames
 
+    #  1) Get obj scale
+    obj_mesh, obj_scale = scale_mesh(
+        obj_mesh.copy(),
+        yml_features,
+        DEFAULT_MESH_EXTENT_MM,
+        TARGET_RESOLUTION_3D,
+        short_curve_quantile=SHORT_CURVE_QUANTILE,
+        n_points_per_curve=BASE_N_POINTS_PER_SHORT_CURVE)
+
     output_scans = []
     for scan_index, scan in tqdm(enumerate(dataset)):
 
@@ -101,7 +110,7 @@ def process_scans(
         points = np.array(scan[rvn.points]).reshape((-1, 3))
         faces = np.array(scan[rvn.faces]).reshape((-1, 3))
 
-        #  1a)
+        #  1a) if we know that the scan must be mirrored, do this
         if is_mirrored:
             scan_mesh = trimesh.base.Trimesh(points, faces, process=False, validate=False)
             scan_mesh.vertices[:, 2] = -scan_mesh.vertices[:, 2]
@@ -111,85 +120,160 @@ def process_scans(
         #  2a) load the automatic scanner alignment transformation
         rv_alignment_transform = np.array(scan[rvn.alignment]).reshape((4, 4))
 
-        #  2b) apply scanner alignments to approximately align scans
-        points_aligned = tt.transform_points(points, rv_alignment_transform)
-
-        #  3a) load the transformation that we thought was the extrinsic of scanner (they are not)
+        #  2b) load the transformation that we thought was the extrinsic of scanner (they are not)
         rxyz_euler_angles = np.array(scan[rvn.rxyz_euler_angles])
         translation = np.array(scan[rvn.translation])
         wrong_extrinsics = rv_utils.get_camera_extrinsic(
             rxyz_euler_angles, translation).camera_to_world_4x4
 
-        #  3b) transform points to wrong global frame
-        points_wrong_aligned = tt.transform_points(points_aligned, wrong_extrinsics)
-
-        #  4a) load manual alignments from meshlab project
+        #  2c) load manual alignments from meshlab project
         manual_alignment_transform = manual_alignment_transforms[scan_index]
 
-        #  4b) apply manual alignments, mirror if necessary
-        points_wrong_aligned = tt.transform_points(points_wrong_aligned, manual_alignment_transform)
+        #  2d) load vertex_matrix, this is transform to board coordinate system
+        scan_to_board_transform = np.linalg.inv(
+            np.array(scan[rvn.vertex_matrix]).reshape((4, 4)))
 
-        # >>>> You are here: we have precisely aligned scans <<<<
+        #  2e) compute transform that would align scans in source frame
+        fine_alignment_transform = np.dot(
+            np.linalg.inv(wrong_extrinsics),
+            np.dot(
+                manual_alignment_transform,
+                wrong_extrinsics))
+        alignment_transform = np.dot(fine_alignment_transform, rv_alignment_transform)
 
-        #  5) get obj aligned / mirrored
-        obj_mesh, obj_scale = scale_mesh(
-            obj_mesh.copy(),
-            yml_features,
-            DEFAULT_MESH_EXTENT_MM,
-            TARGET_RESOLUTION_3D,
-            short_curve_quantile=SHORT_CURVE_QUANTILE,
-            n_points_per_curve=BASE_N_POINTS_PER_SHORT_CURVE)
-        # obj_mesh = obj_mesh.apply_transform(stl_transform)
+        #  2d) compute transform that would align scans in board frame
+        board_alignment_transform = np.dot(
+            scan_to_board_transform,
+            np.dot(
+                alignment_transform,
+                np.linalg.inv(scan_to_board_transform))
+        )
+        points_wrt_calib_board = tt.transform_points(points, scan_to_board_transform)
 
-        #  6) undo transform to wrong global frame
-        points_aligned = tt.transform_points(
-            points_wrong_aligned, np.linalg.inv(wrong_extrinsics))
+        #  3) compute transform that would align mesh to points in board frame
+        obj_fine_alignment_transform = np.dot(
+            np.linalg.inv(wrong_extrinsics),
+            stl_transform)
 
-        #  7a) load vertex_matrix, this is transform to board coordinate system
-        scan_to_board_transform = np.array(scan[rvn.vertex_matrix]).reshape((4, 4))
+        obj_alignment_transform = np.dot(
+            scan_to_board_transform,
+            obj_fine_alignment_transform)
 
-        #  7b) transform into calibration board coordinate system
-        points_aligned_wrt_calib_board = tt.transform_points(
-            points_aligned, np.linalg.inv(scan_to_board_transform))
-
-        #  8) get extrinsics of right camera
+        #  4) get extrinsics of right camera
         right_extrinsics_4x4 = rv_utils.get_right_camera_extrinsics(
             rxyz_euler_angles, translation).camera_to_world_4x4
 
-        #  9) get projection matrix
+        #  5) get projection matrix
         focal_length = scan[rvn.focal_length]
         intrinsics_f = matrix.get_camera_intrinsic_f(focal_length)
 
-        #  10) get intrinsics matrix
+        #  6) get intrinsics matrix
         pixel_size_xy = scan[rvn.pixel_size_xy]
         center_xy = scan[rvn.center_xy]
         intrinsics_s = matrix.get_camera_intrinsic_s(
-            pixel_size_xy[0] * 1e3,
-            pixel_size_xy[1] * 1e3,
-            center_xy[0],
-            center_xy[1])
-        intrinsics = np.dstack((intrinsics_f, intrinsics_s))
-
-        #  11) compute final scan-to-mesh alignment
-        obj_alignment = np.dot(
-            np.linalg.inv(scan_to_board_transform),
-            np.dot(
-                np.linalg.inv(wrong_extrinsics),
-                stl_transform))
+            pixel_size_xy[0],
+            pixel_size_xy[1],
+            rv_utils.RV_SPECTRUM_CAM_RESOLUTION[0],
+            rv_utils.RV_SPECTRUM_CAM_RESOLUTION[1])
+        intrinsics = np.stack((intrinsics_f, intrinsics_s))
 
         output_scan = {
-            'points': np.ravel(points_aligned_wrt_calib_board),
+            'points': np.ravel(points_wrt_calib_board),
             'faces': np.ravel(faces),
+            'points_alignment': board_alignment_transform,
             'extrinsics': right_extrinsics_4x4,
             'intrinsics': intrinsics,
-            'obj_alignment': obj_alignment,
+            'obj_alignment': obj_alignment_transform,
             'obj_scale': obj_scale,
             'item_id': item_id,
         }
-
         output_scans.append(output_scan)
 
     return output_scans
+
+
+def debug_plot(output_scans, obj_mesh, output_filename):
+    import k3d
+    import time
+    import randomcolor
+    import matplotlib.pyplot as plt
+
+    from sharpf.utils.camera_utils.view import CameraView
+    from sharpf.utils.plotting import display_depth_sharpness
+    from sharpf.utils.py_utils.os import change_ext
+
+
+    all_points = [
+        tt.transform_points(
+            scan['points'].reshape((-1, 3)),
+            scan['points_alignment'])
+        for scan in output_scans
+    ]
+
+    views = [
+        CameraView(
+            depth=scan['points'].reshape((-1, 3)),
+            signal=None,
+            faces=scan['faces'].reshape((-1, 3)),
+            extrinsics=scan['extrinsics'],
+            intrinsics=scan['intrinsics'],
+            state='points')
+        for scan in output_scans]
+    processed_views = [view.to_pixels().to_points() for view in views]
+
+    all_points_processed = [
+        tt.transform_points(view.depth, scan['points_alignment'])
+        for view, scan in zip(processed_views, output_scans)
+    ]
+
+    plot_height = 768
+    plot = k3d.plot(grid_visible=True, height=plot_height)
+
+    # rand_color = randomcolor.RandomColor()
+    # color = rand_color.generate(hue='red')[0]
+    # color = int('0x' + color[1:], 16)
+    #
+    plot += k3d.points(
+        np.concatenate(all_points),
+        point_size=0.25,
+        color=0xff0000,
+        shader='flat')
+
+    plot += k3d.points(
+        np.concatenate(all_points_processed),
+        point_size=0.25,
+        color=0x00ff00,
+        shader='flat')
+
+    obj_scale = output_scans[0]['obj_scale']
+    obj_alignment = output_scans[0]['obj_alignment']
+    mesh = obj_mesh.copy().apply_scale(obj_scale).apply_transform(obj_alignment)
+    plot += k3d.mesh(
+        mesh.vertices,
+        mesh.faces,
+        color=0xaaaaaa)
+
+    plot.fetch_snapshot()
+
+    time.sleep(3)
+
+    output_html = change_ext(output_filename, '') + '_alignment.html'
+    with open(output_html, 'w') as f:
+        f.write(plot.get_snapshot())
+
+    pixels_views = [v.to_pixels() for v in views]
+    s = 256
+    depth_images_for_display = [
+        view.depth[
+            slice(1536 // 2 - s, 1536 // 2 + s),
+            slice(2048 // 2 - s, 2048 // 2 + s)]
+        for view in pixels_views]
+    display_depth_sharpness(
+        depth_images=depth_images_for_display,
+        ncols=4,
+        axes_size=(16, 16))
+    output_png = change_ext(output_filename, '') + '_depthmaps.png'
+    plt.savefig(output_png)
 
 
 def main(options):
@@ -232,6 +316,10 @@ def main(options):
     print('Writing output file...')
     write_realworld_views_to_hdf5(options.output_filename, output_scans)
 
+    if options.debug:
+        print('Plotting debug figures...')
+        debug_plot(output_scans, obj_mesh, options.output_filename)
+
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -243,7 +331,9 @@ def parse_args():
     parser.add_argument('--mirrored', dest='is_mirrored', action='store_true', default=False,
                         required=False, help='treat data as mirrored')
     parser.add_argument('--verbose', dest='verbose', action='store_true', default=False,
-                        required=False, help='be verbose')
+                        help='be verbose')
+    parser.add_argument('--debug', dest='debug', action='store_true', default=False,
+                         help='produce debug output')
     return parser.parse_args()
 
 
