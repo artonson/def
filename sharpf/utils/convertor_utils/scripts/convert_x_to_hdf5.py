@@ -16,11 +16,9 @@ __dir__ = os.path.normpath(
     os.path.join(
         os.path.dirname(os.path.realpath(__file__)), '../../../..')
 )
-
-from sharpf.utils.convertor_utils.convertors_io import write_raw_rv_scans_to_hdf5
-
 sys.path[1:1] = [__dir__]
 
+from sharpf.utils.convertor_utils.convertors_io import write_raw_rv_scans_to_hdf5
 from sharpf.utils.convertor_utils.rangevision_utils import \
     RangeVisionNames as rvn, get_camera_extrinsic
 import sharpf.utils.convertor_utils.directx_parsers as dp

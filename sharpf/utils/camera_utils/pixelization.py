@@ -55,6 +55,7 @@ def simple_z_buffered_rendering(
         pixels: np.ndarray,
         depth: np.ndarray,
         signal: np.ndarray,
+        image_size: Tuple[int, int],
         depth_func=np.min,
         signal_func=np.min,
 ):
@@ -96,60 +97,86 @@ def simple_z_buffered_rendering(
     # splits the indices into separate arrays
     same_point_indexes = np.split(idx_sort, unique_pixels_indexes[1:])
 
-    image_offset = np.min(pixels, axis=0)  # must know the offset
-    image_size = np.max(pixels, axis=0) - image_offset + 1  # will store only significant pixels
     depth_out = np.zeros(image_size[::-1])
-    signal_out = np.zeros(image_size[::-1])
+    signal_out = None if None is signal else np.zeros(image_size[::-1])
 
     for pixel_xy, point_indexes in zip(unique_pixels_xy, same_point_indexes):
-        target_ji = (pixel_xy[1] - image_offset[1],
-                     pixel_xy[0] - image_offset[0])
+        target_ji = (pixel_xy[1], pixel_xy[0])
         depth_out[target_ji] = depth_func(depth[point_indexes])
-        signal_out[target_ji] = signal_func(signal[point_indexes])
+        if None is not signal:
+            signal_out[target_ji] = signal_func(signal[point_indexes])
 
     return pixels, depth_out, signal_out
 
 
 class ImagePixelizer(ImagePixelizerBase):
-    def __init__(self, intrinsics: np.ndarray):
+    def __init__(self, intrinsics: np.ndarray, image_size_in_pixels: Tuple[int, int] = None):
         self.intrinsics = intrinsics
         self.intrinsics_inv = np.linalg.inv(self.intrinsics)
+        self.image_size_in_pixels = image_size_in_pixels
+        if None is self.image_size_in_pixels:
+            self.image_size_in_pixels = (
+                int(2 * self.intrinsics[0, 2]), int(2 * self.intrinsics[1, 2]))
 
     @classmethod
-    def from_params(cls, pixel_size, camera_center):
+    def from_params(cls, pixel_size, image_size_in_pixels):
         intrinsics = matrix.get_camera_intrinsic_s(
-            pixel_size[0] * 1e3,
-            pixel_size[1] * 1e3,
-            camera_center[0],
-            camera_center[1])
-        return cls(intrinsics)
+            pixel_size[0],
+            pixel_size[1],
+            image_size_in_pixels[0],
+            image_size_in_pixels[1])
+        return cls(intrinsics, image_size_in_pixels)
 
-    def __split_input(self, image, signal=None):
+    def split_input(self, image, signal=None):
         image_in = image.copy()
         depth_in = image_in[:, 2].copy()
         image_in[:, 2] = 1.
         return image_in, depth_in, signal
 
-    def __transform_coords(self, image, depth, signal=None):
+    def transform_image_to_pixel_coords(self, image, depth, signal=None):
         pixels_realvalued = np.dot(
             self.intrinsics,
             image.T
         ).T
         return pixels_realvalued, depth, signal
 
-    def __compute_visibility(self, pixels, depth, signal=None):
+    def transform_pixel_to_image_coords(self, image, depth, signal=None):
+        image_realvalued = np.dot(
+            self.intrinsics_inv,
+            image.T
+        ).T
+        return image_realvalued, depth, signal
+
+    def compute_visibility(self, pixels, depth, signal=None):
         return pixels, depth, signal
 
-    def __assign_pixels(self, pixels, depth, signal=None):
+    def assign_pixels(self, pixels, depth, signal=None):
 
         # Here we could interpolate depth and signal values
         # into the regular grid, if we wanted to.
         pixels = np.round(pixels).astype(np.int32)
 
         pixels_out, depth_out, signal_out = simple_z_buffered_rendering(
-            pixels, depth, signal, depth_func=np.max)
+            pixels, depth, signal,
+            self.image_size_in_pixels,
+            depth_func=np.max)
 
         return pixels_out, depth_out, signal_out
+
+    def unassign_pixels(self, pixels, signal=None):
+        height, width = pixels.shape
+        i, j = np.meshgrid(np.arange(width), np.arange(height))
+
+        image_integers = np.stack((
+            i.ravel(),
+            j.ravel(),
+            np.ones_like(i).ravel()
+        )).T  # [n, 3]
+        depth_integers = pixels.ravel()
+        image_integers = image_integers[depth_integers != 0]
+        depth_integers = depth_integers[depth_integers != 0]
+
+        return image_integers, depth_integers, signal
 
     def pixelize(
             self,
@@ -161,29 +188,46 @@ class ImagePixelizer(ImagePixelizerBase):
         check_is_image(image, signal)
 
         # separate XY (image coordinates) and Z
-        image_in, depth_in, signal_in = self.__split_input(image, signal)
+        image_in, depth_in, signal_in = self.split_input(image, signal)
 
-        # obtain XY in floating-point pixel coordinates (no rounding, nothing)
-        pixels_realvalued, depth_realvalued, signal_realvalued = self.__transform_coords(
+        # obtain UV in floating-point pixel coordinates (no rounding, nothing)
+        pixels_realvalued, depth_realvalued, signal_realvalued = self.transform_image_to_pixel_coords(
             image_in, depth_in, signal_in)
 
         # computes a mask indicating which pixels are visible
         # and returns only visible pixels, associated depth, and signals
-        pixels_visible, depth_visible, signal_visible = self.__compute_visibility(
+        pixels_visible, depth_visible, signal_visible = self.compute_visibility(
             pixels_realvalued, depth_realvalued, signal_realvalued)
 
         # compute actual pixel depth image and signal
-        pixels_out, depth_out, signal_out = self.__assign_pixels(
+        pixels_out, depth_out, signal_out = self.assign_pixels(
             pixels_visible, depth_visible, signal_visible)
 
         return depth_out, signal_out
 
     def unpixelize(
             self,
-            image: np.ndarray,
+            pixels: np.ndarray,
             signal: np.ndarray = None
     ) -> Tuple[np.ndarray, np.ndarray]:
 
-        check_is_pixels(image, signal)
+        check_is_pixels(pixels, signal)
 
+        # obtain IJ integer coordinates in pixel space
+        image_integers, depth_integers, signal_integers = self.unassign_pixels(
+            pixels, signal)
 
+        # obtain UV in floating-point pixel coordinates (no rounding, nothing)
+        image_realvalued, depth_realvalued, signal_realvalued = self.transform_pixel_to_image_coords(
+            image_integers, depth_integers, signal_integers)
+
+        # merge UV (image coordinates) and Z (depth)
+        image_out, signal_out = self.unsplit_input(
+            image_realvalued, depth_realvalued, signal_realvalued)
+
+        return image_out, signal_out
+
+    def unsplit_input(self, image, depth, signal=None):
+        image_out = image.copy()
+        image_out[:, 2] = depth
+        return image_out, signal

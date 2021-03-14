@@ -33,6 +33,10 @@ class RangeVisionNames:
     sec_camera_params: str = 'CParamDig1i'
 
 
+# http://toupcam.ru/catalog/usb2-0-cmos-camera-ucmos/ucmos03100kpa-mt9t001.html
+RV_SPECTRUM_CAM_RESOLUTION = (2048, 1536)  # pixel image resolution
+RV_SPECTRUM_CAM_PIXEL_SIZE = (0.003218, 0.003218)  # mm, 3.2x3.2 microns (per pixel)
+
 
 def read_calibration_params(filename):
     PARAM_NAMES = [
@@ -84,19 +88,16 @@ def get_camera_extrinsic(angles, translation):
 def get_right_camera_extrinsics(angles, translation):
     R = tt.euler_matrix(*angles, axes='rxyz')[:3, :3]
     R = R[[1, 0, 2]].T[[1, 0, 2]]
-    flip_z = [[1, 0, 0], [0, 1, 0], [0, 0, -1]]
-    flip_y = [[1, 0, 0], [0, -1, 0], [0, 0, 1]]
-    R = np.dot(
-        flip_z,
-        np.dot(flip_y, R))
+    flip_z = np.array([[1, 0, 0], [0, 1, 0], [0, 0, -1]])
+    flip_y = np.array([[1, 0, 0], [0, -1, 0], [0, 0, 1]])
+    R = flip_z @ R @ flip_y
 
     g = np.zeros((4, 4))
     g[3, 3] = 1
     g[:3, :3] = R
-    g[:3, 3] = np.dot(-R, translation)
+    g[:3, 3] = -R @ translation
 
     return CameraPose(np.linalg.inv(g))
-
 
 
 def project_to_camera(

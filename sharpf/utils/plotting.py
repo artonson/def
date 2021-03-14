@@ -1,3 +1,4 @@
+import copy
 from base64 import b64decode
 
 import k3d
@@ -181,7 +182,7 @@ def display_depth_sharpness(
         axs = [[axs]] if ncols == 1 else [axs]
 
     if None is not depth_images:
-        depth_cmap = matplotlib.cm.get_cmap('viridis')
+        depth_cmap = copy.copy(matplotlib.cm.get_cmap('viridis_r'))
         depth_cmap.set_bad(color='black')
 
         for row in range(nrows):
@@ -197,7 +198,7 @@ def display_depth_sharpness(
                 depth_ax.axis('off')
 
     if None is not sharpness_images:
-        sharpness_cmap = matplotlib.cm.get_cmap('coolwarm_r')
+        sharpness_cmap = copy.copy(matplotlib.cm.get_cmap('coolwarm_r'))
         sharpness_cmap.set_bad(color='black')
 
         for row in range(nrows):

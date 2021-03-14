@@ -162,7 +162,7 @@ def process_scans(
 
         #  10) get intrinsics matrix
         pixel_size_xy = scan[rvn.pixel_size_xy]
-        center_xy = scan[rvn.pixel_size_xy]
+        center_xy = scan[rvn.center_xy]
         intrinsics_s = matrix.get_camera_intrinsic_s(
             pixel_size_xy[0] * 1e3,
             pixel_size_xy[1] * 1e3,

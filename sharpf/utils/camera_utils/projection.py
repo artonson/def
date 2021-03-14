@@ -21,7 +21,7 @@ class CameraProjectionBase(ABC):
     @abstractmethod
     def unproject(
             self,
-            canvas: np.ndarray,
+            image: np.ndarray,
             signal: np.ndarray = None
     ) -> np.ndarray:
         """Un-project image plane points 3D points [n, 3] onto the 3D space.
@@ -55,9 +55,11 @@ class PerspectiveProjection(CameraProjectionBase):
         if None is not signal:
             signal = np.atleast_2d(signal)
 
+        z = points[:, [2]].copy()
         image = np.dot(
             self.intrinsics,
             points.T).T
+        image[:, [0, 1]] /= z
 
         return image, signal
 
@@ -72,8 +74,12 @@ class PerspectiveProjection(CameraProjectionBase):
         if None is not signal:
             signal = np.atleast_2d(signal)
 
+        image_to_unproject = image.copy()
+        z = image_to_unproject[:, [2]].copy()
+        image_to_unproject[:, 2] = 1
         points = np.dot(
             self.intrinsics_inv,
             image.T).T
+        points[:, [0, 1]] *= z
 
         return points, signal

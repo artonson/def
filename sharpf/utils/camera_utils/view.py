@@ -5,6 +5,7 @@ import numpy as np
 
 import sharpf.utils.camera_utils.projection as cam_proj
 import sharpf.utils.camera_utils.pixelization as cam_pix
+from sharpf.utils.camera_utils.camera_pose import CameraPose
 
 
 def pixelizer_from_view(view: 'CameraView') -> cam_pix.ImagePixelizerBase:
@@ -24,7 +25,7 @@ def projection_from_view(view: 'CameraView') -> cam_proj.CameraProjectionBase:
     projection_type = view.params['projection']
 
     projection_by_type = {
-        'parallel': cam_proj.ParallelProjection,
+        # 'parallel': cam_proj.ParallelProjection,
         'perspective': cam_proj.PerspectiveProjection,
     }
     assert projection_type in projection_by_type, 'unknown projection type: {}'.format(projection_type)
@@ -38,16 +39,22 @@ class CameraView:
     """Data container representing a view of a scene/object:
     depth/prediction pixel images + camera parameters.
     See explanation of parameters in constructor."""
+    default_params = {
+        'pixelization': 'default',
+        'projection': 'perspective',
+    }
 
     def __init__(
             self,
             depth: np.ndarray = None,
             signal: np.ndarray = None,
             faces: np.ndarray = None,
-            extrinsics: np.ndarray = None,
+            extrinsics: np.ndarray = np.eye(4),
             intrinsics: np.ndarray = None,
-            params: Mapping = None,
-            state: 'CameraViewStateBase' = None,
+            params: Mapping = default_params,
+            state: str = 'points',
+            pixelizer: cam_pix.ImagePixelizerBase = None,
+            projection: cam_proj.CameraProjectionBase = None,
     ):
         """A container for annotated range-images.
 
@@ -81,7 +88,7 @@ class CameraView:
                        2) 'pixelization': one of 'default' -- defines
                        the pixelization class to use.
 
-        :param state: The state of the view (either PointsViewState, ImageViewState or PixelViewState)
+        :param state: The state of the view (either 'points', 'image' or 'pixels')
                       which determines the view behaviour.
         """
         self.depth = depth
@@ -90,13 +97,16 @@ class CameraView:
         self.extrinsics = extrinsics
         self.intrinsics = intrinsics
         self.params = params
-        self.state = state
 
-        if None is self.state:
-            self.state = PixelViewState(self)
+        self.state = {
+            'points': PointsViewState,
+            'image': ImageViewState,
+            'pixels': PixelViewState,
+        }[state](self)
 
-        self.pixelizer = pixelizer_from_view(self)
-        self.projection = projection_from_view(self)
+        self.pose = CameraPose(self.extrinsics)
+        self.pixelizer = pixelizer or pixelizer_from_view(self)
+        self.projection = projection or projection_from_view(self)
 
     def to_points(self, inplace=False) -> 'CameraView':
         """Given a view represented as depth/prediction images +
@@ -119,11 +129,16 @@ class CameraView:
     def copy(self) -> 'CameraView':
         from copy import deepcopy
         return CameraView(
-            deepcopy(self.depth),
-            deepcopy(self.signal),
-            deepcopy(self.extrinsics),
-            deepcopy(self.intrinsics),
-            deepcopy(self.params))
+            depth=deepcopy(self.depth),
+            signal=deepcopy(self.signal),
+            faces=deepcopy(self.faces),
+            extrinsics=deepcopy(self.extrinsics),
+            intrinsics=deepcopy(self.intrinsics),
+            params=deepcopy(self.params),
+            state=str(self.state),
+            pixelizer=deepcopy(self.pixelizer),
+            projection=deepcopy(self.projection),
+        )
 
     @property
     def as_dict(self):
@@ -232,10 +247,11 @@ class ImageViewState(CameraViewStateBase):
         assert None is not self.view.params.get('projection'), 'view projection type unknown'
 
         projection = self.view.projection
-        image, signal = projection.unproject(self.view.depth, self.view.signal)
+        points, signal = projection.unproject(self.view.depth, self.view.signal)
+        points = self.view.pose.camera_to_world(points)
 
         view = _maybe_inplace(self.view, inplace=inplace)
-        view.depth = image
+        view.depth = points
         view.signal = signal
         view.state = PointsViewState(view)
 
@@ -245,10 +261,10 @@ class ImageViewState(CameraViewStateBase):
         assert None is not self.view.intrinsics
 
         pixelizer = self.view.pixelizer
-        image, signal = pixelizer.pixelize(self.view.depth, self.view.signal)
+        pixels, signal = pixelizer.pixelize(self.view.depth, self.view.signal)
 
         view = _maybe_inplace(self.view, inplace=inplace)
-        view.depth = image
+        view.depth = pixels
         view.signal = signal
         view.state = PixelViewState(view)
 
@@ -259,11 +275,12 @@ class PointsViewState(CameraViewStateBase):
     def __str__(self): return 'points'
 
     def to_image(self, inplace=False) -> CameraView:
-        assert None is self.view.intrinsics, 'view intrinsics not available'
-        assert None is self.view.params.get('projection'), 'view projection type unknown'
+        assert None is not self.view.intrinsics, 'view intrinsics not available'
+        assert None is not self.view.params.get('projection'), 'view projection type unknown'
 
+        points = self.view.pose.world_to_camera(self.view.depth)
         projection = self.view.projection
-        image, signal = projection.project(self.view.depth, self.view.signal)
+        image, signal = projection.project(points, self.view.signal)
 
         view = _maybe_inplace(self.view, inplace=inplace)
         view.depth = image
