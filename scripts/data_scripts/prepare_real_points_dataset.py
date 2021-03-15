@@ -30,7 +30,7 @@ from sharpf.utils.abc_utils.abc.feature_utils import (
     compute_features_nbhood,
     remove_boundary_features,
     submesh_from_hit_surfaces)
-from sharpf.data.datasets.sharpf_io import save_whole_patches
+from sharpf.data.datasets.sharpf_io import save_whole_patches, WholePointCloudIO
 
 DEFAULT_PATCH_SIZE = 4096
 
@@ -249,89 +249,64 @@ def process_scans(
     return point_patches
 
 
-def debug_plot(output_scans, obj_mesh, output_filename):
+def debug_plot(output_scans, obj_mesh, output_filename, max_distance_to_feature):
+    def fuse_points(n_points, list_predictions, list_indexes_in_whole, list_points, max_distance_to_feature):
+        fused_points = np.zeros((n_points, 3))
+        fused_distances = np.ones(n_points) * np.inf
+        # fused_directions = np.ones((n_points, 3)) * np.inf
+
+        iterable = zip(list_predictions, list_indexes_in_whole, list_points)
+        for distances, indexes, points in tqdm(iterable):
+            fused_points[indexes] = points
+            assign_mask = fused_distances[indexes] > distances
+            fused_distances[indexes[assign_mask]] = np.minimum(distances[assign_mask], max_distance_to_feature)
+            # fused_directions[indexes[assign_mask]] = directions[assign_mask]
+
+        return fused_points, fused_distances, {}
+
     import k3d
     import time
-    import randomcolor
-    import matplotlib.pyplot as plt
-
-    from sharpf.utils.camera_utils.view import CameraView
-    from sharpf.utils.plotting import display_depth_sharpness
     from sharpf.utils.py_utils.os import change_ext
 
+    ground_truth_dataset = Hdf5File(
+        output_filename,
+        io=WholePointCloudIO,
+        preload=PreloadTypes.LAZY,
+        labels='*')
 
-    all_points = [
-        tt.transform_points(
-            scan['points'].reshape((-1, 3)),
-            scan['points_alignment'])
-        for scan in output_scans
-    ]
+    ground_truth = [patch for patch in ground_truth_dataset]
+    list_distances = [patch['distances'] for patch in ground_truth]
+    list_indexes_in_whole = [patch['indexes_in_whole'].astype(int) for patch in ground_truth]
+    list_points = [patch['points'].reshape((-1, 3)) for patch in ground_truth]
+    n_points = np.concatenate([patch['indexes_in_whole'] for patch in ground_truth]).max() + 1
 
-    views = [
-        CameraView(
-            depth=scan['points'].reshape((-1, 3)),
-            signal=None,
-            faces=scan['faces'].reshape((-1, 3)),
-            extrinsics=scan['extrinsics'],
-            intrinsics=scan['intrinsics'],
-            state='points')
-        for scan in output_scans]
-    processed_views = [view.to_pixels().to_points() for view in views]
+    fused_points_gt, fused_distances_gt, _ = fuse_points(
+        n_points, list_distances, list_indexes_in_whole, list_points,
+        max_distance_to_feature)
 
-    all_points_processed = [
-        tt.transform_points(view.depth, scan['points_alignment'])
-        for view, scan in zip(processed_views, output_scans)
-    ]
 
     plot_height = 768
     plot = k3d.plot(grid_visible=True, height=plot_height)
 
-    # rand_color = randomcolor.RandomColor()
-    # color = rand_color.generate(hue='red')[0]
-    # color = int('0x' + color[1:], 16)
-    #
-    plot += k3d.points(
-        np.concatenate(all_points),
-        point_size=0.25,
-        color=0xff0000,
-        shader='flat')
+    colors = k3d.helpers.map_colors(
+        fused_distances_gt,
+        k3d.colormaps.matplotlib_color_maps.coolwarm_r,
+        [0, max_distance_to_feature]
+    ).astype(np.uint32)
 
     plot += k3d.points(
-        np.concatenate(all_points_processed),
+        fused_points_gt,
         point_size=0.25,
-        color=0x00ff00,
+        colors=colors,
         shader='flat')
-
-    obj_scale = output_scans[0]['obj_scale']
-    obj_alignment = output_scans[0]['obj_alignment']
-    mesh = obj_mesh.copy().apply_scale(obj_scale).apply_transform(obj_alignment)
-    plot += k3d.mesh(
-        mesh.vertices,
-        mesh.faces,
-        color=0xaaaaaa)
 
     plot.fetch_snapshot()
 
     time.sleep(3)
 
-    output_html = change_ext(output_filename, '') + '_alignment.html'
+    output_html = change_ext(output_filename, '') + '_fused.html'
     with open(output_html, 'w') as f:
         f.write(plot.get_snapshot())
-
-    pixels_views = [v.to_pixels() for v in views]
-    s = 256
-    depth_images_for_display = [
-        view.depth[
-            slice(1536 // 2 - s, 1536 // 2 + s),
-            slice(2048 // 2 - s, 2048 // 2 + s)]
-        for view in pixels_views]
-    display_depth_sharpness(
-        depth_images=depth_images_for_display,
-        ncols=4,
-        axes_size=(16, 16))
-    output_png = change_ext(output_filename, '') + '_depthmaps.png'
-    plt.savefig(output_png)
-
 
 
 def main(options):
@@ -372,7 +347,11 @@ def main(options):
 
     if options.debug:
         print('Plotting debug figures...')
-        debug_plot(output_patches, obj_mesh, options.output_filename)
+        debug_plot(
+            output_patches,
+            obj_mesh,
+            options.output_filename,
+            max_distance_to_feature=options.max_distance_to_feature)
 
 
 def parse_args():
