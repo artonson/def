@@ -28,7 +28,8 @@ from sharpf.utils.abc_utils.mesh.io import trimesh_load
 from sharpf.utils.convertor_utils.convertors_io import ViewIO
 from sharpf.utils.abc_utils.abc.feature_utils import (
     compute_features_nbhood,
-    remove_boundary_features)
+    remove_boundary_features,
+    submesh_from_hit_surfaces)
 from sharpf.data.datasets.sharpf_io import save_whole_patches
 
 DEFAULT_PATCH_SIZE = 4096
@@ -194,11 +195,14 @@ def process_scans(
             if len(indexes) < DEFAULT_PATCH_SIZE:
                 continue
 
-            mesh_vertex_indexes = np.unique(mesh.faces[mesh_face_indexes])
-            nbhood = reindex_zerobased(
-                mesh,
-                mesh_vertex_indexes,
-                mesh_face_indexes)
+            nbhood, mesh_vertex_indexes, mesh_face_indexes = \
+                submesh_from_hit_surfaces(mesh, yml_features, mesh_face_indexes)
+
+#           mesh_vertex_indexes = np.unique(mesh.faces[mesh_face_indexes])
+#           nbhood = reindex_zerobased(
+#               mesh,
+#               mesh_vertex_indexes,
+#               mesh_face_indexes)
 
             # create annotations: condition the features onto the nbhood
             nbhood_features = compute_features_nbhood(
@@ -221,9 +225,10 @@ def process_scans(
             num_sharp_curves = len([curve for curve in nbhood_features['curves'] if curve['sharp']])
             num_surfaces = len(nbhood_features['surfaces'])
             point_patches.append({
-                'points': points,
-                'distances': distances,
-                'directions': directions,
+                'points': np.ravel(points),
+                'normals': np.ravel(np.zeros_like(points)),
+                'distances': np.ravel(distances),
+                'directions': np.ravel(directions),
                 'has_sharp': has_sharp,
                 'orig_vert_indices': mesh_vertex_indexes,
                 'orig_face_indexes': mesh_face_indexes,
@@ -238,6 +243,8 @@ def process_scans(
                 'has_smell_bad_face_sampling': False,
                 'has_smell_mismatching_surface_annotation': False,
             })
+
+    print('Total {} patches'.format(len(point_patches)))
 
     return point_patches
 
@@ -361,7 +368,7 @@ def main(options):
     )
 
     print('Writing output file...')
-    save_whole_patches(options.output_filename, output_patches)
+    save_whole_patches(output_patches, options.output_filename)
 
     if options.debug:
         print('Plotting debug figures...')
