@@ -70,3 +70,25 @@ def write_realworld_views_to_hdf5(output_filename, scans):
             ViewIO.write(f, key, scans[key])
 
     print(output_filename)
+
+
+UnlabeledPointCloudIO = io_struct.HDF5IO({
+    'points': io_struct.Float64('points'),
+    'indexes_in_whole': io_struct.Int32('indexes_in_whole'),
+    'distances': io_struct.Float64('distances'),
+    'item_id': io_struct.AsciiString('item_id'),
+},
+    len_label='has_sharp',
+    compression='lzf')
+
+
+def write_realworld_patches_to_hdf5(output_filename, patches):
+    collate_fn = partial(io_struct.collate_mapping_with_io, io=UnlabeledPointCloudIO)
+    patches = collate_fn(patches)
+
+    with h5py.File(output_filename, 'w') as f:
+        for key in ['points', 'indexes_in_whole', 'distances']:
+            UnlabeledPointCloudIO.write(f, key, patches[key].numpy())
+        UnlabeledPointCloudIO.write(f, 'item_id', patches['item_id'])
+
+    print(output_filename)
