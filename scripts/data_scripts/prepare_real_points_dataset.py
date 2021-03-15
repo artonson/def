@@ -25,10 +25,11 @@ from sharpf.utils.abc_utils.mesh.indexing import reindex_zerobased
 from sharpf.utils.py_utils.config import load_func_from_config
 from sharpf.utils.abc_utils.hdf5.dataset import Hdf5File, PreloadTypes
 from sharpf.utils.abc_utils.mesh.io import trimesh_load
-from sharpf.utils.convertor_utils.convertors_io import ViewIO, write_realworld_patches_to_hdf5
+from sharpf.utils.convertor_utils.convertors_io import ViewIO
 from sharpf.utils.abc_utils.abc.feature_utils import (
     compute_features_nbhood,
     remove_boundary_features)
+from sharpf.data.datasets.sharpf_io import save_whole_patches
 
 DEFAULT_PATCH_SIZE = 4096
 
@@ -217,11 +218,25 @@ def process_scans(
                 nbhood_features,
                 points)
 
+            num_sharp_curves = len([curve for curve in nbhood_features['curves'] if curve['sharp']])
+            num_surfaces = len(nbhood_features['surfaces'])
             point_patches.append({
                 'points': points,
                 'distances': distances,
+                'directions': directions,
+                'has_sharp': has_sharp,
+                'orig_vert_indices': mesh_vertex_indexes,
+                'orig_face_indexes': mesh_face_indexes,
                 'indexes_in_whole': patch_point_indexes,
-                'item_id': item_id
+                'item_id': item_id,
+                'num_sharp_curves': num_sharp_curves,
+                'num_surfaces': num_surfaces,
+                'has_smell_coarse_surfaces_by_num_faces': False,
+                'has_smell_coarse_surfaces_by_angles': False,
+                'has_smell_deviating_resolution': False,
+                'has_smell_sharpness_discontinuities': False,
+                'has_smell_bad_face_sampling': False,
+                'has_smell_mismatching_surface_annotation': False,
             })
 
     return point_patches
@@ -346,7 +361,7 @@ def main(options):
     )
 
     print('Writing output file...')
-    write_realworld_patches_to_hdf5(options.output_filename, output_patches)
+    save_whole_patches(options.output_filename, output_patches)
 
     if options.debug:
         print('Plotting debug figures...')
