@@ -199,11 +199,50 @@ def save_whole_images(patches, filename):
             WholeDepthMapIO.write(f, key, patches[key].numpy().astype(np.bool))
 
 
+AnnotatedViewIO = io.HDF5IO({
+    'points': io.Float64('points'),
+    'faces': io.VarInt32('faces'),
+    'points_alignment': io.Float64('points_alignment'),
+    'extrinsics': io.Float64('extrinsics'),
+    'intrinsics': io.Float64('intrinsics'),
+    'obj_alignment': io.Float64('obj_alignment'),
+    'obj_scale': io.Float64('obj_scale'),
+    'item_id': io.AsciiString('item_id'),
+
+    'distances': io.Float64('distances'),
+    'directions': io.Float64('directions'),
+    'orig_vert_indices': io.VarInt32('orig_vert_indices'),
+    'orig_face_indexes': io.VarInt32('orig_face_indexes'),
+    'has_sharp': io.Bool('has_sharp'),
+    'num_sharp_curves': io.Int8('num_sharp_curves'),
+    'num_surfaces': io.Int8('num_surfaces'),
+},
+    len_label='item_id',
+    compression='lzf')
+
+
+def write_annotated_views_to_hdf5(scans, output_filename):
+    collate_fn = partial(io.collate_mapping_with_io, io=AnnotatedViewIO)
+    scans = collate_fn(scans)
+
+    with h5py.File(output_filename, 'w') as f:
+        for key in ['points', 'extrinsics', 'intrinsics', 'points_alignment',
+                    'obj_alignment', 'obj_scale', 'distances', 'directions',
+                    'num_sharp_curves', 'num_surfaces']:
+            AnnotatedViewIO.write(f, key, scans[key].numpy())
+        for key in ['item_id', 'faces', 'orig_vert_indices', 'orig_face_indexes']:
+            AnnotatedViewIO.write(f, key, scans[key])
+        AnnotatedViewIO.write(f, 'has_sharp', scans['has_sharp'].numpy().astype(np.bool))
+
+    print(output_filename)
+
+
 IO_SPECS = {
     'points': PointCloudIO,
     'images': DepthMapIO,
     'whole_points': WholePointCloudIO,
     'whole_images': WholeDepthMapIO,
+    'annotated_view_io': AnnotatedViewIO,
 }
 
 SAVE_FNS = {
@@ -211,4 +250,5 @@ SAVE_FNS = {
     'images': save_depth_maps,
     'whole_points': save_whole_patches,
     'whole_images': save_whole_images,
+    'annotated_view_io': write_annotated_views_to_hdf5,
 }
