@@ -139,7 +139,7 @@ class CameraView:
         view = self.to_points(inplace=inplace)
         points = other.pose.world_to_camera(view.depth)
         view.depth = points
-        view = view.to_state(view.state)
+        view = view.to_state(other.state)
         return view
 
     def copy(self) -> 'CameraView':
