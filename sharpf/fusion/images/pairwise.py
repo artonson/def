@@ -1,3 +1,7 @@
+from typing import Tuple
+
+import numpy as np
+
 from sharpf.fusion.images import interpolate
 from sharpf.utils.camera_utils.view import CameraView
 
@@ -9,7 +13,7 @@ def interpolate_views_as_images(
         nn_set_size: int = 8,
         z_distance_threshold: int = 2.0,
         verbose: bool = False,
-) -> CameraView:
+) -> Tuple[CameraView, np.ndarray]:
 
     """Given two views represented as depth/prediction images +
     camera parameters, run view-view interpolation in image space.
@@ -25,7 +29,7 @@ def interpolate_views_as_images(
     source_view = source_view.to_image()
     target_view = target_view.reproject_to(source_view)
 
-    target_signal, can_interpolate = interpolate.pointwise_interpolate_image(
+    target_signal, valid_mask = interpolate.pointwise_interpolate_image(
         source_view.depth,
         source_view.signal,
         target_view.depth,
@@ -33,10 +37,9 @@ def interpolate_views_as_images(
         nn_set_size=nn_set_size,
         z_distance_threshold=z_distance_threshold,
         verbose=verbose)
-    target_view.depth = target_view.depth[can_interpolate]
-    target_view.signal = target_signal[can_interpolate]
+    target_view.signal = target_signal
 
-    return target_view
+    return target_view, valid_mask
 
 
 def interpolate_pixels(
