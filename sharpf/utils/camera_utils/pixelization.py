@@ -77,6 +77,17 @@ def simple_z_buffered_rendering(
     Instead we do (conceptually):
     >>> depth_out[pixels] = func(depth[i] for i where pixels[i] == c)
     """
+    depth_out = np.zeros(image_size[::-1])
+    signal_out = None
+    if None is not signal:
+        if len(signal.shape) == 1:
+            signal_out_shape = depth_out.shape
+        else:
+            signal_out_shape = (image_size[1], image_size[0], signal.shape[-1])
+        signal_out = np.zeros(signal_out_shape)
+
+    if len(pixels) == 0:
+        return pixels, depth_out, signal_out
 
     # sort XY array by row/col index
     sort_idx_1 = pixels[:, 1].argsort()
@@ -95,10 +106,6 @@ def simple_z_buffered_rendering(
 
     # splits the indices into separate arrays
     same_point_indexes = np.split(idx_sort, unique_pixels_indexes[1:])
-
-    depth_out = np.zeros(image_size[::-1])
-    signal_out = None if None is signal \
-        else np.zeros((image_size[1], image_size[0], signal.shape[-1]))
 
     z_getter = {'min': np.argmin, 'max': np.argmax}[depth_func_type]
     for pixel_xy, point_indexes in zip(unique_pixels_xy, same_point_indexes):
@@ -157,9 +164,15 @@ class ImagePixelizer(ImagePixelizerBase):
         # Here we could interpolate depth and signal values
         # into the regular grid, if we wanted to.
         pixels = np.round(pixels).astype(np.int32)
+        width, height = self.image_size_in_pixels
+        frustum_indexes = np.where(
+            (pixels[:, 0] > 0) & (pixels[:, 0] < width) &
+            (pixels[:, 1] > 0) & (pixels[:, 1] < height))[0]
 
         pixels_out, depth_out, signal_out = simple_z_buffered_rendering(
-            pixels, depth, signal,
+            pixels[frustum_indexes],
+            depth[frustum_indexes],
+            signal[frustum_indexes],
             self.image_size_in_pixels,
             depth_func_type='max')
         return pixels_out, depth_out, signal_out

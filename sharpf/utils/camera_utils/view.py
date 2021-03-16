@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from copy import deepcopy
 from typing import Mapping
 
 import numpy as np
@@ -137,13 +138,11 @@ class CameraView:
         """Given a different view, compute a reprojected
         depth and signal images using this view's data."""
         view = self.to_points(inplace=inplace)
-        points = other.pose.world_to_camera(view.depth)
-        view.depth = points
+        view.pose = deepcopy(other.pose)
         view = view.to_state(other.state)
         return view
 
     def copy(self) -> 'CameraView':
-        from copy import deepcopy
         return CameraView(
             depth=deepcopy(self.depth),
             signal=deepcopy(self.signal),
