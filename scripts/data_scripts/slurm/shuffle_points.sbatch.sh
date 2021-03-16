@@ -7,13 +7,13 @@
 #SBATCH --partition=htc
 #SBATCH --cpus-per-task=40
 #SBATCH --ntasks=1
-#SBATCH --mem-per-cpu=16g
+#SBATCH --mem-per-cpu=2g
 #SBATCH --oversubscribe
 
 #module load apps/singularity-3.2.0
 
 __usage="
-Usage: $0 -i input_dir -o output_dir [-v]
+Usage: $0 -i input_dir -o output_dir [-v] -m max_items_to_store
 
   -i: 	input directory with source HDF5 with data
   -o: 	output directory with resulting
@@ -30,12 +30,14 @@ usage() { echo "$__usage" >&2; }
 
 # Get all the required options and set the necessary variables
 VERBOSE=false
-while getopts "i:o:v" opt
+MAX_ITEMS_TO_STORE=1000000
+while getopts "i:o:vm:" opt
 do
     case ${opt} in
         i) INPUT_PATH_HOST=$OPTARG;;
         o) OUTPUT_PATH_HOST=$OPTARG;;
         v) VERBOSE=true;;
+        m) MAX_ITEMS_TO_STORE=$OPTARG;;
         *) usage; exit 1 ;;
     esac
 done
@@ -75,7 +77,7 @@ echo "  input path:           ${INPUT_PATH_CONTAINER}"
 echo "  output path:          ${OUTPUT_PATH_CONTAINER}"
 echo "  "
 
-N_TASKS=${SLURM_CPUS_PER_TASK}
+N_TASKS=$(( SLURM_CPUS_PER_TASK * 2 ))
 MAKE_DATA_SCRIPT="${CODE_PATH_CONTAINER}/sharpf/utils/abc_utils/scripts/defrag_shuffle_split_hdf5.py"
 CHUNK_SIZE=16384
 TRAIN_FRACTION=1.0
@@ -94,6 +96,7 @@ singularity exec \
         --input-dir ${INPUT_PATH_CONTAINER} \\
         --output-dir ${OUTPUT_PATH_CONTAINER} \\
         --num-items-per-file ${CHUNK_SIZE} \\
+        --max-items-to-store ${MAX_ITEMS_TO_STORE} \\
         --train-fraction ${TRAIN_FRACTION} \\
         --jobs ${N_TASKS} \\
         --random-shuffle \\
