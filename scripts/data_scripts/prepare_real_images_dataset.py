@@ -38,7 +38,8 @@ def process_scans(
         yml_features,
         item_id,
         max_point_mesh_distance_mm=1.0,
-        max_distance_to_feature=1.0
+        max_distance_to_feature=1.0,
+        full_mesh=False,
 ):
 
     obj_alignment_transform = dataset[0]['obj_alignment']
@@ -71,29 +72,31 @@ def process_scans(
         points = view.depth
         aligned_points = tt.transform_points(points, view_alignment)
 
-        distance_sq, mesh_face_indexes, _ = igl.point_mesh_squared_distance(
-            aligned_points,
-            mesh.vertices,
-            mesh.faces)
-        # indexes = np.where(np.sqrt(distance_sq) < max_point_mesh_distance_mm)[0]
-        # if len(indexes) < DEFAULT_PATCH_SIZE:
-        #     continue
+        if full_mesh:
+            nbhood = mesh
+            nbhood_features = yml_features
 
-        nbhood, mesh_vertex_indexes, mesh_face_indexes = \
-            submesh_from_hit_surfaces(mesh, yml_features, mesh_face_indexes)
+        else:
+            distance_sq, mesh_face_indexes, _ = igl.point_mesh_squared_distance(
+                aligned_points,
+                mesh.vertices,
+                mesh.faces)
 
-        # create annotations: condition the features onto the nbhood
-        nbhood_features = compute_features_nbhood(
-            mesh,
-            yml_features,
-            mesh_face_indexes,
-            mesh_vertex_indexes=mesh_vertex_indexes)
+            nbhood, mesh_vertex_indexes, mesh_face_indexes = \
+                submesh_from_hit_surfaces(mesh, yml_features, mesh_face_indexes)
 
-        # remove vertices lying on the boundary (sharp edges found in 1 face only)
-        nbhood_features = remove_boundary_features(
-            nbhood,
-            nbhood_features,
-            how='edges')
+            # create annotations: condition the features onto the nbhood
+            nbhood_features = compute_features_nbhood(
+                mesh,
+                yml_features,
+                mesh_face_indexes,
+                mesh_vertex_indexes=mesh_vertex_indexes)
+
+            # remove vertices lying on the boundary (sharp edges found in 1 face only)
+            nbhood_features = remove_boundary_features(
+                nbhood,
+                nbhood_features,
+                how='edges')
 
         distances, directions, has_sharp = annotator.annotate(
             nbhood,
@@ -256,6 +259,7 @@ def main(options):
         item_id,
         options.max_point_mesh_distance,
         options.max_distance_to_feature,
+        options.full_mesh,
     )
 
     print('Writing output file...')
@@ -285,6 +289,8 @@ def parse_args():
                         default=1.0, type=float, required=False, help='max distance from point to mesh.')
     parser.add_argument('-s', '--max_distance_to_feature', dest='max_distance_to_feature',
                         default=1.0, type=float, required=False, help='max distance to sharp feature to compute.')
+    parser.add_argument('-f', '--full_mesh', action='store_true', default=False,
+                        required=False, help='use the full mesh annotation (no removal of curves due to visibility).')
     return parser.parse_args()
 
 
