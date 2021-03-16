@@ -36,6 +36,7 @@ class PredictionsCombiner(ABC):
             list_predictions: List[np.array],
             list_indexes_in_whole: List[np.array],
             list_points: List[np.array],
+            max_distance: float = 1.0
     ) -> Tuple[np.array, np.array, Mapping]:
 
         raise NotImplemented()
@@ -61,6 +62,7 @@ class PointwisePredictionsCombiner(PredictionsCombiner):
             list_predictions: List[np.array],
             list_indexes_in_whole: List[np.array],
             list_points: List[np.array],
+            max_distance: float = 1.0
     ) -> Tuple[np.array, np.array, Mapping]:
 
         fused_points_pred = np.zeros((n_points, 3))
@@ -134,6 +136,7 @@ class CenterCropPredictionsCombiner(PointwisePredictionsCombiner):
             list_predictions: List[np.array],
             list_indexes_in_whole: List[np.array],
             list_points: List[np.array],
+            max_distance: float = 1.0
     ) -> Tuple[np.array, np.array, Mapping]:
 
         fused_points_pred = np.zeros((n_points, 3))
@@ -171,6 +174,7 @@ class SmoothingCombiner(PredictionsCombiner):
             list_predictions: List[np.array],
             list_indexes_in_whole: List[np.array],
             list_points: List[np.array],
+            max_distance: float = 1.0
     ) -> Tuple[np.array, np.array, Mapping]:
 
         fused_points, fused_predictions, predictions_variants = self._combiner(
@@ -196,6 +200,7 @@ class GroundTruthCombiner(PredictionsCombiner):
             list_predictions: List[np.array],
             list_indexes_in_whole: List[np.array],
             list_points: List[np.array],
+            max_distance: float = 1.0
     ) -> Tuple[np.array, np.array, Mapping]:
 
         fused_points = np.zeros((n_points, 3))
@@ -206,7 +211,7 @@ class GroundTruthCombiner(PredictionsCombiner):
         for distances, indexes, points in tqdm(iterable):
             fused_points[indexes] = points
             assign_mask = fused_distances[indexes] > distances
-            fused_distances[indexes[assign_mask]] = np.minimum(distances[assign_mask], 1.0)
+            fused_distances[indexes[assign_mask]] = np.minimum(distances[assign_mask], max_distance)
             # fused_directions[indexes[assign_mask]] = directions[assign_mask]
 
         return fused_points, fused_distances, {}

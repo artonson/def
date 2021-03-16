@@ -1,0 +1,4 @@
+type: image
+distance_interpolation_threshold: 1.0
+nn_set_size: 8
+z_distance_threshold: 2.0

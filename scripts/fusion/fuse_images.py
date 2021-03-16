@@ -16,14 +16,12 @@ import sys
 
 import numpy as np
 import sklearn.linear_model as lm
+import yaml
 
 __dir__ = os.path.normpath(
     os.path.join(
         os.path.dirname(os.path.realpath(__file__)), '../..')
 )
-
-from sharpf.utils.camera_utils.view import CameraView
-
 sys.path[1:1] = [__dir__]
 
 import sharpf.data.datasets.sharpf_io as sharpf_io
@@ -33,14 +31,14 @@ from sharpf.fusion.images import interpolators
 import sharpf.fusion.combiners as combiners
 import sharpf.fusion.smoothers as smoothers
 import sharpf.fusion.io as fusion_io
+import sharpf.utils.convertor_utils.convertors_io as convertors_io
+from sharpf.fusion.images.interpolators import MVS_INTERPOLATORS
+from sharpf.utils.camera_utils.view import CameraView
 
 
 def load_ground_truth(true_filename, unlabeled=False):
     """Loads a specified representation of """
-    if unlabeled:
-        data_io = fusion_io.UnlabeledImageIO
-    else:
-        data_io = sharpf_io.WholeDepthMapIO
+    data_io = convertors_io.AnnotatedViewIO
 
     # load ground truth and save to a single patch
     ground_truth_dataset = Hdf5File(
@@ -51,14 +49,15 @@ def load_ground_truth(true_filename, unlabeled=False):
 
     views = [
         CameraView(
-            depth=view['image'],
-            signal=view.get('distances', np.ones_like(view['image'])),
-            extrinsics=view['extrinsics'],
-            intrinsics=view['intrinsics'],
-            params=view['params'])
-        for view in ground_truth_dataset
-    ]
-    return views
+            depth=scan['points'],
+            signal=scan['distances'],
+            faces=scan['faces'].reshape((-1, 3)),
+            extrinsics=np.dot(scan['points_alignment'], scan['extrinsics']),
+            intrinsics=scan['intrinsics'],
+            state='pixels')
+        for scan in ground_truth_dataset]
+    view_alignments = [scan['points_alignment'] for scan in ground_truth_dataset]
+    return views, view_alignments
 
 
 def load_predictions(pred_data, name, pred_key='distances'):
@@ -97,7 +96,7 @@ def main(options):
     # per-view ground truth depth images, distances, and
     # view parameters). If running inference, distances
     # can be absent (run with --unlabeled flag).
-    views = load_ground_truth(
+    views, view_alignments = load_ground_truth(
         options.true_filename,
         unlabeled=options.unlabeled)
 
@@ -107,6 +106,7 @@ def main(options):
     # can be absent (run with --unlabeled flag).
     list_predictions, list_indexes_in_whole, list_points = \
         interpolators.GroundTruthInterpolator()(views)
+    n_points = np.sum([len(points) for points in list_points])
     fused_points_gt, fused_distances_gt, prediction_variants_gt = combiners.GroundTruthCombiner()(
         n_points,
         list_predictions,
@@ -127,18 +127,19 @@ def main(options):
         options.pred_data,
         name,
         pred_key=options.pred_key or 'distances')
+    for view, predictions in zip(views, list_predictions):
+        view.signal = predictions
 
     # Run fusion of predictions using multiple view
     # interpolator algorithm.
-    mvs_interpolator = load_func_from_config()
-    # verbose = options.verbose,
-    # distance_interpolation_threshold = imaging.resolution_3d * 6.
-    list_predictions, list_indexes_in_whole, list_points = mvs_interpolator(
-        n_points,
-        list_predictions,
-        list_images,
-        list_extrinsics,
-        list_intrinsics)
+    with open(options.fusion_config, 'r') as yml_file:
+        config = yaml.load(yml_file.read(), Loader=yaml.Loader)
+    config.update({
+        'verbose': options.verbose,
+        'n_jobs': options.n_jobs
+    })
+    mvs_interpolator = load_func_from_config(MVS_INTERPOLATORS, config)
+    list_predictions, list_indexes_in_whole, list_points = mvs_interpolator(views)
 
     # run various algorithms for consolidating predictions
     # this selection is up to you, user
@@ -146,7 +147,8 @@ def main(options):
 #       combiners.MedianPredictionsCombiner(),
 #       combiners.MinPredictionsCombiner(),
 #       combiners.AvgPredictionsCombiner(),
-        combiners.TruncatedAvgPredictionsCombiner(),
+        combiners.TruncatedAvgPredictionsCombiner(
+            func=combiners.TruncatedMean(0.6, func=np.min)),
 #       combiners.MinsAvgPredictionsCombiner(signal_thr=0.9),
 #       combiners.SmoothingCombiner(
 #           combiner=combiners.MinPredictionsCombiner(),
@@ -195,8 +197,10 @@ def parse_args():
                         help='Path to prediction directory with npy files.')
     parser.add_argument('-o', '--output-dir', dest='output_dir', required=True,
                         help='Path to output (suffixes indicating various methods will be added).')
-    parser.add_argument('-g', '--dataset-config', dest='dataset_config',
-                        required=True, help='dataset configuration file.')
+    parser.add_argument('-f', '--fusion-config', dest='fusion_config',
+                        required=True, help='fusion configuration YAML file.')
+    parser.add_argument('-j', '--jobs', dest='n_jobs', default=4,
+                        required=False, help='number of jobs to use for fusion.')
     parser.add_argument('-u', '--unlabeled', dest='unlabeled', action='store_true', default=False,
                         help='set if input data is unlabeled.')
     return parser.parse_args()

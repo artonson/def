@@ -1,11 +1,13 @@
 from abc import ABC, abstractmethod
 import itertools
+import os
 from typing import List, Tuple, Mapping
 
 import numpy as np
 
 import sharpf.fusion.images.pairwise as pairwise
-from sharpf.utils.camera_utils.view import CameraView, view_to_points
+from sharpf.utils.camera_utils.view import CameraView
+from sharpf.utils.py_utils.config import Configurable
 from sharpf.utils.py_utils.parallel import multiproc_parallel
 
 
@@ -18,23 +20,8 @@ class MultiViewInterpolatorBase(ABC, Configurable):
 
         """Given a set of (image I, prediction D) pairs and corresponding
         camera extrinsic and intrinsic parameters, interpolates predictions
-        between views. As a result, returns
-
-        :param list_images: list of depth images
-        :param list_images_preds: list of prediction images
-                                  (must be the same length as list_images)
-        :param list_extrinsics:
-        :param list_intrinsics:
-        :param camera_type: string identifying camera specification to use
-                            (currently: either 'orthogonal' or 'rangevision')
-                            TODO: refactor camera classes to use a more generalised code
-        :param camera_parameters: list of camera parameters, interpreted differently depending
-                                  on the `camera_type` argument:
-                                  <ADD HERE>
-
-        :return:
+        between views.
         """
-
         raise NotImplemented()
 
 
@@ -50,11 +37,11 @@ class GroundTruthInterpolator(MultiViewInterpolatorBase):
 
         for pixels_view in views:
             points_view = pixels_view.to_points()
-            points, signal = view_to_points(view)
+            points, distances = points_view.depth, points_view.signal
             list_indexes_in_whole.append(
                 np.arange(n_points, n_points + len(points)))
             list_points.append(points)
-            list_predictions.append(signal)
+            list_predictions.append(distances)
             n_points += len(points)
 
         return list_predictions, list_indexes_in_whole, list_points
@@ -64,94 +51,115 @@ class MultiViewPredictionsInterpolator(MultiViewInterpolatorBase):
     def __init__(
             self,
             n_jobs: int = 1,
+            distance_interpolation_threshold: float = 1.0,
+            nn_set_size: int = 8,
+            z_distance_threshold: int = 2.0,
             verbose: bool = False,
-            distance_interpolation_threshold: float = HIGH_RES * 6.):
+    ):
         super().__init__(self)
+        self.n_jobs = n_jobs
+        self.distance_interp_thr = distance_interpolation_threshold
+        self.nn_set_size = nn_set_size
+        self.z_distance_threshold = z_distance_threshold
+        self.verbose = verbose
 
     def __call__(
             self,
             views: List[CameraView],
     ) -> Tuple[np.array, np.array, np.array]:
-        #
-        #
-        # if camera_type == 'orthogonal':
-        #     get_view = get_orthogonal_view
-        # elif camera_type == 'rangevision':
-        #     get_view = get_perspective_view
-        # else:
-        #     raise ValueError('Unknown camera type: {}'.format(camera_type))
-        #
-        # get_view = partial(
-        #     get_view,
-        #     images=images,
-        #     predictions=predictions,
-        #     camera_parameters=camera_parameters)
-        #
+
         list_predictions, list_indexes_in_whole, list_points = [], [], []
 
         n_images = len(views)
-        n_cum_points_per_image = np.cumsum([
-            np.count_nonzero(view.image) for view in views])
+        point_indexes = np.cumsum([
+            np.count_nonzero(view.depth) for view in views])
 
+        interp_params = {
+            'distance_interp_thr': self.distance_interp_thr,
+            'nn_set_size': self.nn_set_size,
+            'z_distance_threshold': self.z_distance_threshold,
+            'verbose': self.verbose,
+        }
         data_iterable = (
-            (self, i, j, views[i], views[j], n_cum_points_per_image)
+            (self, i, j, views[i], views[j], point_indexes, interp_params)
             for i, j in itertools.product(range(n_images), range(n_images)))
 
-        for predictions, indexes_in_whole, points in multiproc_parallel(
+        os.environ['OMP_NUM_THREADS'] = str(self.n_jobs)
+        for predictions_interp, indexes_interp, points_interp in multiproc_parallel(
                 self.do_interpolate,
                 data_iterable):
-            list_points.append(points)
-            list_predictions.append(predictions)
-            list_indexes_in_whole.append(indexes_in_whole)
+            list_predictions.append(predictions_interp)
+            list_indexes_in_whole.append(indexes_interp)
+            list_points.append(points_interp)
 
         return list_predictions, list_indexes_in_whole, list_points
 
     @abstractmethod
     def do_interpolate(
             self,
-            source_view_idx,
-            target_view_idx,
-            source_view,
-            target_view,
+            source_view_idx: int,
+            target_view_idx: int,
+            source_view: CameraView,
+            target_view: CameraView,
+            point_indexes: np.ndarray,
+            interp_params: Mapping,
     ):
         pass
+
+    @classmethod
+    def from_config(cls, config: Mapping):
+        return cls(
+            n_jobs=config['n_jobs'],
+            distance_interpolation_threshold=config['distance_interp_thr'],
+            z_distance_threshold=config['z_distance_threshold'],
+            nn_set_size=config['nn_set_size'],
+            verbose=config['verbose'],
+        )
 
 
 class MultiView3D(MultiViewPredictionsInterpolator):
     """Interpolates predictions between views in the 3D space directly."""
-
-    def __init__(self, n_jobs):
-        super().__init__(self)
-
-    def do_interpolate(self):
-        return pairwise.image_pair_interpolate_image,
+    pass
 
 
 class MultiViewImage(MultiViewPredictionsInterpolator):
     """Interpolates predictions between views in the image space
     (i.e. 3d points are not discretized into pixels)."""
 
-    def __init__(self, n_jobs):
-        super().__init__()
+    def do_interpolate(
+            self,
+            source_view_idx: int,
+            target_view_idx: int,
+            source_view: CameraView,
+            target_view: CameraView,
+            point_indexes: np.ndarray,
+            interp_params: Mapping,
+    ):
+        if 0 == target_view_idx:
+            start_idx, end_idx = 0, point_indexes[target_view_idx]
+        else:
+            start_idx, end_idx = point_indexes[target_view_idx - 1], \
+                                 point_indexes[target_view_idx]
+        target_indexes = np.arange(start_idx, end_idx)
 
+        if source_view_idx == target_view_idx:
+            source_view = source_view.to_points()
+            return source_view.signal, target_indexes, source_view.depth
+
+        else:
+            interpolated_view = pairwise.interpolate_views_as_images(
+                source_view,
+                target_view,
+                **interp_params,
+            )
+            return interpolated_view.signal, target_indexes, interpolated_view.depth
 
 
 class MultiViewPixel(MultiViewPredictionsInterpolator):
     """Interpolates predictions between views in the 3D space directly."""
+    pass
 
-    def __init__(self, n_jobs):
-        super().__init__()
 
-    def __call__(
-            self,
-            images: List[np.array],
-            predictions: List[np.array],
-            extrinsics: List[np.array],
-            intrinsics: List[Mapping],
-            camera_type: str = 'orthogonal',
-            n_jobs: int = 1,
-            verbose: bool = False,
-            distance_interpolation_threshold: float = HIGH_RES * 6.
-    ) -> Tuple[np.array, np.array, np.array]:
-        pass
-
+MVS_INTERPOLATORS = {
+    'image': MultiViewImage,
+}

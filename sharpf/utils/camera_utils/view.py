@@ -35,6 +35,11 @@ def projection_from_view(view: 'CameraView') -> cam_proj.CameraProjectionBase:
     return projection_obj
 
 
+PIXELS_STATE = 'pixels'
+IMAGE_STATE = 'image'
+POINTS_STATE = 'points'
+
+
 class CameraView:
     """Data container representing a view of a scene/object:
     depth/prediction pixel images + camera parameters.
@@ -52,7 +57,7 @@ class CameraView:
             extrinsics: np.ndarray = np.eye(4),
             intrinsics: np.ndarray = None,
             params: Mapping = default_params,
-            state: str = 'points',
+            state: str = POINTS_STATE,
             pixelizer: cam_pix.ImagePixelizerBase = None,
             projection: cam_proj.CameraProjectionBase = None,
     ):
@@ -99,9 +104,9 @@ class CameraView:
         self.params = params
 
         self.state = {
-            'points': PointsViewState,
-            'image': ImageViewState,
-            'pixels': PixelViewState,
+            POINTS_STATE: PointsViewState,
+            IMAGE_STATE: ImageViewState,
+            PIXELS_STATE: PixelViewState,
         }[state](self)
 
         self.pose = CameraPose(self.extrinsics)
@@ -109,8 +114,6 @@ class CameraView:
         self.projection = projection or projection_from_view(self)
 
     def to_points(self, inplace=False) -> 'CameraView':
-        """Given a view represented as depth/prediction images +
-        camera parameters, returns points."""
         view = self.state.to_points(inplace=inplace)
         return view
 
@@ -122,9 +125,22 @@ class CameraView:
         view = self.state.to_pixels(inplace=inplace)
         return view
 
-    # def reproject_to(self, other: 'CameraView') -> 'CameraView':
-    #     view = self.state.reproject_to(other)
-    #     return view
+    def to_state(self, state: 'CameraViewStateBase', inplace=False) -> 'CameraView':
+        fn = {
+            POINTS_STATE: self.to_points,
+            IMAGE_STATE: self.to_image,
+            PIXELS_STATE: self.to_pixels,
+        }[str(state)]
+        return fn(inplace=inplace)
+
+    def reproject_to(self, other: 'CameraView', inplace=False) -> 'CameraView':
+        """Given a different view, compute a reprojected
+        depth and signal images using this view's data."""
+        view = self.to_points(inplace=inplace)
+        points = other.pose.world_to_camera(view.depth)
+        view.depth = points
+        view = view.to_state(view.state)
+        return view
 
     def copy(self) -> 'CameraView':
         from copy import deepcopy
@@ -218,7 +234,7 @@ class CameraViewStateBase(ABC):
 
 
 class PixelViewState(CameraViewStateBase):
-    def __str__(self): return 'pixels'
+    def __str__(self): return PIXELS_STATE
 
     def to_points(self, inplace=False) -> CameraView:
         view = self.to_image(inplace=inplace)
@@ -240,7 +256,7 @@ class PixelViewState(CameraViewStateBase):
 
 
 class ImageViewState(CameraViewStateBase):
-    def __str__(self): return 'image'
+    def __str__(self): return IMAGE_STATE
 
     def to_points(self, inplace=False) -> CameraView:
         assert None is not self.view.intrinsics, 'view intrinsics not available'
@@ -272,7 +288,7 @@ class ImageViewState(CameraViewStateBase):
 
 
 class PointsViewState(CameraViewStateBase):
-    def __str__(self): return 'points'
+    def __str__(self): return POINTS_STATE
 
     def to_image(self, inplace=False) -> CameraView:
         assert None is not self.view.intrinsics, 'view intrinsics not available'
@@ -293,6 +309,3 @@ class PointsViewState(CameraViewStateBase):
         view = self.to_image(inplace=inplace)
         view = view.to_pixels()  # calls ImageViewState.to_pixels()
         return view
-
-    # def reproject_to(self, other: CameraView) -> CameraView:
-    #     pass
