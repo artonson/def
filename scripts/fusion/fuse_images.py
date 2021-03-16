@@ -123,12 +123,12 @@ def main(options):
 
     # This assumes we have predictions for each of the images
     # in the ground-truth file.
-    list_predictions = load_predictions(
-        options.pred_data,
-        name,
-        pred_key=options.pred_key or 'distances')
-    for view, predictions in zip(views, list_predictions):
-        view.signal = predictions
+#   list_predictions = load_predictions(
+#       options.pred_data,
+#       name,
+#       pred_key=options.pred_key or 'distances')
+#   for view, predictions in zip(views, list_predictions):
+#       view.signal = predictions
 
     # Run fusion of predictions using multiple view
     # interpolator algorithm.

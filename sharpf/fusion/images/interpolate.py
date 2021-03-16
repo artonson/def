@@ -68,15 +68,21 @@ def pointwise_interpolate_image(
 
     :return: target_signal, can_interpolate
     """
+    if verbose:
+        print('Got: source_points: ', source_points.shape,
+                 ', source_signal: ', source_signal.shape, 
+                 ', target_points: ', source_points.shape)
     if 'auto' == distance_interp_thr:
         if verbose:
             print('Determining distance_interp_thr... ')
         mean_nn_distance = cKDTree(source_points).query(source_points, k=2)[0][:, 1].mean()
         distance_interp_thr = mean_nn_distance * 4.
+        if verbose:
+            print(distance_interp_thr)
 
     if verbose:
         print('Finding nearest neighbors... ')
-    source_image_tree = cKDTree(source_points)
+    source_image_tree = cKDTree(source_points[:, :2])
     _, nn_indexes = source_image_tree.query(
         target_points[:, :2],
         k=nn_set_size,
@@ -89,6 +95,8 @@ def pointwise_interpolate_image(
         target_points[:, 2][xy_mask, np.newaxis] -
         source_points[:, 2][nn_indexes[xy_mask]])
     z_mask = np.all(z_distances < z_distance_threshold, axis=1)
+    if verbose:
+        print('XY mask leaves: {}, Z mask leaves: {}'.format(np.sum(xy_mask), np.sum(z_mask)))
 
     can_interpolate = compress_mask(xy_mask, z_mask)
     can_interpolate_indexes = np.where(can_interpolate)[0]

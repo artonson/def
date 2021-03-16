@@ -11,7 +11,7 @@ from sharpf.utils.py_utils.config import Configurable
 from sharpf.utils.py_utils.parallel import multiproc_parallel
 
 
-class MultiViewInterpolatorBase(ABC, Configurable):
+class MultiViewInterpolatorBase(Configurable):
     @abstractmethod
     def __call__(
             self,
@@ -46,6 +46,10 @@ class GroundTruthInterpolator(MultiViewInterpolatorBase):
 
         return list_predictions, list_indexes_in_whole, list_points
 
+    @classmethod
+    def from_config(cls, config: Mapping):
+        return cls()
+
 
 class MultiViewPredictionsInterpolator(MultiViewInterpolatorBase):
     def __init__(
@@ -56,7 +60,7 @@ class MultiViewPredictionsInterpolator(MultiViewInterpolatorBase):
             z_distance_threshold: int = 2.0,
             verbose: bool = False,
     ):
-        super().__init__(self)
+        super().__init__()
         self.n_jobs = n_jobs
         self.distance_interp_thr = distance_interpolation_threshold
         self.nn_set_size = nn_set_size
@@ -81,7 +85,7 @@ class MultiViewPredictionsInterpolator(MultiViewInterpolatorBase):
             'verbose': self.verbose,
         }
         data_iterable = (
-            (self, i, j, views[i], views[j], point_indexes, interp_params)
+            (i, j, views[i], views[j], point_indexes, interp_params)
             for i, j in itertools.product(range(n_images), range(n_images)))
 
         os.environ['OMP_NUM_THREADS'] = str(self.n_jobs)
@@ -110,7 +114,7 @@ class MultiViewPredictionsInterpolator(MultiViewInterpolatorBase):
     def from_config(cls, config: Mapping):
         return cls(
             n_jobs=config['n_jobs'],
-            distance_interpolation_threshold=config['distance_interp_thr'],
+            distance_interpolation_threshold=config['distance_interpolation_threshold'],
             z_distance_threshold=config['z_distance_threshold'],
             nn_set_size=config['nn_set_size'],
             verbose=config['verbose'],
