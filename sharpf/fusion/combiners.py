@@ -108,7 +108,8 @@ class MinPredictionsCombiner(PointwisePredictionsCombiner):
 
 
 class TruncatedAvgPredictionsCombiner(PointwisePredictionsCombiner):
-    def __init__(self): super().__init__(func=TruncatedMean(0.6), tag='adv60')
+    def __init__(self, func=np.min):
+        super().__init__(func=TruncatedMean(0.6, func=func), tag='adv60')
 
 
 class MinsAvgPredictionsCombiner(PointwisePredictionsCombiner):
