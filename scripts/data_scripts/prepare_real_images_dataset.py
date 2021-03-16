@@ -191,9 +191,9 @@ def debug_plot(output_scans, obj_mesh, output_filename, max_distance_to_feature)
 
     plot += k3d.points(
         fused_points_gt,
-        point_size=0.25,
+        point_size=0.5,
         colors=colors,
-        shader='flat')
+        shader='3d')
 
     plot.fetch_snapshot()
 
