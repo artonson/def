@@ -156,8 +156,10 @@ class MultiViewImage(MultiViewPredictionsInterpolator):
                 target_view,
                 **interp_params,
             )
-            interpolated_view = interpolated_view.to_points()
-            return interpolated_view.signal[valid_mask], target_indexes[valid_mask], interpolated_view.depth[valid_mask]
+            target_view = target_view.to_points()
+            return interpolated_view.signal[valid_mask], \
+                   target_indexes[valid_mask], \
+                   target_view.depth[valid_mask]
 
 
 class MultiViewPixel(MultiViewPredictionsInterpolator):
