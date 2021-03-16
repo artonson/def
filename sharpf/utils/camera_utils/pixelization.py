@@ -56,8 +56,7 @@ def simple_z_buffered_rendering(
         depth: np.ndarray,
         signal: np.ndarray,
         image_size: Tuple[int, int],
-        depth_func=np.min,
-        signal_func=np.min,
+        depth_func_type: str = 'max',
 ):
     """A (over-)simplified z-buffer implementation.
 
@@ -101,11 +100,13 @@ def simple_z_buffered_rendering(
     signal_out = None if None is signal \
         else np.zeros((image_size[1], image_size[0], signal.shape[-1]))
 
+    z_getter = {'min': np.argmin, 'max': np.argmax}[depth_func_type]
     for pixel_xy, point_indexes in zip(unique_pixels_xy, same_point_indexes):
         target_ji = (pixel_xy[1], pixel_xy[0])
-        depth_out[target_ji] = depth_func(depth[point_indexes])
+        z_index = z_getter(depth[point_indexes])
+        depth_out[target_ji] = depth[point_indexes][z_index]
         if None is not signal:
-            signal_out[target_ji] = signal_func(signal[point_indexes])
+            signal_out[target_ji] = signal[point_indexes][z_index]
 
     return pixels, depth_out, signal_out
 
@@ -160,8 +161,7 @@ class ImagePixelizer(ImagePixelizerBase):
         pixels_out, depth_out, signal_out = simple_z_buffered_rendering(
             pixels, depth, signal,
             self.image_size_in_pixels,
-            depth_func=np.max)
-
+            depth_func_type='max')
         return pixels_out, depth_out, signal_out
 
     def unassign_pixels(self, pixels, signal=None):

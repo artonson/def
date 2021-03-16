@@ -167,10 +167,11 @@ def debug_plot(output_scans, obj_mesh, output_filename, max_distance_to_feature)
 
     list_distances, list_indexes_in_whole, list_points = [], [], []
     n_points = 0
-    for view in views:
+    for view, scan in zip(views, output_scans):
+        points_alignment = scan['points_alignment']
         list_indexes_in_whole.append(
             np.arange(n_points, n_points + len(view.depth)))
-        list_points.append(view.depth)
+        list_points.append(tt.transform_points(view.depth, points_alignment))
         list_distances.append(view.signal)
         n_points += len(view.depth)
 
