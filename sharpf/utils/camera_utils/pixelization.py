@@ -98,7 +98,8 @@ def simple_z_buffered_rendering(
     same_point_indexes = np.split(idx_sort, unique_pixels_indexes[1:])
 
     depth_out = np.zeros(image_size[::-1])
-    signal_out = None if None is signal else np.zeros(image_size[::-1])
+    signal_out = None if None is signal \
+        else np.zeros(image_size[1], image_size[1], signal.shape[-1])
 
     for pixel_xy, point_indexes in zip(unique_pixels_xy, same_point_indexes):
         target_ji = (pixel_xy[1], pixel_xy[0])
@@ -176,7 +177,11 @@ class ImagePixelizer(ImagePixelizerBase):
         image_integers = image_integers[depth_integers != 0]
         depth_integers = depth_integers[depth_integers != 0]
 
-        return image_integers, depth_integers, signal
+        signal_integers = signal
+        if None is not signal_integers:
+            signal_integers = signal_integers.reshape((-1, signal_integers.shape[-1]))
+
+        return image_integers, depth_integers, signal_integers
 
     def pixelize(
             self,

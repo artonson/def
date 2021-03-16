@@ -138,7 +138,8 @@ def display_depth_sharpness(
         depth_images=None,
         sharpness_images=None,
         axes_size=(8, 8),
-        ncols=1
+        ncols=1,
+        max_sharpness=1.0,
 ):
     import matplotlib.cm
     import matplotlib.pyplot as plt
@@ -212,7 +213,7 @@ def display_depth_sharpness(
 
                 tol = 1e-3
                 sharpness_ax.imshow(sharpness_image, interpolation='nearest', cmap=sharpness_cmap,
-                                    vmin=-tol, vmax=0.5 + tol)
+                                    vmin=-tol, vmax=max_sharpness + tol)
                 sharpness_ax.axis('off')
 
     plt.tight_layout(pad=0, h_pad=0.25, w_pad=0.25)

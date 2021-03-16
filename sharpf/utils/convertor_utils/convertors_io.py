@@ -72,6 +72,42 @@ def write_realworld_views_to_hdf5(output_filename, scans):
     print(output_filename)
 
 
+AnnotatedViewIO = io_struct.HDF5IO({
+    'points': io_struct.Float64('points'),
+    'faces': io_struct.VarInt32('faces'),
+    'points_alignment': io_struct.Float64('points_alignment'),
+    'extrinsics': io_struct.Float64('extrinsics'),
+    'intrinsics': io_struct.Float64('intrinsics'),
+    'obj_alignment': io_struct.Float64('obj_alignment'),
+    'obj_scale': io_struct.Float64('obj_scale'),
+    'item_id': io_struct.AsciiString('item_id'),
+
+    'distances': io_struct.Float64('distances'),
+    'directions': io_struct.Float64('directions'),
+    'orig_vert_indices': io_struct.VarInt32('orig_vert_indices'),
+    'orig_face_indexes': io_struct.VarInt32('orig_face_indexes'),
+    'has_sharp': io_struct.Bool('has_sharp'),
+    'num_sharp_curves': io_struct.Int8('num_sharp_curves'),
+    'num_surfaces': io_struct.Int8('num_surfaces'),
+},
+    len_label='item_id',
+    compression='lzf')
+
+
+def write_annotated_views_to_hdf5(output_filename, scans):
+    collate_fn = partial(io_struct.collate_mapping_with_io, io=AnnotatedViewIO)
+    scans = collate_fn(scans)
+
+    with h5py.File(output_filename, 'w') as f:
+        for key in ['extrinsics', 'intrinsics', 'points_alignment',
+                    'obj_alignment', 'obj_scale']:
+            ViewIO.write(f, key, scans[key].numpy())
+        for key in ['item_id', 'points', 'faces']:
+            ViewIO.write(f, key, scans[key])
+
+    print(output_filename)
+
+
 UnlabeledPointCloudIO = io_struct.HDF5IO({
     'points': io_struct.Float64('points'),
     'indexes_in_whole': io_struct.Int32('indexes_in_whole'),
