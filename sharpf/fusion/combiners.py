@@ -66,7 +66,7 @@ class PointwisePredictionsCombiner(PredictionsCombiner):
     ) -> Tuple[np.array, np.array, Mapping]:
 
         fused_points_pred = np.zeros((n_points, 3))
-        fused_distances_pred = np.ones(n_points) * np.inf
+        fused_distances_pred = np.ones(n_points) * max_distance
 
         # step 1: gather predictions
         predictions_variants = defaultdict(list)
@@ -141,7 +141,7 @@ class CenterCropPredictionsCombiner(PointwisePredictionsCombiner):
     ) -> Tuple[np.array, np.array, Mapping]:
 
         fused_points_pred = np.zeros((n_points, 3))
-        fused_distances_pred = np.ones(n_points) * np.inf
+        fused_distances_pred = np.ones(n_points) * max_distance
 
         # step 1: gather predictions
         predictions_variants = defaultdict(list)
@@ -182,7 +182,8 @@ class SmoothingCombiner(PredictionsCombiner):
             n_points,
             list_predictions,
             list_indexes_in_whole,
-            list_points)
+            list_points,
+            max_distance=max_distance)
 
         fused_predictions = self._smoother(
             fused_predictions,
@@ -205,7 +206,7 @@ class GroundTruthCombiner(PredictionsCombiner):
     ) -> Tuple[np.array, np.array, Mapping]:
 
         fused_points = np.zeros((n_points, 3))
-        fused_distances = np.ones(n_points) * np.inf
+        fused_distances = np.ones(n_points) * max_distance
         # fused_directions = np.ones((n_points, 3)) * np.inf
 
         iterable = zip(list_predictions, list_indexes_in_whole, list_points)

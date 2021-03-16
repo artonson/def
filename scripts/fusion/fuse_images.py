@@ -111,7 +111,8 @@ def main(options):
         n_points,
         list_predictions,
         list_indexes_in_whole,
-        list_points)
+        list_points,
+        max_distance=options.max_distance_to_feature)
 
     ground_truth_filename = os.path.join(
         options.output_dir,
@@ -175,7 +176,8 @@ def main(options):
             n_points,
             list_predictions,
             list_indexes_in_whole,
-            list_points)
+            list_points,
+            max_distance=options.max_distance_to_feature)
 
         output_filename = os.path.join(
             options.output_dir,
@@ -203,6 +205,8 @@ def parse_args():
                         required=False, help='number of jobs to use for fusion.')
     parser.add_argument('-u', '--unlabeled', dest='unlabeled', action='store_true', default=False,
                         help='set if input data is unlabeled.')
+    parser.add_argument('-s', '--max_distance_to_feature', dest='max_distance_to_feature',
+                        default=1.0, type=float, required=False, help='max distance to sharp feature to compute.')
     return parser.parse_args()
 
 
