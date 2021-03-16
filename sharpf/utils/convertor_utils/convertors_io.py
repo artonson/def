@@ -1,5 +1,6 @@
 from functools import partial
 
+import numpy as np
 import h5py
 
 import sharpf.utils.abc_utils.hdf5.io_struct as io_struct
@@ -99,11 +100,13 @@ def write_annotated_views_to_hdf5(output_filename, scans):
     scans = collate_fn(scans)
 
     with h5py.File(output_filename, 'w') as f:
-        for key in ['extrinsics', 'intrinsics', 'points_alignment',
-                    'obj_alignment', 'obj_scale']:
-            ViewIO.write(f, key, scans[key].numpy())
-        for key in ['item_id', 'points', 'faces']:
-            ViewIO.write(f, key, scans[key])
+        for key in ['points', 'extrinsics', 'intrinsics', 'points_alignment',
+                    'obj_alignment', 'obj_scale', 'distances', 'directions',
+                    'num_sharp_curves', 'num_surfaces']:
+            AnnotatedViewIO.write(f, key, scans[key].numpy())
+        for key in ['item_id', 'faces', 'orig_vert_indices', 'orig_face_indexes']:
+            AnnotatedViewIO.write(f, key, scans[key])
+        AnnotatedViewIO.write(f, 'has_sharp', scans['has_sharp'].numpy().astype(np.bool))
 
     print(output_filename)
 

@@ -101,21 +101,21 @@ def process_scans(
             aligned_points)
 
         view.signal = np.hstack((
-            np.atleast_2d(distances),
+            np.atleast_2d(distances).T,
             directions,
         ))
-        view.to_pixels()
-        image = view.depth
-        distances, directions = view.signal[:, :, 0], view.signal[:, :, 1:]
+        pixel_view = view.to_pixels()
+        image = pixel_view.depth
+        distances, directions = pixel_view.signal[:, :, 0], pixel_view.signal[:, :, 1:]
 
         num_sharp_curves = len([curve for curve in nbhood_features['curves'] if curve['sharp']])
         num_surfaces = len(nbhood_features['surfaces'])
         depth_images.append({
             'points': image,
-            'faces': np.ravel(view.faces),
+            'faces': np.ravel(pixel_view.faces),
             'points_alignment': view_alignment,
-            'extrinsics': view.extrinsics,
-            'intrinsics': view.intrinsics,
+            'extrinsics': pixel_view.extrinsics,
+            'intrinsics': pixel_view.intrinsics,
             'obj_alignment': obj_alignment_transform,
             'obj_scale': obj_scale,
             'item_id': item_id,
@@ -128,7 +128,7 @@ def process_scans(
             'num_surfaces': num_surfaces,
         })
 
-        print('Total {} patches'.format(len(depth_images)))
+    print('Total {} patches'.format(len(depth_images)))
 
     return depth_images
 
@@ -171,7 +171,7 @@ def debug_plot(output_scans, obj_mesh, output_filename, max_distance_to_feature)
         list_indexes_in_whole.append(
             np.arange(n_points, n_points + len(view.depth)))
         list_points.append(view.depth)
-        list_distances.append(view.signal[:, 0])
+        list_distances.append(view.signal)
         n_points += len(view.depth)
 
     fused_points_gt, fused_distances_gt, _ = fuse_points(
@@ -212,7 +212,7 @@ def debug_plot(output_scans, obj_mesh, output_filename, max_distance_to_feature)
     sharpness_images_for_display = [
         view.signal[
             slice(1536 // 2 - s, 1536 // 2 + s),
-            slice(2048 // 2 - s, 2048 // 2 + s), 0]
+            slice(2048 // 2 - s, 2048 // 2 + s)]
         for view in pixel_views]
     display_depth_sharpness(
         depth_images=depth_images_for_display,
@@ -258,7 +258,7 @@ def main(options):
     )
 
     print('Writing output file...')
-    write_annotated_views_to_hdf5(output_patches, options.output_filename)
+    write_annotated_views_to_hdf5(options.output_filename, output_patches)
 
     if options.debug:
         print('Plotting debug figures...')

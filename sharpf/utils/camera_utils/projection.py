@@ -52,8 +52,8 @@ class PerspectiveProjection(CameraProjectionBase):
 
         check_is_points(points, signal)
 
-        if None is not signal:
-            signal = np.atleast_2d(signal)
+#       if None is not signal and len(signal.shape) == 1:
+#           signal = signal[:, np.newaxis]
 
         z = points[:, [2]].copy()
         image = np.dot(
@@ -71,8 +71,8 @@ class PerspectiveProjection(CameraProjectionBase):
 
         check_is_image(image, signal)
 
-        if None is not signal:
-            signal = np.atleast_2d(signal)
+#       if None is not signal and len(signal.shape) == 1:
+#           signal = signal[:, np.newaxis]
 
         image_to_unproject = image.copy()
         z = image_to_unproject[:, [2]].copy()
@@ -83,3 +83,4 @@ class PerspectiveProjection(CameraProjectionBase):
         points[:, [0, 1]] *= z
 
         return points, signal
+

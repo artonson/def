@@ -99,7 +99,7 @@ def simple_z_buffered_rendering(
 
     depth_out = np.zeros(image_size[::-1])
     signal_out = None if None is signal \
-        else np.zeros(image_size[1], image_size[1], signal.shape[-1])
+        else np.zeros((image_size[1], image_size[0], signal.shape[-1]))
 
     for pixel_xy, point_indexes in zip(unique_pixels_xy, same_point_indexes):
         target_ji = (pixel_xy[1], pixel_xy[0])
@@ -179,7 +179,7 @@ class ImagePixelizer(ImagePixelizerBase):
 
         signal_integers = signal
         if None is not signal_integers:
-            signal_integers = signal_integers.reshape((-1, signal_integers.shape[-1]))
+            signal_integers = signal_integers[pixels != 0]
 
         return image_integers, depth_integers, signal_integers
 
@@ -217,18 +217,22 @@ class ImagePixelizer(ImagePixelizerBase):
     ) -> Tuple[np.ndarray, np.ndarray]:
 
         check_is_pixels(pixels, signal)
+        # print(pixels.shape, signal.shape)
 
         # obtain IJ integer coordinates in pixel space
         image_integers, depth_integers, signal_integers = self.unassign_pixels(
             pixels, signal)
+        # print(image_integers.shape, depth_integers.shape, signal_integers.shape)
 
         # obtain UV in floating-point pixel coordinates (no rounding, nothing)
         image_realvalued, depth_realvalued, signal_realvalued = self.transform_pixel_to_image_coords(
             image_integers, depth_integers, signal_integers)
+        # print(image_realvalued.shape, depth_realvalued.shape, signal_realvalued.shape)
 
         # merge UV (image coordinates) and Z (depth)
         image_out, signal_out = self.unsplit_input(
             image_realvalued, depth_realvalued, signal_realvalued)
+        # print(image_out.shape, signal_out.shape)
 
         return image_out, signal_out
 

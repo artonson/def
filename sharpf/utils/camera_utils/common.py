@@ -28,5 +28,5 @@ def check_is_pixels(depth, signal=None):
     if None is not signal:
         assert len(signal.shape) in [2, 3], \
             'signal: expected shape [h, w, d] or [h, w], got: {}'.format(signal.shape)
-        assert depth.shape[[0, 1]] == signal.shape[[0, 1]], \
+        assert depth.shape[:2] == signal.shape[:2], \
             'points/signal: points and signal have different shapes'
