@@ -17,6 +17,7 @@ sys.path[1:1] = [__dir__]
 
 from sharpf.utils.abc_utils.hdf5 import io_struct
 from sharpf.utils.abc_utils.hdf5.dataset import Hdf5File, PreloadTypes
+from sharpf.utils.py_utils.os import change_ext
 
 
 def main(options):
@@ -35,6 +36,8 @@ def main(options):
             io=FusedPredictionsIO,
             preload=PreloadTypes.LAZY,
             labels='*')
+        name_for_plot = change_ext(
+            os.path.basename(input_filename), '').split('__', maxsplit=1)[1]
 
         points = dataset[0]['points']
         distances = dataset[0]['distances']
@@ -49,7 +52,8 @@ def main(options):
             points,
             point_size=options.point_size,
             colors=colors,
-            shader=options.point_shader)
+            shader=options.point_shader,
+            name=name_for_plot)
 
     print('Making snapshot...')
     plot.fetch_snapshot()
@@ -70,10 +74,10 @@ def parse_args():
     parser.add_argument('-s', '--max_distance_to_feature', dest='max_distance_to_feature',
                         default=1.0, type=float, required=False, help='max distance to sharp feature to compute.')
     parser.add_argument('-ps', '--point_size', dest='point_size',
-                        default=1.0, type=float, required=False,
+                        default=0.02, type=float, required=False,
                         help='point size for plotting.')
     parser.add_argument('-ph', '--point_shader', dest='point_shader',
-                        default='3d', choices=['flat', '3d', 'mesh'], required=False,
+                        default='flat', choices=['flat', '3d', 'mesh'], required=False,
                         help='point shader for plotting.')
     return parser.parse_args()
 
