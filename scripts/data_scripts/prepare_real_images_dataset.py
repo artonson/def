@@ -75,6 +75,8 @@ def process_scans(
         if full_mesh:
             nbhood = mesh
             nbhood_features = yml_features
+            mesh_vertex_indexes = np.arange(len(mesh.vertices))
+            mesh_face_indexes = np.arange(len(mesh.faces))
 
         else:
             distance_sq, mesh_face_indexes, _ = igl.point_mesh_squared_distance(
