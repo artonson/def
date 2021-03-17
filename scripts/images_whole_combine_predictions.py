@@ -11,7 +11,7 @@
 #
 
 import argparse
-import json
+import itertools
 from abc import ABC
 from collections import defaultdict
 from copy import deepcopy
@@ -24,6 +24,7 @@ from typing import Callable, List, Mapping, Tuple
 
 import h5py
 import numpy as np
+from scipy.interpolate import fitpack
 from tqdm import tqdm, trange
 import torch
 from torch import optim
@@ -40,16 +41,14 @@ __dir__ = os.path.normpath(
     os.path.join(
         os.path.dirname(os.path.realpath(__file__)), '..')
 )
-
 sys.path[1:1] = [__dir__]
 
+from sharpf.utils.py_utils.parallel import multiproc_parallel
 import sharpf.data.datasets.sharpf_io as sharpf_io
-from sharpf.data.imaging import IMAGING_BY_TYPE, RaycastingImaging
+from sharpf.data.imaging import RaycastingImaging
 from sharpf.utils.abc_utils.hdf5.dataset import Hdf5File, PreloadTypes
 import sharpf.utils.abc_utils.hdf5.io_struct as io_struct
 from sharpf.utils.camera_utils.camera_pose import CameraPose
-from sharpf.utils.py_utils.config import load_func_from_config
-from sharpf.utils.py_utils.console import eprint_t
 
 
 class AveragingNoDataException(ValueError):
@@ -383,150 +382,263 @@ def save_full_model_predictions(points, predictions, filename):
         PointPatchPredictionsIO.write(f, 'distances', [predictions])
 
 
-HIGH_RES = 0.02
+def bisplrep_interpolate(xs, ys, vs, xt, yt):
+    x_min, x_max = np.amin(xs), np.amax(xs)
+    y_min, y_max = np.amin(ys), np.amax(ys)
+
+    out_of_bounds_x = (xt < x_min) | (xt > x_max)
+    out_of_bounds_y = (yt < y_min) | (yt > y_max)
+
+    any_out_of_bounds_x = np.any(out_of_bounds_x)
+    any_out_of_bounds_y = np.any(out_of_bounds_y)
+
+    if any_out_of_bounds_x or any_out_of_bounds_y:
+        raise ValueError("Values out of range; x must be in %r, y in %r"
+                         % ((x_min, x_max),
+                            (y_min, y_max)))
+
+    tck = fitpack.bisplrep(
+        xs.squeeze(),
+        ys.squeeze(),
+        vs.squeeze(),
+        kx=1,
+        ky=1,
+        s=len(xs.squeeze()))
+    vt = fitpack.bisplev(xt, yt, tck)
+    return vt
+
+
+def interp2d_interpolate(xs, ys, vs, xt, yt):
+    interpolator = interpolate.interp2d(
+        xs.squeeze(),
+        ys.squeeze(),
+        vs.squeeze(),
+        kind='linear',
+        bounds_error=True)
+
+    vt = interpolator(xt, yt)[0]
+    return vt
+
+
+def do_interpolate(
+        i,
+        j,
+        view_i,
+        view_j,
+        point_indexes,
+        interp_params,
+):
+    distance_interpolation_threshold = interp_params['distance_interpolation_threshold']
+    nn_set_size = interp_params['nn_set_size']
+    verbose = interp_params['verbose']
+    interpolator_function = interp_params['interpolator_function']
+
+    image_i, distances_i, points_i, pose_i, imaging_i = view_i
+    _, distances_j, points_j, _, _ = view_j
+
+    start_idx, end_idx = (0, point_indexes[j]) if 0 == j \
+        else (point_indexes[j - 1], point_indexes[j])
+    indexes_j = np.arange(start_idx, end_idx)
+
+    interp_fn = {
+        'bisplrep': bisplrep_interpolate,
+        'interp2d': interp2d_interpolate,
+    }[interpolator_function]
+
+    if i == j:
+        predictions_interp, indexes_interp, points_interp = \
+            distances_i[image_i != 0.].ravel(), indexes_j, points_i
+
+    else:
+        # reproject points from one view j to view i, to be able to interpolate in view i
+        reprojected_j = pose_i.world_to_camera(points_j)
+
+        # extract pixel indexes in view i (for each reprojected points),
+        # these are source pixels to interpolate from
+        uv_i = imaging_i.rays_origins[:, :2]
+        _, nn_indexes_in_i = cKDTree(uv_i).query(reprojected_j[:, :2], k=nn_set_size)
+
+        # Create interpolation mask: True for points which
+        # can be stably interpolated (i.e. they have K neighbours present
+        # within a predefined radius).
+        interp_mask = np.zeros(len(reprojected_j)).astype(bool)
+        # Distances to be produces as output.
+        distances_j_interp = np.zeros(len(points_j), dtype=float)
+
+        for idx, point_from_j in tqdm(enumerate(reprojected_j)):
+            point_nn_indexes = nn_indexes_in_i[idx]
+            # Build an [n, 3] array of XYZ coordinates for each reprojected point by taking
+            # UV values from pixel grid and Z value from depth image.
+            point_from_j_nns = np.hstack((
+                uv_i[point_nn_indexes],
+                np.atleast_2d(image_i.ravel()[point_nn_indexes]).T
+            ))
+
+            distances_to_nearest = np.linalg.norm(point_from_j - point_from_j_nns, axis=1)
+            interp_mask[idx] = np.all(distances_to_nearest < distance_interpolation_threshold)
+
+            if interp_mask[idx]:
+                # Actually perform interpolation
+                try:
+                    distances_j_interp[idx] = interp_fn(
+                        point_from_j_nns[:, 0],
+                        point_from_j_nns[:, 1],
+                        distances_i.ravel()[point_nn_indexes],
+                        point_from_j[0],
+                        point_from_j[1]
+                    )
+
+                except ValueError as e:
+                    if verbose:
+                        print('Error while interpolating point {idx}:'
+                              '{what}, skipping this point'.format(idx=idx, what=str(e)))
+                    interp_mask[idx] = False
+
+                except RuntimeWarning:
+                    break
+
+        points_interp = points_j[interp_mask]
+        indexes_interp = indexes_j[interp_mask]
+        predictions_interp = distances_j_interp[interp_mask]
+
+    return predictions_interp, indexes_interp, points_interp
+
+
+def get_view(
+        images: List[np.array],
+        distances: List[np.array],
+        extrinsics: List[np.array],
+        intrinsics_dict: List[Mapping],
+        i):
+    """A helper function to conveniently prepare view information."""
+    image_i = images[i]  # [h, w]
+    distances_image_i = distances[i]  # [h, w]
+    # Kill background for nicer visuals
+    distances_i = np.zeros_like(distances_image_i)
+    distances_i[np.nonzero(image_i)] = distances_image_i[np.nonzero(image_i)]
+
+    pose_i = CameraPose(extrinsics[i])
+    imaging_i = RaycastingImaging(**intrinsics_dict[i])
+    points_i = pose_i.camera_to_world(imaging_i.image_to_points(image_i))
+
+    return image_i, distances_i, points_i, pose_i, imaging_i
 
 
 def multi_view_interpolate_predictions(
-        imaging: RaycastingImaging,
-        gt_cameras: List[np.array],
-        gt_images: List[np.array],
-        predictions: List[np.array],
-        verbose: bool = False,
-        distance_interpolation_threshold: float = HIGH_RES * 6.
+        images: List[np.array],
+        distances: List[np.array],
+        extrinsics: List[np.array],
+        intrinsics_dict: List[Mapping],
+        **config,
 ):
-    """Interpolates predictions between views.
+    get_view_local = partial(get_view, images, distances, extrinsics, intrinsics_dict)
 
-    :return:
-    """
-    def get_view(i):
-        # use exterior variables
-        pose_i = CameraPose(gt_cameras[i])
-        image_i = gt_images[i]
-        points_i = pose_i.camera_to_world(imaging.image_to_points(image_i))
-        predictions_i = np.zeros_like(image_i)
-        predictions_i[image_i != 0.] = predictions[i][image_i != 0.]
-        return pose_i, image_i, points_i, predictions_i
+    point_indexes = np.cumsum([
+        np.count_nonzero(image) for image in images])
 
-    n_omp_threads = int(os.environ.get('OMP_NUM_THREADS', 1))
-    image_space_tree = cKDTree(imaging.rays_origins[:, :2], leafsize=100)
+    n_jobs = config.get('n_jobs')
+    n_images = len(images)
+    data_iterable = (
+        (i, j, get_view_local(i), get_view_local(j), point_indexes, config)
+        for i, j in itertools.product(range(n_images), range(n_images)))
 
+    os.environ['OMP_NUM_THREADS'] = str(n_jobs)
     list_predictions, list_indexes_in_whole, list_points = [], [], []
-    n_points_per_image = np.cumsum([len(np.nonzero(image.ravel())[0]) for image in gt_images])
-
-    n_images = len(gt_images)
-    for i in range(n_images):
-        # Propagating predictions from view i into all other views
-        pose_i, image_i, points_i, predictions_i = get_view(i)
-
-        for j in range(n_images):
-            start_idx, end_idx = (0, n_points_per_image[j]) if 0 == j \
-                else (n_points_per_image[j - 1], n_points_per_image[j])
-            indexes_in_whole = np.arange(start_idx, end_idx)
-
-            if verbose:
-                eprint_t('Propagating views {} -> {}'.format(i, j))
-
-            if i == j:
-                list_points.append(points_i)
-                list_predictions.append(predictions_i[image_i != 0.].ravel())
-                list_indexes_in_whole.append(indexes_in_whole)
-
-            else:
-                pose_j, image_j, points_j, predictions_j = get_view(j)
-
-                # reproject points from one view j to view i, to be able to interpolate in view i
-                reprojected = pose_i.world_to_camera(points_j)
-
-                # extract pixel indexes in view i (for each reprojected points),
-                # these are source pixels to interpolate from
-                _, nn_indexes = image_space_tree.query(
-                    reprojected[:, :2],
-                    k=4,
-                    n_jobs=n_omp_threads)
-
-                can_interpolate = np.zeros(len(reprojected)).astype(bool)
-                interpolated_distances_j = np.zeros_like(can_interpolate).astype(float)
-
-                for idx, reprojected_point in enumerate(reprojected):
-                    # build neighbourhood of each reprojected point by taking
-                    # xy values from pixel grid and z value from depth image
-                    nbhood_of_reprojected = np.hstack((
-                        imaging.rays_origins[:, :2][nn_indexes[idx]],
-                        np.atleast_2d(image_i.ravel()[nn_indexes[idx]]).T
-                    ))
-                    distances_to_nearest = np.linalg.norm(reprojected_point - nbhood_of_reprojected, axis=1)
-                    can_interpolate[idx] = np.all(distances_to_nearest < distance_interpolation_threshold)
-
-                    if can_interpolate[idx]:
-                        try:
-                            interpolator = interpolate.interp2d(
-                                nbhood_of_reprojected[:, 0],
-                                nbhood_of_reprojected[:, 1],
-                                predictions_i.ravel()[nn_indexes[idx]],
-                                kind='linear')
-                            interpolated_distances_j[idx] = interpolator(
-                                reprojected_point[0],
-                                reprojected_point[1])[0]
-                        except ValueError as e:
-                            eprint_t('Error while interpolating point {idx}: {what}, skipping this point'.format(
-                                idx=idx, what=str(e)))
-                            can_interpolate[idx] = False
-
-
-                list_points.append(points_j[can_interpolate])
-                list_predictions.append(interpolated_distances_j[can_interpolate])
-                list_indexes_in_whole.append(indexes_in_whole[can_interpolate])
+    for predictions_interp, indexes_interp, points_interp in multiproc_parallel(
+            do_interpolate,
+            data_iterable):
+        list_predictions.append(predictions_interp)
+        list_indexes_in_whole.append(indexes_interp)
+        list_points.append(points_interp)
 
     return list_predictions, list_indexes_in_whole, list_points
+
+
+def interpolate_ground_truth(
+        images: List[np.array],
+        distances: List[np.array],
+        extrinsics: List[np.array],
+        intrinsics_dict: List[Mapping],
+):
+    # Partially specify view extraction parameters.
+    get_view_local = partial(get_view, images, distances, extrinsics, intrinsics_dict)
+
+    fused_points_gt = []
+    fused_predictions_gt = []
+    for view_index in range(len(images)):
+        image_i, distances_i, points_i, pose_i, imaging_i = get_view_local(view_index)
+        fused_points_gt.append(points_i)
+        fused_predictions_gt.append(distances_i.ravel()[np.flatnonzero(image_i)])
+
+    fused_points_gt = np.concatenate(fused_points_gt)
+    fused_predictions_gt = np.concatenate(fused_predictions_gt)
+
+    return fused_points_gt, fused_predictions_gt
 
 
 def main(options):
     name = os.path.splitext(os.path.basename(options.true_filename))[0]
 
-    # load ground truth and save to a single patch
+    print('Loading ground truth data...')
     ground_truth_dataset = Hdf5File(
         options.true_filename,
         io=sharpf_io.WholeDepthMapIO,
         preload=PreloadTypes.LAZY,
         labels='*')
-    ground_truth = [view for view in ground_truth_dataset]
-    gt_images = [view['image'] for view in ground_truth]
-    gt_distances = [view.get('distances', np.ones_like(view['image'])) for view in ground_truth]
-    gt_cameras = [view['camera_pose'] for view in ground_truth]
+    gt_dataset = [view for view in ground_truth_dataset]
+    # depth images captured from a variety of views around the 3D shape
+    gt_images = [view['image'] for view in gt_dataset]
+    # ground-truth distances (multi-view consistent for the global 3D shape)
+    gt_distances = [view.get('distances', np.ones_like(view['image'])) for view in gt_dataset]
+    # extrinsic camera matrixes describing the 3D camera poses used to capture depth images
+    gt_extrinsics = [view['camera_pose'] for view in gt_dataset]
+    # intrinsic camera parameters describing how to compute image from points and vice versa
+    gt_intrinsics = [dict(resolution_image=gt_images[0].shape, resolution_3d=options.resolution_3d) for view in
+                     gt_dataset]
 
-    with open(options.dataset_config) as config_file:
-        config = json.load(config_file)
-        config['imaging']['resolution_image'] = gt_images[0].shape[0]
-    imaging = load_func_from_config(IMAGING_BY_TYPE, config['imaging'])
-    print(imaging.resolution_image, gt_images[0].shape)
+    print('Fusing ground truth data...')
+    fused_points_gt, fused_distances_gt = interpolate_ground_truth(
+        gt_images,
+        gt_distances,
+        gt_extrinsics,
+        gt_intrinsics)
+    n_points = len(fused_points_gt)
 
+    gt_output_filename = os.path.join(
+        options.output_dir,
+        '{}__{}.hdf5'.format(name, 'ground_truth'))
+    print('Saving ground truth to {}'.format(gt_output_filename))
+    save_full_model_predictions(
+        fused_points_gt,
+        fused_distances_gt,
+        gt_output_filename)
 
-    n_points = int(np.sum([len(np.nonzero(image.ravel())[0]) for image in gt_images]))
-    whole_model_points_gt = []
-    whole_model_distances_gt = []
-    for camera_to_world_4x4, image, distances in zip(gt_cameras, gt_images, gt_distances):
-        points_in_world_frame = CameraPose(camera_to_world_4x4).camera_to_world(imaging.image_to_points(image))
-        whole_model_points_gt.append(points_in_world_frame)
-        whole_model_distances_gt.append(distances.ravel()[np.nonzero(image.ravel())[0]])
-    whole_model_points_gt = np.concatenate(whole_model_points_gt)
-    whole_model_distances_gt = np.concatenate(whole_model_distances_gt)
-
-    ground_truth_filename = os.path.join(options.output_dir, '{}__{}.hdf5'.format(name, 'ground_truth'))
-    save_full_model_predictions(whole_model_points_gt, whole_model_distances_gt, ground_truth_filename)
-
-    # convert and load predictions
-    predictions_filename = os.path.join(options.output_dir, '{}__{}.hdf5'.format(name, 'predictions'))
+    print('Loading predictions...')
+    predictions_filename = os.path.join(
+        options.output_dir,
+        '{}__{}.hdf5'.format(name, 'predictions'))
     convert_npylist_to_hdf5(options.pred_dir, predictions_filename)
     predictions_dataset = Hdf5File(
         predictions_filename,
         io=sharpf_io.WholeDepthMapIO,
         preload=PreloadTypes.LAZY,
         labels='*')
-    list_predictions = [view['distances'] for view in predictions_dataset]
+    pred_distances = [view['distances'] for view in predictions_dataset]
 
+    threshold = options.resolution_3d * options.distance_interp_factor
+    config = {
+        'verbose': options.verbose,
+        'n_jobs': options.n_jobs,
+        'nn_set_size': options.nn_set_size,
+        'distance_interpolation_threshold': threshold,
+        'interpolator_function': options.interpolator_function,
+    }
     list_predictions, list_indexes_in_whole, list_points = multi_view_interpolate_predictions(
-        imaging, gt_cameras, gt_images, list_predictions, verbose=options.verbose,
-        distance_interpolation_threshold=imaging.resolution_3d * 6.)
+        gt_images,
+        pred_distances,
+        gt_extrinsics,
+        gt_intrinsics,
+        **config)
 
     # run various algorithms for consolidating predictions
     combiners = [
@@ -553,14 +665,23 @@ def main(options):
     ]
 
     for combiner in combiners:
-        if options.verbose:
-            print('Running {}'.format(combiner.tag))
+        print('Fusing predictions...')
+        combined_predictions, \
+        prediction_variants = \
+            combiner(
+                n_points,
+                list_predictions,
+                list_indexes_in_whole,
+                list_points)
 
-        combined_predictions, prediction_variants = \
-            combiner(n_points, list_predictions, list_indexes_in_whole, list_points)
-
-        output_filename = os.path.join(options.output_dir, '{}__{}.hdf5'.format(name, combiner.tag))
-        save_full_model_predictions(whole_model_points_gt, combined_predictions, output_filename)
+        pred_output_filename = os.path.join(
+            options.output_dir,
+            '{}__{}.hdf5'.format(name, combiner.tag))
+        print('Saving preds to {}'.format(pred_output_filename))
+        save_full_model_predictions(
+            fused_points_gt,
+            combined_predictions,
+            pred_output_filename)
 
 
 def parse_args():
@@ -574,8 +695,20 @@ def parse_args():
                         help='Path to prediction directory with npy files.')
     parser.add_argument('-o', '--output-dir', dest='output_dir', required=True,
                         help='Path to output (suffixes indicating various methods will be added).')
-    parser.add_argument('-g', '--dataset-config', dest='dataset_config',
-                        required=True, help='dataset configuration file.')
+
+    parser.add_argument('-j', '--jobs', dest='n_jobs', default=4,
+                        required=False, help='number of jobs to use for fusion.')
+
+    parser.add_argument('-k', '--nn_set_size', dest='nn_set_size', required=False, default=4, type=int,
+                        help='Number of neighbors used for interpolation.')
+    parser.add_argument('-r', '--resolution_3d', dest='resolution_3d', required=False, default=0.02, type=float,
+                        help='3D resolution of scans.')
+    parser.add_argument('-f', '--distance_interp_factor', dest='distance_interp_factor', required=False, type=float, default=6.,
+                        help='distance_interp_factor * resolution_3d is the distance_interpolation_threshold')
+    parser.add_argument('-l', '--interpolator_function', dest='interpolator_function',
+                        required=False, choices=['bisplrep', 'interp2d'], default='bisplrep',
+                        help='interpolator function to use.')
+
     return parser.parse_args()
 
 
