@@ -34,6 +34,7 @@ import sharpf.fusion.io as fusion_io
 import sharpf.utils.convertor_utils.convertors_io as convertors_io
 from sharpf.fusion.images.interpolators import MVS_INTERPOLATORS
 from sharpf.utils.camera_utils.view import CameraView
+import sharpf.utils.convertor_utils.rangevision_utils as rv_utils
 
 
 def load_ground_truth(true_filename, unlabeled=False):
@@ -124,12 +125,21 @@ def main(options):
 
     # This assumes we have predictions for each of the images
     # in the ground-truth file.
-#   list_predictions = load_predictions(
-#       options.pred_data,
-#       name,
-#       pred_key=options.pred_key or 'distances')
-#   for view, predictions in zip(views, list_predictions):
-#       view.signal = predictions
+    list_predictions = load_predictions(
+        options.pred_dir,
+        name,
+        pred_key=options.pred_key or 'distances')
+    for view, predictions in zip(views, list_predictions):
+        full_h, full_w = rv_utils.RV_SPECTRUM_CAM_RESOLUTION[::-1]
+        h, w = predictions.shape
+        if (full_h, full_w) != (h, w):
+            predictions_uncropped = np.zeros((full_h, full_w))
+            predictions_uncropped[
+                slice(full_h // 2 - h // 2, full_h // 2 + h // 2),
+                slice(full_w // 2 - w // 2, full_w // 2 + w // 2)] = predictions
+        else:
+            predictions = predictions_uncropped
+        view.signal = predictions_uncropped
 
     # Run fusion of predictions using multiple view
     # interpolator algorithm.
@@ -197,6 +207,8 @@ def parse_args():
                         help='Path to GT file with whole model point patches.')
     parser.add_argument('-p', '--pred-dir', dest='pred_dir', required=True,
                         help='Path to prediction directory with npy files.')
+    parser.add_argument('-k', '--pred-key', dest='pred_key', required=False,
+                        help='if set, switch to compare-io and use this key.')
     parser.add_argument('-o', '--output-dir', dest='output_dir', required=True,
                         help='Path to output (suffixes indicating various methods will be added).')
     parser.add_argument('-f', '--fusion-config', dest='fusion_config',
