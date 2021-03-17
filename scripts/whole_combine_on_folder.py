@@ -95,7 +95,7 @@ def main(options):
     ground_truth = [patch for patch in ground_truth_dataset]
 
     n_points = np.concatenate([patch['indexes_in_whole'] for patch in ground_truth]).max() + 1
-    if n_points >= 1000000:
+    if n_points >= 10_000_000:
         print('Too large file ({} points); not computing'.format(n_points))
         return
 
@@ -156,7 +156,7 @@ def main(options):
 #       AvgPredictionsCombiner(),
 #       TruncatedAvgPredictionsCombiner(),
 #       CenterCropPredictionsCombiner(brd_thr=80, func=np.min, tag='crop__min'),
-#       CenterCropPredictionsCombiner(brd_thr=80, func=TruncatedMean(0.6, func=np.min), tag='crop__adv60__min'),
+        cc.CenterCropPredictionsCombiner(brd_thr=80, func=cc.TruncatedMean(0.6, func=np.min), tag='crop__adv60__min'),
 #       MinsAvgPredictionsCombiner(signal_thr=0.9),
 #       SmoothingCombiner(
 #           combiner=CenterCropPredictionsCombiner(brd_thr=80, func=np.min),
@@ -166,15 +166,16 @@ def main(options):
 #           combiner=CenterCropPredictionsCombiner(brd_thr=80, func=np.min),
 #           smoother=TotalVariationSmoother(regularizer_alpha=0.001)
 #       ),
-        cc.SmoothingCombiner(
-            combiner=cc.CenterCropPredictionsCombiner(brd_thr=80, func=np.min),
-            smoother=cs.RobustLocalLinearFit(
-                lm.HuberRegressor(epsilon=4., alpha=1.),
-                n_jobs=32
-            )
-        ),
+        # cc.SmoothingCombiner(
+        #     combiner=cc.CenterCropPredictionsCombiner(brd_thr=80, func=np.min),
+        #     smoother=cs.RobustLocalLinearFit(
+        #         lm.HuberRegressor(epsilon=4., alpha=1.),
+        #         n_jobs=32
+        #     )
+        # ),
+        cc.MinPredictionsCombiner(),
+        cc.CenterCropPredictionsCombiner(brd_thr=80, func=np.min, tag='crop__min')
     ]
-    combiners = [cc.CenterCropPredictionsCombiner(brd_thr=80, func=np.min)]
 
     list_indexes_in_whole = [patch['indexes_in_whole'] for patch in ground_truth_dataset]
     list_points = [patch['points'].reshape((-1, 3)) for patch in ground_truth_dataset]
@@ -206,9 +207,61 @@ def parse_args():
     parser.add_argument('-u', '--unlabeled', dest='unlabeled', action='store_true', default=False,
                         help='set if input data is unlabeled.')
     parser.add_argument('-k', '--key', dest='pred_key', help='if set, switch to compare-io and use this key.')
+    parser.add_argument('-fl', '--files-list')
     return parser.parse_args()
 
+def main_errors(options):
+    try: 
+        main(options)
+    except Exception as e:
+        print(e)
 
 if __name__ == '__main__':
+    from copy import deepcopy
+    from multiprocessing import Pool
+    from tqdm import tqdm
+    import pathlib
+    import os
+
     options = parse_args()
-    main(options)
+    pool_args = []
+    with open(options.files_list, "r") as f:
+        for dirname in f:
+            pair = []
+            dirname = dirname.strip()
+            if "points" not in dirname:
+                continue
+            for fname in os.listdir(pathlib.Path(options.true_filename) / dirname):
+                input_path = pathlib.Path(options.true_filename) / dirname / fname
+                pred_path = (
+                    pathlib.Path(options.pred_dir) / 
+                    (str(dirname).split(".json")[0].replace("data_v2_cvpr/", "") + "_" +
+                    "".join(str(dirname).split(".json")[1].split("/")))
+                )
+                pred_path = pred_path / os.listdir(str(pred_path))[0] / input_path.stem / "predictions"
+                out_path = pathlib.Path(options.output_dir) / dirname / input_path.stem
+                try:
+                    out_path.mkdir(parents=True, exist_ok=False)
+                except FileExistsError:
+                    pass
+                pool_args.append((input_path, pred_path, out_path))
+            
+    # for tfname in os.listdir(options.true_filename):
+    #     name = tfname.split(".")[0]
+    #     pred_dir = f"{options.pred_dir}/{name}/predictions"
+    #     out_dir = f"{options.output_dir}/{name}/"
+    #     print(out_dir)
+    #     if not os.path.exists(out_dir):
+    #         os.mkdir(out_dir)
+
+    pool_options = []
+    for arg in pool_args:
+        local_options = deepcopy(options)
+        local_options.true_filename = str(arg[0])
+        local_options.pred_dir = str(arg[1])
+        local_options.output_dir = str(arg[2])
+        pool_options.append(local_options)
+    
+    pool = Pool(processes=20)
+    print("=== Start multiprocessing pool")
+    r = list(tqdm(pool.imap(main_errors, pool_options), total=len(pool_options)))
