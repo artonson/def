@@ -37,7 +37,7 @@ def main(options):
             preload=PreloadTypes.LAZY,
             labels='*')
         name_for_plot = change_ext(
-            os.path.basename(input_filename), '').split('__', maxsplit=1)[1]
+            os.path.basename(input_filename), '').split('__', maxsplit=1)[-1]
 
         points = dataset[0]['points']
         distances = dataset[0]['distances']
