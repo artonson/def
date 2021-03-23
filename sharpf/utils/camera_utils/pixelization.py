@@ -172,7 +172,7 @@ class ImagePixelizer(ImagePixelizerBase):
         pixels_out, depth_out, signal_out = simple_z_buffered_rendering(
             pixels[frustum_indexes],
             depth[frustum_indexes],
-            signal[frustum_indexes],
+            signal[frustum_indexes] if None is not signal else None,
             self.image_size_in_pixels,
             depth_func_type='max')
         return pixels_out, depth_out, signal_out
