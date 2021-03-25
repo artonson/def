@@ -19,12 +19,21 @@ def parse_args():
 def split_hdf5(filename, label, output_dir, output_format="xyz", use_normals=False):
     
     with h5py.File(filename, 'r') as f:
-        data = list(f[label])
+        dat = list(f[label])
+        data = []
+        for d in dat:
+            data.append(d.reshape(-1,3))
         if use_normals:
-          normals = list(f['normals_estimation_100'])
-          data = np.concatenate([data, normals], axis = -1)
-          print(data.shape)
-          data = list(data)
+            norms = list(f['normals_estimation_100'])
+            normals = []
+            for i in range(len(data)):
+                normals.append(np.concatenate([data[i], norms[i].reshape(-1,3)], axis = -1))
+#             out = []
+#             for i in range(len(data)):
+#                 out.append(np.concatenate([data[i], normals[i]], axis = -1))
+#             data = np.concatenate([data, normals], axis = -1)
+#             print(data.shape)
+            data = normals
     
     file_basename = os.path.splitext(os.path.basename(filename))[0]
    

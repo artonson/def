@@ -12,6 +12,7 @@ def parse_args():
     parser.add_argument('-o', '--output_file', help='hdf5 file to merge files to')
     parser.add_argument('--input_format', help='input files format')
     parser.add_argument('--label', help='label in hdf5 file to put data to (default: pred)')
+    parser.add_argument('--varlen', default=False, help='variable length')
     args = parser.parse_args()
     return args
 
@@ -47,6 +48,11 @@ if __name__=='__main__':
     data = np.array(data)
 
     label = args.label if None is not args.label else 'pred'
-    with h5py.File(args.output_file, 'w') as out_file:
-        out_file.create_dataset(label, shape=data.shape, data=data, dtype=np.float32)
-
+    if args.varlen:
+        with h5py.File(args.output_file, 'w') as out_file:
+            dataset = out_file.create_dataset(label, shape=(len(data), ), dtype=h5py.special_dtype(vlen=np.float32))
+            for i in range(len(data)):
+                dataset[i] = data[i].ravel()
+    else:
+        with h5py.File(args.output_file, 'w') as out_file:
+            out_file.create_dataset(label, shape=data.shape, data=data, dtype=np.float32)
