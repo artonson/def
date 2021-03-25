@@ -17,19 +17,50 @@ def run_on_one_file(input_file, output_file, model_path, r_factor):
 
     result = []
     for batch_idx, data_values in enumerate(dataloader):
-
-        data_values = [val.squeeze().cuda() for val in data_values[:-1]]
-        pred = model(*data_values)
-        result.append(pred.cpu().detach().squeeze().numpy())
+#         print(data_values[0].shape)
+        if data_values[0].shape[0] == 1:
+#             print('begin')
+            d_v = []
+            for val in data_values[:-1]:
+#                 print(val.size())
+                if val.size() != (1,1):
+                    d_v.append(val.cuda())
+                else:
+                    d_v.append(val.cuda()[0])
+            data_values = d_v
+    #             print(len(data_values))
+#             data_values = [val.cuda() for val in data_values[:-1]]
+#             print('between')
+#             for val in data_values:
+#                     print(val.shape)
+#             print('end')
+#             print(len(data_values))
+#             data_values = [val.squeeze().cuda() for val in data_values[:-1]]
+#             print(len(data_values))
+            pred = model(*data_values)
+        else:
+#             print('begin')
+#             for val in data_values:
+#                 print(val.shape)
+    #             print(len(data_values))
+            data_values = [val.squeeze().cuda() for val in data_values[:-1]]
+#             print('between')
+#             for val in data_values:
+#                     print(val.shape)
+#             print('end')
+    #             print(len(data_values))
+            pred = model(*data_values)
+            result.append(pred.cpu().detach().squeeze().numpy())
 
     result = np.concatenate(result)
     np.savetxt(output_file, result)
 
 def run(input_dir, output_dir, model_path, r_factor):
-    input_files = glob(input_dir)
-
+    input_files = glob(str(input_dir))
     for input_file in tqdm(input_files, total=len(input_files)):
+#         print(input_file)
         output_file = os.path.join(output_dir, os.path.splitext(os.path.basename(input_file))[0] + '.txt')
+#         print(output_file)
         run_on_one_file(input_file, output_file, model_path, r_factor)
 
 

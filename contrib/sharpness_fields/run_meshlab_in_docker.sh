@@ -4,10 +4,9 @@
 #SBATCH --output=array_%A_%a.out
 #SBATCH --error=array_%A_%a.err
 #SBATCH --time=48:00:00
-#SBATCH --partition=gpu_big
-#SBATCH --gpus=1
-#SBATCH --mem 50G
+#SBATCH --partition=cpu_big
 #SBATCH --cpus-per-task=24
+#SBATCH --ntasks-per-node=1
 
 
 # example launch string:
@@ -44,17 +43,22 @@ if [[ ! ${DATA_LABEL} ]]; then
     exit 1
 fi
 
+if [[ ! ${MESHLAB_SCRIPT} ]]; then
+    echo "meshlab_script is not set";
+    usage
+    exit 1
+fi
+
 if [[ -z "${GPU_ENV}" ]] ; then
     echo "gpu_indexes not set; selecting GPU 0";
     GPU_ENV=0
 fi
 
-# OFFICIAL_IMAGE_NAME=/gpfs/gpfs0/a.matveev/mariataktasheva_sharp_features_sharpness_fields-2020-05-09-d61d7dfe0e3f.sif
-OFFICIAL_IMAGE_NAME=/gpfs/gpfs0/a.matveev/am_sharp_features_sharpness_fields_latest-2020-11-05-044fe64918cd.sif 
+OFFICIAL_IMAGE_NAME=/gpfs/gpfs0/a.matveev/mariataktasheva_sharp_features_sharpness_fields-2020-05-09-d61d7dfe0e3f.sif
 if [[ ! ${IMAGE_NAME} ]]; then
     echo "docker_image_name is not set; selecting the official docker image ${OFFICIAL_IMAGE_NAME}";
     IMAGE_NAME=${OFFICIAL_IMAGE_NAME}
-#    docker pull ${IMAGE_NAME}
+    docker pull ${IMAGE_NAME}
 fi
 
 DEFAULT_CONTAINER_NAME="3ddl.$( whoami ).$( uuidgen ).$( echo "${GPU_ENV}" | tr , . ).sharp_features_sharpness_fields"
@@ -78,7 +82,7 @@ SPLITCODE_PATH_CONTAINER="/home/hdf5_utils"
 INPUT_FILE_CONTAINER="${DATA_PATH_CONTAINER}/$(basename "${INPUT_FILE}")"
 MESHLAB_SCRIPT_CONTAINER="${SCRIPT_PATH_CONTAINER}/$(basename "${MESHLAB_SCRIPT}")"
 
-SPLIT_DATA_PATH_CONTAINER="${DATA_PATH_CONTAINER}/xyz_splitted_10"
+SPLIT_DATA_PATH_CONTAINER="${DATA_PATH_CONTAINER}/xyz_splitted"
 SPLIT_INPUT_CONTAINER="${SPLIT_DATA_PATH_CONTAINER}/*.xyz"
 # SPLIT_INPUT_MLS_CONTAINER="${SPLIT_DATA_PATH_CONTAINER}/*_mls.xyz"
 SPLIT_OUTPUT_CONTAINER="${DATA_PATH_CONTAINER}/sharpness_fields_results"
@@ -88,7 +92,7 @@ echo "******* LAUNCHING IMAGE ${IMAGE_NAME} IN CONTAINER ${CONTAINER_NAME} *****
 echo "  "
 echo "  HOST OPTIONS:"
 echo "  input path:           ${INPUT_FILE}"
-echo "  output path:          ${DATA_PATH_HOST}/xyz_splitted_10"
+echo "  output path:          ${DATA_PATH_HOST}/xyz_splitted"
 echo "  code path:            ${CODE_PATH_CONTAINER}"
 echo "  logs path:            ${LOGS_PATH_HOST}"
 echo "  "
@@ -100,7 +104,6 @@ echo "  code path:            ${CODE_PATH_CONTAINER}"
 echo "  logs path:            ${LOGS_PATH_CONTAINER}"
 
 singularity exec \
-    --nv \
     --bind "${DATA_PATH_HOST}":"${DATA_PATH_CONTAINER}" \
     --bind "${SCRIPT_PATH_HOST}":"${SCRIPT_PATH_CONTAINER}" \
     --bind "${LOGS_PATH_HOST}":"${LOGS_PATH_CONTAINER}" \
@@ -116,14 +119,16 @@ singularity exec \
                   --output_format 'xyz' \\
                   --label ${DATA_LABEL} \\
                   --use_normals true  && \\
-            cd ${CODE_PATH_CONTAINER} && \\
-            echo 'Evaluating the model...' && \\
-            python3 compute_sharpness.py \\
-                  '${SPLIT_INPUT_CONTAINER}' \\
-                  '${SPLIT_OUTPUT_CONTAINER}' \\
-                  -m ${MODEL_PATH_CONTAINER} \\
-                  -r 5.0 \\
-                  1>${LOGS_PATH_CONTAINER}/out.out \\
-                  2>${LOGS_PATH_CONTAINER}/err.err && \\
+            echo 'Performing MLS smoothing...' && \\
+            find ${SPLIT_DATA_PATH_CONTAINER} -type f -name '*.xyz' \\
+                  -exec xvfb-run -a -s '-screen 0 800x600x24' meshlabserver \\
+                        -i {} \\
+                        -o {} \\
+                        -s ${MESHLAB_SCRIPT_CONTAINER} \\
+                        -om vn {} \;  && \\
+            python3 merge_hdf5.py \\
+                    -i ${SPLIT_INPUT_CONTAINER} \\
+                    -o ${SPLIT_OUTPUT_CONTAINER} \\
+                    --input_format xyz && \\
             rm -rf ${SPLIT_DATA_PATH_CONTAINER} && \\
             echo 'Results are in ${DATA_PATH_HOST}/sharpness_fields_results'"

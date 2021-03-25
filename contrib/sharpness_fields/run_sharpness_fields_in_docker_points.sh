@@ -1,13 +1,11 @@
 #!/usr/bin/env bash
 
-#SBATCH --job-name=sharpf-data
+#SBATCH --job-name=shf
 #SBATCH --output=array_%A_%a.out
 #SBATCH --error=array_%A_%a.err
-#SBATCH --time=48:00:00
-#SBATCH --partition=gpu_big
+#SBATCH --partition=gpu
 #SBATCH --gpus=1
 #SBATCH --mem 50G
-#SBATCH --cpus-per-task=24
 
 
 # example launch string:
@@ -19,15 +17,17 @@
 
 usage() { echo "Usage: $0 -i <input_file> -l <label> -s <meshlab_script> -d <docker_image_name> -c <container_name> -g <gpu_indexes>" >&2; }
 
-while getopts "i:l:s:d:c:g:" opt
+while getopts "i:o:l:s:d:c:g:v:" opt
 do
     case ${opt} in
         i) INPUT_FILE=$OPTARG;;
+        o) OUTPUT_FOLDER=$OPTARG;;
         l) DATA_LABEL=$OPTARG;;
         s) MESHLAB_SCRIPT=$OPTARG;;
         d) IMAGE_NAME=$OPTARG;;
         c) CONTAINER_NAME=$OPTARG;;
         g) GPU_ENV=$OPTARG;;
+        v) VARLEN=${OPTARG};;
         *) usage; exit 1 ;;
     esac
 done
@@ -38,11 +38,17 @@ if [[ ! ${INPUT_FILE} ]]; then
     exit 1
 fi
 
-if [[ ! ${DATA_LABEL} ]]; then
-    echo "data_label is not set";
+if [[ ! ${OUTPUT_FOLDER} ]]; then
+    echo "output_folder is not set";
     usage
     exit 1
 fi
+
+# if [[ ! ${DATA_LABEL} ]]; then
+#     echo "data_label is not set";
+#     usage
+#     exit 1
+# fi
 
 if [[ -z "${GPU_ENV}" ]] ; then
     echo "gpu_indexes not set; selecting GPU 0";
@@ -65,6 +71,8 @@ fi
 
 DATA_PATH_HOST="$( cd "$( dirname "${INPUT_FILE}" )" >/dev/null 2>&1 && pwd )"
 DATA_PATH_CONTAINER="/home/data"
+OUT_PATH_HOST="${OUTPUT_FOLDER}"
+OUT_PATH_CONTAINER="/home/out"
 SCRIPT_PATH_HOST="$( cd "$( dirname "${MESHLAB_SCRIPT}" )" >/dev/null 2>&1 && pwd )"
 SCRIPT_PATH_CONTAINER="/home/scripts"
 LOCAL_DIR=/trinity/home/a.matveev/sharp_features/contrib/sharpness_fields
@@ -78,17 +86,17 @@ SPLITCODE_PATH_CONTAINER="/home/hdf5_utils"
 INPUT_FILE_CONTAINER="${DATA_PATH_CONTAINER}/$(basename "${INPUT_FILE}")"
 MESHLAB_SCRIPT_CONTAINER="${SCRIPT_PATH_CONTAINER}/$(basename "${MESHLAB_SCRIPT}")"
 
-SPLIT_DATA_PATH_CONTAINER="${DATA_PATH_CONTAINER}/xyz_splitted_10"
+SPLIT_DATA_PATH_CONTAINER="${OUT_PATH_CONTAINER}/xyz_splitted_sh"
 SPLIT_INPUT_CONTAINER="${SPLIT_DATA_PATH_CONTAINER}/*.xyz"
 # SPLIT_INPUT_MLS_CONTAINER="${SPLIT_DATA_PATH_CONTAINER}/*_mls.xyz"
-SPLIT_OUTPUT_CONTAINER="${DATA_PATH_CONTAINER}/sharpness_fields_results"
+SPLIT_OUTPUT_CONTAINER="${OUT_PATH_CONTAINER}/sharpness_fields_results"
 MODEL_PATH_CONTAINER="${CODE_PATH_CONTAINER}/sharpness_model.pt"
 
 echo "******* LAUNCHING IMAGE ${IMAGE_NAME} IN CONTAINER ${CONTAINER_NAME} *******"
 echo "  "
 echo "  HOST OPTIONS:"
 echo "  input path:           ${INPUT_FILE}"
-echo "  output path:          ${DATA_PATH_HOST}/xyz_splitted_10"
+echo "  output path:          ${OUT_PATH_HOST}/xyz_splitted_sh"
 echo "  code path:            ${CODE_PATH_CONTAINER}"
 echo "  logs path:            ${LOGS_PATH_HOST}"
 echo "  "
@@ -102,6 +110,7 @@ echo "  logs path:            ${LOGS_PATH_CONTAINER}"
 singularity exec \
     --nv \
     --bind "${DATA_PATH_HOST}":"${DATA_PATH_CONTAINER}" \
+    --bind "${OUT_PATH_HOST}":"${OUT_PATH_CONTAINER}" \
     --bind "${SCRIPT_PATH_HOST}":"${SCRIPT_PATH_CONTAINER}" \
     --bind "${LOGS_PATH_HOST}":"${LOGS_PATH_CONTAINER}" \
     --bind "${CODE_PATH_HOST}":"${CODE_PATH_CONTAINER}" \
@@ -110,12 +119,12 @@ singularity exec \
     /bin/bash \
         -c "cd ${SPLITCODE_PATH_CONTAINER} && \\
             echo 'Splitting input files...' && \\
-            python3 split_hdf5.py \\
+            python3 split_hdf5_points.py \\
                   ${INPUT_FILE_CONTAINER} \\
                   --output_dir ${SPLIT_DATA_PATH_CONTAINER} \\
                   --output_format 'xyz' \\
-                  --label ${DATA_LABEL} \\
-                  --use_normals true  && \\
+                  --use_normals true \\
+                  --label ${DATA_LABEL} && \\
             cd ${CODE_PATH_CONTAINER} && \\
             echo 'Evaluating the model...' && \\
             python3 compute_sharpness.py \\
@@ -125,5 +134,11 @@ singularity exec \
                   -r 5.0 \\
                   1>${LOGS_PATH_CONTAINER}/out.out \\
                   2>${LOGS_PATH_CONTAINER}/err.err && \\
+            cd ${SPLITCODE_PATH_CONTAINER}  && \\
+            python3 merge_hdf5.py \\
+                -i ${SPLIT_OUTPUT_CONTAINER} \\
+                -o ${SPLIT_OUTPUT_CONTAINER}/sh_result.hdf5 \\
+                --input_format txt \\
+                --varlen ${VARLEN} && \\
             rm -rf ${SPLIT_DATA_PATH_CONTAINER} && \\
             echo 'Results are in ${DATA_PATH_HOST}/sharpness_fields_results'"
