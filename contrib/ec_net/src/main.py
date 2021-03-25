@@ -346,6 +346,7 @@ class Network(object):
 
                 path = os.path.join(save_path, point_path.split('/')[-1][:-4] + "_output.xyz")
                 data_provider.save_xyz(path, pred)
+                print(path)
 
                 path = os.path.join(save_path, point_path.split('/')[-1][:-4] + "_outputedge.ply")
                 data_provider.save_ply(path, pred_edge)

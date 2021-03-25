@@ -1,0 +1,645 @@
+gn04.zhores
+Namespace(assign_model_path=None, batch_size=1, eval_input='/home/out/xyz_splitted/*.xyz', eval_output='/home/out/our_ec_net_results', gpu='0', is_crop=True, learning_rate=0.001, log_dir='/home/EC-Net/model/new_model', max_epoch=200, num_point=1024, phase='test', up_ratio=4, use_uniformloss=False)
+Crop flag is  True
+/home/EC-Net/model/new_model/model-140
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_0.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_0.xyz None None
+Normalize the point data
+Total 5630 points
+Build the graph cost 0.043730 second
+Build the graph cost 0.378662 second
+farthest distance sampling cost 0.0160298347473
+total 0 fails
+total 0 edgepoint
+total time:  2.2294819355
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_1.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_1.xyz None None
+Normalize the point data
+Total 4930 points
+Build the graph cost 0.088920 second
+Build the graph cost 0.337191 second
+farthest distance sampling cost 0.0173759460449
+total 0 fails
+total 0 edgepoint
+total time:  0.961354017258
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_10.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_10.xyz None None
+Normalize the point data
+Total 5215 points
+Build the graph cost 0.037192 second
+Build the graph cost 0.298625 second
+farthest distance sampling cost 0.0185339450836
+total 0 fails
+total 0 edgepoint
+total time:  0.969746828079
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_11.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_11.xyz None None
+Normalize the point data
+Total 5327 points
+Build the graph cost 0.037305 second
+Build the graph cost 0.372009 second
+farthest distance sampling cost 0.0187180042267
+total 0 fails
+total 0 edgepoint
+total time:  1.04727697372
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_12.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_12.xyz None None
+Normalize the point data
+Total 5775 points
+Build the graph cost 0.043945 second
+Build the graph cost 0.335182 second
+farthest distance sampling cost 0.0192139148712
+total 0 fails
+total 0 edgepoint
+total time:  1.06595993042
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_13.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_13.xyz None None
+Normalize the point data
+Total 5894 points
+Build the graph cost 0.043458 second
+Build the graph cost 0.413481 second
+farthest distance sampling cost 0.0197081565857
+total 0 fails
+total 0 edgepoint
+total time:  1.14943003654
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_14.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_14.xyz None None
+Normalize the point data
+Total 6133 points
+Build the graph cost 0.046278 second
+Build the graph cost 0.359767 second
+farthest distance sampling cost 0.0200469493866
+total 0 fails
+total 0 edgepoint
+total time:  1.09942698479
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_15.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_15.xyz None None
+Normalize the point data
+Total 4849 points
+Build the graph cost 0.034192 second
+Build the graph cost 0.345457 second
+farthest distance sampling cost 0.0200700759888
+total 0 fails
+total 0 edgepoint
+total time:  0.977596998215
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_16.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_16.xyz None None
+Normalize the point data
+Total 5289 points
+Build the graph cost 0.040622 second
+Build the graph cost 0.303925 second
+farthest distance sampling cost 0.0200710296631
+total 0 fails
+total 0 edgepoint
+total time:  0.977144956589
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_17.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_17.xyz None None
+Normalize the point data
+Total 5913 points
+Build the graph cost 0.043590 second
+Build the graph cost 0.344794 second
+farthest distance sampling cost 0.0207631587982
+total 0 fails
+total 0 edgepoint
+total time:  1.07871484756
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_18.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_18.xyz None None
+Normalize the point data
+Total 5452 points
+Build the graph cost 0.058214 second
+Build the graph cost 0.401276 second
+farthest distance sampling cost 0.0196850299835
+total 0 fails
+total 0 edgepoint
+total time:  1.08530306816
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_19.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_19.xyz None None
+Normalize the point data
+Total 5378 points
+Build the graph cost 0.043345 second
+Build the graph cost 0.312582 second
+farthest distance sampling cost 0.0209789276123
+total 0 fails
+total 0 edgepoint
+total time:  0.992167949677
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_2.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_2.xyz None None
+Normalize the point data
+Total 5391 points
+Build the graph cost 0.045821 second
+Build the graph cost 0.313998 second
+farthest distance sampling cost 0.0206899642944
+total 0 fails
+total 0 edgepoint
+total time:  0.992191076279
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_20.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_20.xyz None None
+Normalize the point data
+Total 5408 points
+Build the graph cost 0.042163 second
+Build the graph cost 0.382656 second
+farthest distance sampling cost 0.0209989547729
+total 0 fails
+total 0 edgepoint
+total time:  1.06179904938
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_21.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_21.xyz None None
+Normalize the point data
+Total 5606 points
+Build the graph cost 0.044445 second
+Build the graph cost 0.326981 second
+farthest distance sampling cost 0.0211918354034
+total 0 fails
+total 0 edgepoint
+total time:  1.00849986076
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_22.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_22.xyz None None
+Normalize the point data
+Total 6542 points
+Build the graph cost 0.050385 second
+Build the graph cost 0.452801 second
+farthest distance sampling cost 0.0215399265289
+total 0 fails
+total 0 edgepoint
+total time:  1.24459314346
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_23.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_23.xyz None None
+Normalize the point data
+Total 4843 points
+Build the graph cost 0.035066 second
+Build the graph cost 0.277225 second
+farthest distance sampling cost 0.0214800834656
+total 0 fails
+total 0 edgepoint
+total time:  0.915533065796
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_24.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_24.xyz None None
+Normalize the point data
+Total 6490 points
+Build the graph cost 0.051400 second
+Build the graph cost 0.447092 second
+farthest distance sampling cost 0.0214369297028
+total 0 fails
+total 0 edgepoint
+total time:  1.22861504555
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_25.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_25.xyz None None
+Normalize the point data
+Total 5927 points
+Build the graph cost 0.047824 second
+Build the graph cost 0.349118 second
+farthest distance sampling cost 0.0212781429291
+total 0 fails
+total 0 edgepoint
+total time:  1.0958070755
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_26.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_26.xyz None None
+Normalize the point data
+Total 4389 points
+Build the graph cost 0.032854 second
+Build the graph cost 0.250501 second
+farthest distance sampling cost 0.0216550827026
+total 0 fails
+total 0 edgepoint
+total time:  0.82984995842
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_27.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_27.xyz None None
+Normalize the point data
+Total 6690 points
+Build the graph cost 0.059067 second
+Build the graph cost 0.464208 second
+farthest distance sampling cost 0.022264957428
+total 0 fails
+total 0 edgepoint
+total time:  1.29597115517
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_28.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_28.xyz None None
+Normalize the point data
+Total 4429 points
+Build the graph cost 0.033427 second
+Build the graph cost 0.253995 second
+farthest distance sampling cost 0.0214269161224
+total 0 fails
+total 0 edgepoint
+total time:  0.84047293663
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_29.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_29.xyz None None
+Normalize the point data
+Total 5071 points
+Build the graph cost 0.039640 second
+Build the graph cost 0.352820 second
+farthest distance sampling cost 0.0220699310303
+total 0 fails
+total 0 edgepoint
+total time:  0.972929000854
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_3.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_3.xyz None None
+Normalize the point data
+Total 5809 points
+Build the graph cost 0.043829 second
+Build the graph cost 0.337654 second
+farthest distance sampling cost 0.0217788219452
+total 0 fails
+total 0 edgepoint
+total time:  1.06921005249
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_30.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_30.xyz None None
+Normalize the point data
+Total 5443 points
+Build the graph cost 0.042244 second
+Build the graph cost 0.313020 second
+farthest distance sampling cost 0.0218560695648
+total 0 fails
+total 0 edgepoint
+total time:  0.999186992645
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_31.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_31.xyz None None
+Normalize the point data
+Total 6312 points
+Build the graph cost 0.057532 second
+Build the graph cost 0.447413 second
+farthest distance sampling cost 0.0222849845886
+total 0 fails
+total 0 edgepoint
+total time:  1.2372879982
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_32.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_32.xyz None None
+Normalize the point data
+Total 5478 points
+Build the graph cost 0.040469 second
+Build the graph cost 0.315971 second
+farthest distance sampling cost 0.0222599506378
+total 0 fails
+total 0 edgepoint
+total time:  1.00766611099
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_33.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_33.xyz None None
+Normalize the point data
+Total 5080 points
+Build the graph cost 0.060113 second
+Build the graph cost 0.382616 second
+farthest distance sampling cost 0.0219738483429
+total 0 fails
+total 0 edgepoint
+total time:  1.01276302338
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_34.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_34.xyz None None
+Normalize the point data
+Total 5939 points
+Build the graph cost 0.044126 second
+Build the graph cost 0.345029 second
+farthest distance sampling cost 0.0223319530487
+total 0 fails
+total 0 edgepoint
+total time:  1.07759904861
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_35.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_35.xyz None None
+Normalize the point data
+Total 5564 points
+Build the graph cost 0.042242 second
+Build the graph cost 0.322385 second
+farthest distance sampling cost 0.0227000713348
+total 0 fails
+total 0 edgepoint
+total time:  1.02896308899
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_36.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_36.xyz None None
+Normalize the point data
+Total 5579 points
+Build the graph cost 0.119051 second
+Build the graph cost 0.395924 second
+farthest distance sampling cost 0.0217049121857
+total 0 fails
+total 0 edgepoint
+total time:  1.07927584648
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_37.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_37.xyz None None
+Normalize the point data
+Total 5743 points
+Build the graph cost 0.043075 second
+Build the graph cost 0.334261 second
+farthest distance sampling cost 0.0228018760681
+total 0 fails
+total 0 edgepoint
+total time:  1.07131195068
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_38.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_38.xyz None None
+Normalize the point data
+Total 5779 points
+Build the graph cost 0.059856 second
+Build the graph cost 0.424240 second
+farthest distance sampling cost 0.0231878757477
+total 0 fails
+total 0 edgepoint
+total time:  1.16393303871
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_39.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_39.xyz None None
+Normalize the point data
+Total 5827 points
+Build the graph cost 0.059096 second
+Build the graph cost 0.353328 second
+farthest distance sampling cost 0.022843837738
+total 0 fails
+total 0 edgepoint
+total time:  1.09468102455
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_4.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_4.xyz None None
+Normalize the point data
+Total 5144 points
+Build the graph cost 0.040271 second
+Build the graph cost 0.366754 second
+farthest distance sampling cost 0.0230741500854
+total 0 fails
+total 0 edgepoint
+total time:  1.05193686485
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_40.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_40.xyz None None
+Normalize the point data
+Total 5422 points
+Build the graph cost 0.048656 second
+Build the graph cost 0.320922 second
+farthest distance sampling cost 0.0227110385895
+total 0 fails
+total 0 edgepoint
+total time:  0.999970197678
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_41.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_41.xyz None None
+Normalize the point data
+Total 5014 points
+Build the graph cost 0.052844 second
+Build the graph cost 0.298625 second
+farthest distance sampling cost 0.0231461524963
+total 0 fails
+total 0 edgepoint
+total time:  0.929669857025
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_42.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_42.xyz None None
+Normalize the point data
+Total 5803 points
+Build the graph cost 0.043949 second
+Build the graph cost 0.403773 second
+farthest distance sampling cost 0.0228300094604
+total 0 fails
+total 0 edgepoint
+total time:  1.1340239048
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_43.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_43.xyz None None
+Normalize the point data
+Total 5651 points
+Build the graph cost 0.043044 second
+Build the graph cost 0.327593 second
+farthest distance sampling cost 0.0230951309204
+total 0 fails
+total 0 edgepoint
+total time:  1.13013005257
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_44.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_44.xyz None None
+Normalize the point data
+Total 5674 points
+Build the graph cost 0.042330 second
+Build the graph cost 0.401683 second
+farthest distance sampling cost 0.0231971740723
+total 0 fails
+total 0 edgepoint
+total time:  1.13924193382
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_45.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_45.xyz None None
+Normalize the point data
+Total 5477 points
+Build the graph cost 0.044757 second
+Build the graph cost 0.318934 second
+farthest distance sampling cost 0.0237019062042
+total 0 fails
+total 0 edgepoint
+total time:  1.00714707375
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_46.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_46.xyz None None
+Normalize the point data
+Total 5171 points
+Build the graph cost 0.038110 second
+Build the graph cost 0.294452 second
+farthest distance sampling cost 0.0233268737793
+total 0 fails
+total 0 edgepoint
+total time:  0.977009057999
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_47.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_47.xyz None None
+Normalize the point data
+Total 5551 points
+Build the graph cost 0.042876 second
+Build the graph cost 0.392393 second
+farthest distance sampling cost 0.0233678817749
+total 0 fails
+total 0 edgepoint
+total time:  1.08821606636
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_48.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_48.xyz None None
+Normalize the point data
+Total 5499 points
+Build the graph cost 0.055146 second
+Build the graph cost 0.331877 second
+farthest distance sampling cost 0.0232269763947
+total 0 fails
+total 0 edgepoint
+total time:  1.01788282394
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_49.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_49.xyz None None
+Normalize the point data
+Total 8629 points
+Build the graph cost 0.073101 second
+Build the graph cost 0.589852 second
+farthest distance sampling cost 0.0238029956818
+total 0 fails
+total 0 edgepoint
+total time:  1.59873104095
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_5.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_5.xyz None None
+Normalize the point data
+Total 5847 points
+Build the graph cost 0.045053 second
+Build the graph cost 0.339470 second
+farthest distance sampling cost 0.0240910053253
+total 0 fails
+total 0 edgepoint
+total time:  1.1098511219
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_50.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_50.xyz None None
+Normalize the point data
+Total 6430 points
+Build the graph cost 0.051550 second
+Build the graph cost 0.377068 second
+farthest distance sampling cost 0.024050951004
+total 0 fails
+total 0 edgepoint
+total time:  1.17413187027
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_51.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_51.xyz None None
+Normalize the point data
+Total 5219 points
+Build the graph cost 0.111214 second
+Build the graph cost 0.373389 second
+farthest distance sampling cost 0.0237019062042
+total 0 fails
+total 0 edgepoint
+total time:  1.06837511063
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_52.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_52.xyz None None
+Normalize the point data
+Total 5214 points
+Build the graph cost 0.041116 second
+Build the graph cost 0.300693 second
+farthest distance sampling cost 0.0239021778107
+total 0 fails
+total 0 edgepoint
+total time:  0.982572078705
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_53.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_53.xyz None None
+Normalize the point data
+Total 5013 points
+Build the graph cost 0.040346 second
+Build the graph cost 0.355223 second
+farthest distance sampling cost 0.0234339237213
+total 0 fails
+total 0 edgepoint
+total time:  0.985883951187
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_54.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_54.xyz None None
+Normalize the point data
+Total 5608 points
+Build the graph cost 0.043288 second
+Build the graph cost 0.324077 second
+farthest distance sampling cost 0.0236761569977
+total 0 fails
+total 0 edgepoint
+total time:  1.00629210472
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_55.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_55.xyz None None
+Normalize the point data
+Total 5432 points
+Build the graph cost 0.117791 second
+Build the graph cost 0.389512 second
+farthest distance sampling cost 0.0241270065308
+total 0 fails
+total 0 edgepoint
+total time:  1.07664394379
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_56.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_56.xyz None None
+Normalize the point data
+Total 5705 points
+Build the graph cost 0.042710 second
+Build the graph cost 0.404477 second
+farthest distance sampling cost 0.0240278244019
+total 0 fails
+total 0 edgepoint
+total time:  1.142318964
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_57.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_57.xyz None None
+Normalize the point data
+Total 6149 points
+Build the graph cost 0.046008 second
+Build the graph cost 0.358494 second
+farthest distance sampling cost 0.0247888565063
+total 0 fails
+total 0 edgepoint
+total time:  1.15189313889
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_58.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_58.xyz None None
+Normalize the point data
+Total 6248 points
+Build the graph cost 0.051416 second
+Build the graph cost 0.445050 second
+farthest distance sampling cost 0.0241928100586
+total 0 fails
+total 0 edgepoint
+total time:  1.2441599369
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_59.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_59.xyz None None
+Normalize the point data
+Total 4762 points
+Build the graph cost 0.037909 second
+Build the graph cost 0.274033 second
+farthest distance sampling cost 0.0247428417206
+total 0 fails
+total 0 edgepoint
+total time:  0.913253068924
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_6.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_6.xyz None None
+Normalize the point data
+Total 5304 points
+Build the graph cost 0.043000 second
+Build the graph cost 0.306966 second
+farthest distance sampling cost 0.0241980552673
+total 0 fails
+total 0 edgepoint
+total time:  0.985936164856
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_60.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_60.xyz None None
+Normalize the point data
+Total 4648 points
+Build the graph cost 0.036081 second
+Build the graph cost 0.341025 second
+farthest distance sampling cost 0.0244460105896
+total 0 fails
+total 0 edgepoint
+total time:  0.971349000931
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_61.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_61.xyz None None
+Normalize the point data
+Total 5676 points
+Build the graph cost 0.043380 second
+Build the graph cost 0.331715 second
+farthest distance sampling cost 0.0241639614105
+total 0 fails
+total 0 edgepoint
+total time:  1.05944013596
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_62.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_62.xyz None None
+Normalize the point data
+Total 5575 points
+Build the graph cost 0.043353 second
+Build the graph cost 0.321689 second
+farthest distance sampling cost 0.0243241786957
+total 0 fails
+total 0 edgepoint
+total time:  1.01139092445
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_63.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_63.xyz None None
+Normalize the point data
+Total 5711 points
+Build the graph cost 0.044814 second
+Build the graph cost 0.404505 second
+farthest distance sampling cost 0.024729013443
+total 0 fails
+total 0 edgepoint
+total time:  1.14330792427
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_7.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_7.xyz None None
+Normalize the point data
+Total 5209 points
+Build the graph cost 0.040329 second
+Build the graph cost 0.300515 second
+farthest distance sampling cost 0.0242230892181
+total 0 fails
+total 0 edgepoint
+total time:  0.985646009445
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_8.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_8.xyz None None
+Normalize the point data
+Total 5583 points
+Build the graph cost 0.042470 second
+Build the graph cost 0.324238 second
+farthest distance sampling cost 0.0250020027161
+total 0 fails
+total 0 edgepoint
+total time:  1.00886201859
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_9.xyz None
+/home/out/xyz_splitted/abc_0050_00500041_5aa40dcd43fa0b14df9bdcf8_010_points_9.xyz None None
+Normalize the point data
+Total 5873 points
+Build the graph cost 0.044049 second
+Build the graph cost 0.418326 second
+farthest distance sampling cost 0.0249440670013
+total 0 fails
+total 0 edgepoint
+total time:  1.16069412231
+0
