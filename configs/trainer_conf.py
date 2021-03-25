@@ -53,15 +53,13 @@ class LightningTrainerConf:
     val_check_interval: float = 1.0
     weights_summary: Optional[str] = 'top'
     weights_save_path: Optional[str] = None
-    move_metrics_to_cpu: bool = False
-    enable_pl_optimizer: bool = True
 
 
 @dataclass
 class LightningTrainerProjectConf(LightningTrainerConf):
     accelerator: Optional[str] = 'ddp'
     log_gpu_memory: Optional[str] = 'min_max'
-    log_every_n_steps: int = 1
+    log_every_n_steps: int = 5
     profiler: Any = 'simple'
     num_sanity_val_steps: int = 0
     sync_batchnorm: bool = True

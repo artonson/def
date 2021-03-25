@@ -3,6 +3,8 @@
 system_class:
   _target_: defs.modeling.DEFImageSegmentation
 
+eval_mode: false
+
 losses:
   - name: segmentatoin_loss
     out_key: preds_sharp

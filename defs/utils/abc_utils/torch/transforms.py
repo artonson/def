@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
 from collections import Callable
 
-import torch
 import numpy as np
+import torch
 import torch.nn.functional as F
 
 from .transformations import random_3d_rotation_matrix, image_to_points
@@ -98,14 +98,15 @@ class CompositeTransform(AbstractTransform):
 
 
 class ToTensor(AbstractTransform):
-    def __init__(self, keys, type):
+    def __init__(self, keys, type, reshape_points=True):
         super().__init__(keys)
         self.type = type
+        self.reshape_points = reshape_points
 
     def __call__(self, item):
         for key in self.keys:
             if key in item:
-                if key == 'points':
+                if key == 'points' and self.reshape_points:
                     item['points'] = item['points'].reshape((-1, 3))
                 # if key == 'voronoi':
                 #     item['voronoi'] = item['voronoi'].reshape((-1, 1))
@@ -146,9 +147,10 @@ class PreprocessDepth(AbstractTransform):
 
 class PreprocessArbitraryDepth(AbstractTransform):
 
-    def __init__(self, quantile):
+    def __init__(self, quantile, individual_quantile=False):
         super().__init__(None)
         self.quantile = quantile
+        self.individual_quantile = individual_quantile
 
     def __call__(self, item):
         if 'voronoi' in item:
@@ -160,7 +162,15 @@ class PreprocessArbitraryDepth(AbstractTransform):
         item['background_mask'] = (item['image'] == 0.0)
         item['image'] = torch.where(item['background_mask'], item['image'],
                                     item['image'] - torch.masked_select(item['image'], ~item['background_mask']).min())
-        item['image'] /= self.quantile
+        if self.individual_quantile:
+            quantile = np.quantile(item['image'].view(-1).numpy(), 0.95)
+            if quantile == 0:
+                quantile = item['image'].max()
+            if quantile == 0:
+                quantile = 1.0
+            item['image'] = item['image'] / quantile
+        else:
+            item['image'] /= self.quantile
         item['image'].unsqueeze_(0)
         return item
 
@@ -200,7 +210,6 @@ class PreprocessDistances(AbstractTransform):
         return item
 
 
-
 class DeleteKeys(AbstractTransform):
 
     def __call__(self, item):
@@ -219,7 +228,7 @@ class RenameKeys(AbstractTransform):
 
     def __call__(self, item):
         for old_key, new_key in zip(self.old_keys, self.new_keys):
-            assert new_key not in item
+            # assert new_key not in item, f"{new_key} not in {item.keys()}"
             item[new_key] = item[old_key]
         return item
 
@@ -292,6 +301,34 @@ class ComputeTargetSharp(AbstractTransform):
 
     def __call__(self, item):
         item['target_sharp'] = (item['distances'] < self.resolution).long()
+        return item
+
+
+class ClampDistances(AbstractTransform):
+
+    def __init__(self):
+        super().__init__(None)
+
+    def __call__(self, item):
+        if 'distances' in item:
+            item['distances'] = item['distances'].clamp(0.0, 1.0)
+        return item
+
+
+class CenterCrop(AbstractTransform):
+
+    def __init__(self, size_h: int, size_w: int):
+        super().__init__(None)
+        self.size_h = size_h
+        self.size_w = size_w
+
+    def __call__(self, item):
+        h, w = item['image'].size()
+        x1 = int(round((w - self.size_w) / 2.))
+        y1 = int(round((h - self.size_h) / 2.))
+        item['image'] = item['image'][y1:y1 + self.size_h, x1:x1 + self.size_w]
+        if 'distances' in item:
+            item['distances'] = item['distances'][y1:y1 + self.size_h, x1:x1 + self.size_w]
         return item
 
 # class ComputeBackgroundMask(AbstractTransform):

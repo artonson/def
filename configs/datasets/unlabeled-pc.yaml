@@ -1,0 +1,19 @@
+# @package _group_
+
+path: ???
+compute_metrics: false
+save_predictions: true
+
+train: ~
+val: ~
+test:
+  - dataset_name: test
+    dataset_class:
+      _target_: defs.utils.abc_utils.LotsOfHdf5Files
+      io:
+        _target_: defs.data.WholePointCloudIO
+      filenames: ['${datasets.path}']
+      labels: ['points']
+      transform: ${transform.test}
+      max_loaded_files: 1
+      return_index: true

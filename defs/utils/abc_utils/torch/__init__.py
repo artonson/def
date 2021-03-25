@@ -7,5 +7,6 @@ from .transforms import (
     NormalizeByMaxL2, NormalizeL2, Random3DRotation, ComputeIsFlatProperty, RandomScale, AbstractTransform,
     CompositeTransform, ToTensor, Center,
     PreprocessDepth, PreprocessDistances, DeleteKeys, RenameKeys,
-    Concatenate, DepthToPointCloud, Flatten, ComputeTargetSharp, PreprocessArbitraryDepth, PreprocessArbitrarySLDepth
+    Concatenate, DepthToPointCloud, Flatten, ComputeTargetSharp, PreprocessArbitraryDepth, PreprocessArbitrarySLDepth,
+    ClampDistances, CenterCrop
 )

@@ -107,6 +107,9 @@ class DEFPointsRegression(LightningModule):
             log.warning(f"The violation of assumed range: min={min_value}, max={max_value}")
 
     def training_step(self, batch, batch_idx: int):
+        if self.hparams.system.eval_mode:
+            self.model.eval()
+
         self._check_range(batch['distances'])
         outputs = self.forward(batch['points'], clamp=False)
 
@@ -205,6 +208,17 @@ class DEFPointsRegression(LightningModule):
 
     def test_epoch_end(self, outputs):
         return self._shared_eval_epoch_end(outputs, 'test')
+
+    def on_fit_end(self, *args, **kwargs):
+        for stage in ['train', 'val']:
+            if self.datasets[stage] is not None:
+                for _, dataset in self.datasets[stage]:
+                    dataset.unload()
+
+    def on_test_end(self, *args, **kwargs):
+        if self.datasets['test'] is not None:
+            for _, dataset in self.datasets['test']:
+                dataset.unload()
 
     def configure_optimizers(self):
         params = get_params_for_optimizer(self.model, self.hparams.opt.lr, self.hparams.opt.weight_decay,

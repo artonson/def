@@ -35,8 +35,8 @@ class DEFImageRegression(LightningModule):
         self.save_predictions = self.hparams.datasets.save_predictions
         if self.save_predictions:
             self.save_dir = os.path.join(os.getcwd(), 'predictions')
-            if is_main_process() and not os.path.exists(self.save_dir):
-                os.mkdir(self.save_dir)
+            # if is_main_process() and not os.path.exists(self.save_dir):
+            #     os.mkdir(self.save_dir)
             log.info(f"The predictions will be saved in {self.save_dir}")
             synchronize()
 
@@ -117,6 +117,9 @@ class DEFImageRegression(LightningModule):
             log.warning(f"The violation of assumed range: min={min_value}, max={max_value}")
 
     def training_step(self, batch, batch_idx: int):
+        if self.hparams.system.eval_mode:
+            self.model.eval()
+
         self._check_range(batch['distances'])
         outputs = self.forward(batch['points'], clamp=False)
 
@@ -157,6 +160,7 @@ class DEFImageRegression(LightningModule):
         if self.save_predictions:
             for i, index in enumerate(batch['index']):
                 dataset_name, _ = self.datasets[partition][dataloader_idx]
+                # print(index.item(), result['distances'][i].mean().item())
                 np.save(os.path.join(self.save_dir, f"{dataset_name}_{index.item()}.npy"),
                         result['distances'][i].cpu().numpy())
 
@@ -244,6 +248,17 @@ class DEFImageRegression(LightningModule):
 
     def test_epoch_end(self, outputs):
         return self._shared_eval_epoch_end(outputs, 'test')
+
+    def on_fit_end(self, *args, **kwargs):
+        for stage in ['train', 'val']:
+            if self.datasets[stage] is not None:
+                for _, dataset in self.datasets[stage]:
+                    dataset.unload()
+
+    def on_test_end(self, *args, **kwargs):
+        if self.datasets['test'] is not None:
+            for _, dataset in self.datasets['test']:
+                dataset.unload()
 
     def configure_optimizers(self):
         params = get_params_for_optimizer(self.model, self.hparams.opt.lr, self.hparams.opt.weight_decay,

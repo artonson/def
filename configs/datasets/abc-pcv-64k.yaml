@@ -35,6 +35,18 @@ val:
       transform: ${transform.val}
       max_loaded_files: 2
 test:
+  - dataset_name: val
+    dataset_class:
+      _target_: defs.utils.abc_utils.LotsOfHdf5Files
+      io:
+        _target_: defs.data.PointCloudIO
+      filenames: [
+        '${hydra:runtime.cwd}/data/points/${datasets.resolution}_res.json/${datasets.noise}/val_w_v/train_0.hdf5',
+        '${hydra:runtime.cwd}/data/points/${datasets.resolution}_res.json/${datasets.noise}/val_w_v/train_1.hdf5'
+      ]
+      labels: ['points', 'distances', 'voronoi']
+      transform: ${transform.val}
+      max_loaded_files: 2
   - dataset_name: test
     dataset_class:
       _target_: defs.utils.abc_utils.LotsOfHdf5Files

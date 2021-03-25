@@ -21,13 +21,13 @@ class MIOU(Metric):
             target (Tensor): Ground truth values of size (batch, num_points)
         """
         assert preds.dtype == torch.bool and target.dtype == torch.bool
-        assert torch.all(target.sum(dim=1) > 0)
+        assert torch.all(torch.any(target, dim=1))
         preds = preds.float()
         target = target.float()
 
         intersection = preds * target
         union = (target + preds - intersection).sum(dim=1)
-        self.iou_sum += (intersection / union).sum().detach().cpu()
+        self.iou_sum += (intersection.sum(dim=1) / union).sum().detach().cpu()
         self.total += preds.size(0)
 
     def compute(self):

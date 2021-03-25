@@ -88,7 +88,7 @@ class Hdf5File(Dataset):
 
 class LotsOfHdf5Files(Dataset):
     def __init__(self, io, labels, filenames=None, data_dir=None, partition=None, transform=None, max_loaded_files=0,
-                 return_index=False, virtual_size=None):
+                 return_index=False, virtual_size=None, preload=False):
         assert (data_dir is not None) != (filenames is not None), "either provide only data_dir or only filenames arg"
         assert max_loaded_files >= 0
 
@@ -112,6 +112,14 @@ class LotsOfHdf5Files(Dataset):
 
         self.files = [hdf5_file for hdf5_file in filter(lambda obj: obj is not None,
                                                         threaded_parallel(_hdf5_creator, filenames))]
+
+        if preload:
+            print("Start preloading.")
+            for i in range(len(self.files)):
+                if not self.files[i].is_loaded():
+                    self.files[i].reload()
+                    print(f"Preloaded {i + 1} out of {len(self.files)}.")
+
         self.cum_num_items = np.cumsum([len(f) for f in self.files])
         self.current_file_idx = 0
         self.max_loaded_files = max_loaded_files
@@ -123,6 +131,10 @@ class LotsOfHdf5Files(Dataset):
         if len(self.cum_num_items) > 0:
             return self.cum_num_items[-1]
         return 0
+
+    def unload(self):
+        for file in self.files:
+            file.unload()
 
     def __len__(self):
         if self.virtual_size is not None:

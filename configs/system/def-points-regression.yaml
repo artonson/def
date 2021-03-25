@@ -3,6 +3,8 @@
 system_class:
   _target_: defs.modeling.DEFPointsRegression
 
+eval_mode: false
+
 losses:
   - name: distances_loss
     out_key: distances
