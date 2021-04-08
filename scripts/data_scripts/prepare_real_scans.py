@@ -6,6 +6,7 @@ from io import BytesIO
 import os
 import sys
 
+import igl
 import numpy as np
 import trimesh
 import trimesh.transformations as tt
@@ -25,6 +26,7 @@ from sharpf.utils.convertor_utils.convertors_io import RangeVisionIO, write_real
 import sharpf.utils.convertor_utils.rangevision_utils as rv_utils
 from sharpf.utils.camera_utils import matrix
 from sharpf.utils.abc_utils.abc.feature_utils import get_curves_extents
+from sharpf.utils.numpy_utils.transformations import transform_to_frame
 
 
 def scale_mesh(
@@ -88,7 +90,6 @@ def process_scans(
         manual_alignment_transforms,
         stl_transform,
         item_id,
-        is_mirrored=False,
 ):
     rvn = rv_utils.RangeVisionNames
 
@@ -101,21 +102,25 @@ def process_scans(
         short_curve_quantile=SHORT_CURVE_QUANTILE,
         n_points_per_curve=BASE_N_POINTS_PER_SHORT_CURVE)
 
-    output_scans = []
-    for scan_index, scan in tqdm(enumerate(dataset)):
+    flip_z = np.array([
+        [1, 0, 0, 0],
+        [0, 1, 0, 0],
+        [0, 0, -1, 0],
+        [0, 0, 0, 1]])
 
+    output_scans = []
+    for scan_index, scan in enumerate(tqdm(dataset)):
         # The algorithm:
         # * check if scan is usable?
         #  1) load the raw scanned 3D points from HDF5 (directly exported from scanner)
         points = np.array(scan[rvn.points]).reshape((-1, 3))
         faces = np.array(scan[rvn.faces]).reshape((-1, 3))
 
-        #  1a) if we know that the scan must be mirrored, do this
-        if is_mirrored:
-            scan_mesh = trimesh.base.Trimesh(points, faces, process=False, validate=False)
-            scan_mesh.vertices[:, 2] = -scan_mesh.vertices[:, 2]
-            scan_mesh.invert()
-            points, faces = scan_mesh.vertices, scan_mesh.faces
+        #  1a) we know that the scan must be mirrored, do this
+        scan_mesh = trimesh.base.Trimesh(points, faces, process=False, validate=False)
+        scan_mesh.vertices = tt.transform_points(scan_mesh.vertices, flip_z)
+        scan_mesh.invert()
+        points, faces = scan_mesh.vertices, scan_mesh.faces
 
         #  2a) load the automatic scanner alignment transformation
         rv_alignment_transform = np.array(scan[rvn.alignment]).reshape((4, 4))
@@ -129,35 +134,23 @@ def process_scans(
         #  2c) load manual alignments from meshlab project
         manual_alignment_transform = manual_alignment_transforms[scan_index]
 
+        #  2e) compute transform that would align scans in source frame
+        manual_alignment_transform = transform_to_frame(
+            manual_alignment_transform, np.linalg.inv(wrong_extrinsics))
+        alignment_transform = manual_alignment_transform @ rv_alignment_transform
+        alignment_transform = transform_to_frame(alignment_transform, flip_z)
+
         #  2d) load vertex_matrix, this is transform to board coordinate system
         scan_to_board_transform = np.linalg.inv(
             np.array(scan[rvn.vertex_matrix]).reshape((4, 4)))
 
-        #  2e) compute transform that would align scans in source frame
-        fine_alignment_transform = np.dot(
-            np.linalg.inv(wrong_extrinsics),
-            np.dot(
-                manual_alignment_transform,
-                wrong_extrinsics))
-        alignment_transform = np.dot(fine_alignment_transform, rv_alignment_transform)
-
         #  2d) compute transform that would align scans in board frame
-        board_alignment_transform = np.dot(
-            scan_to_board_transform,
-            np.dot(
-                alignment_transform,
-                np.linalg.inv(scan_to_board_transform))
-        )
+        board_alignment_transform = transform_to_frame(alignment_transform, scan_to_board_transform)
         points_wrt_calib_board = tt.transform_points(points, scan_to_board_transform)
 
         #  3) compute transform that would align mesh to points in board frame
-        obj_fine_alignment_transform = np.dot(
-            np.linalg.inv(wrong_extrinsics),
-            stl_transform)
-
-        obj_alignment_transform = np.dot(
-            scan_to_board_transform,
-            obj_fine_alignment_transform)
+        obj_alignment_transform = flip_z @ np.linalg.inv(wrong_extrinsics) @ stl_transform
+        obj_alignment_transform = scan_to_board_transform @ obj_alignment_transform
 
         #  4) get extrinsics of right camera
         right_extrinsics_4x4 = rv_utils.get_right_camera_extrinsics(
@@ -193,6 +186,32 @@ def process_scans(
 
 
 def debug_plot(output_scans, obj_mesh, output_filename):
+    def plot_alignment_quality(views, mesh):
+        distances = np.concatenate(
+            [np.sqrt(igl.point_mesh_squared_distance(
+                view.depth, mesh.vertices, mesh.faces)[0])
+             for view in views])
+
+        plt.figure(figsize=(12, 6))
+        _ = plt.hist(distances, bins=100, range=[0, 10])
+        plt.gca().set_yscale('log')
+        plt.gca().set_ylim([0, 1e5])
+        plt.gca().set_xlim([0, 10])
+        plt.gca().set_xlabel('Distance to ground truth CAD model, mm', fontsize=14)
+        plt.gca().set_ylabel('Number of point samples', fontsize=14)
+        plt.gca().tick_params(axis='both', which='major', labelsize=14)
+        plt.gca().tick_params(axis='both', which='minor', labelsize=14)
+
+        for q in [0.5, 0.95, 0.99]:
+            q_val = np.quantile(distances, q)
+            label = '{0:3.0f}%: {1:0.2f}'.format(q * 100, q_val)
+            plt.axvline(q_val, 0, 1e5,
+                        color=plt.get_cmap('rainbow')(q), linewidth=3,
+                        label=label)
+            print(label)
+        plt.legend(fontsize=16, loc='upper right')
+
+
     import k3d
     import time
     import randomcolor
@@ -275,6 +294,10 @@ def debug_plot(output_scans, obj_mesh, output_filename):
     output_png = change_ext(output_filename, '') + '_depthmaps.png'
     plt.savefig(output_png)
 
+    plot_alignment_quality(views, mesh)
+    output_png = change_ext(output_filename, '') + '_alignment_hist.png'
+    plt.savefig(output_png)
+
 
 def main(options):
     stl_filename = glob(os.path.join(options.input_dir, '*.stl'))[0]
@@ -310,8 +333,7 @@ def main(options):
         yml_features,
         manual_alignment_transforms,
         stl_transform,
-        item_id,
-        is_mirrored=options.is_mirrored)
+        item_id)
 
     print('Writing output file...')
     write_realworld_views_to_hdf5(options.output_filename, output_scans)
@@ -328,8 +350,6 @@ def parse_args():
                         required=True, help='input directory with scans.')
     parser.add_argument('-o', '--output', dest='output_filename',
                         required=True, help='output .hdf5 filename.')
-    parser.add_argument('--mirrored', dest='is_mirrored', action='store_true', default=False,
-                        required=False, help='treat data as mirrored')
     parser.add_argument('--verbose', dest='verbose', action='store_true', default=False,
                         help='be verbose')
     parser.add_argument('--debug', dest='debug', action='store_true', default=False,
