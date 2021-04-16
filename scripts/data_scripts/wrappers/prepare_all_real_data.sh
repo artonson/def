@@ -34,6 +34,7 @@ function print_prepare() {
     ${DEBUG_FLAG} \\
     ${VERBOSE_FLAG}"
 }
+export -f print_prepare
 
 PREPARE_CMDS_FILE=all_prepare_commands.sh
 find ${INPUT_BASE_DIR} \
