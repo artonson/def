@@ -90,7 +90,7 @@ def extract_scans(result: pp.ParseResults):
     return scans
 
 
-def write_scans_to_ply(output_filename, scans):
+def write_scans_to_ply(output_prefix, scans):
     import open3d as o3d
     import trimesh.transformations as tt
 
@@ -119,7 +119,7 @@ def write_scans_to_ply(output_filename, scans):
         points_global = tt.transform_points(points, transform)
 
         mesh = open3d_mesh_from_numpy(points_global, faces)
-        output_filename_scan = "{}_{}.ply".format(change_ext(output_filename, ''), scan_index)
+        output_filename_scan = "{}_{}.ply".format(output_prefix, scan_index)
         o3d.io.write_triangle_mesh(
             output_filename_scan,
             mesh,
@@ -148,11 +148,13 @@ def main(options):
 
     if options.is_output_hdf5:
         print('Writing scans to output HDF5 container...')
-        write_raw_rv_scans_to_hdf5(options.output_filename, scans)
+        output_hdf5_filename = os.path.join(options.output_dir, scan_name + '.hdf5')
+        write_raw_rv_scans_to_hdf5(output_hdf5_filename, scans)
 
     if options.is_output_ply:
         print('Writing scans to output PLY containers...')
-        write_scans_to_ply(options.output_filename, scans)
+        output_plyfile_prefix = os.path.join(options.output_dir, scan_name)
+        write_scans_to_ply(output_plyfile_prefix, scans)
 
 
 def parse_args():
@@ -160,8 +162,8 @@ def parse_args():
 
     parser.add_argument('-i', '--input', dest='input_filename',
                         required=True, help='input .x filename.')
-    parser.add_argument('-o', '--output', dest='output_filename',
-                        required=True, help='output .hdf5 filename.')
+    parser.add_argument('-o', '--output', dest='output_dir',
+                        required=True, help='output directory.')
     parser.add_argument('--verbose', dest='verbose', action='store_true', default=False,
                         required=False, help='be verbose')
     parser.add_argument('--hdf5', dest='is_output_hdf5', action='store_true', default=False,
