@@ -28,7 +28,7 @@ jupyter-client==6.1.7
 jupyter-console==6.2.0
 jupyter-core==4.6.3
 jupyterlab-pygments==0.1.2
-K3D==2.7.0
+K3D==2.9.0
 kiwisolver==1.2.0
 MarkupSafe==1.1.1
 matplotlib==3.3.2
@@ -84,3 +84,5 @@ wcwidth==0.2.5
 webencodings==0.5.1
 widgetsnbextension==3.5.1
 zipp==3.4.0
+msgpack
+dataclasses
