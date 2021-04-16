@@ -22,11 +22,12 @@ sys.path[1:1] = [__dir__]
 from sharpf.utils.abc_utils.hdf5.dataset import Hdf5File, PreloadTypes
 from sharpf.utils.abc_utils.mesh.io import trimesh_load
 from sharpf.utils.convertor_utils.meshlab_project_parsers import load_meshlab_project
-from sharpf.utils.convertor_utils.convertors_io import RangeVisionIO, write_realworld_views_to_hdf5
+from sharpf.utils.convertor_utils.convertors_io import RangeVisionIO, write_realworld_views_to_hdf5, ViewIO
 import sharpf.utils.convertor_utils.rangevision_utils as rv_utils
 from sharpf.utils.camera_utils import matrix
 from sharpf.utils.abc_utils.abc.feature_utils import get_curves_extents
 from sharpf.utils.numpy_utils.transformations import transform_to_frame
+from sharpf.utils.plotting import plot_views
 
 
 def scale_mesh(
@@ -185,7 +186,7 @@ def process_scans(
     return output_scans
 
 
-def debug_plot(output_scans, obj_mesh, output_filename):
+def debug_plot(views_iterable, obj_mesh, output_filename):
     def plot_alignment_quality(views, mesh):
         distances = np.concatenate(
             [np.sqrt(igl.point_mesh_squared_distance(
@@ -211,71 +212,32 @@ def debug_plot(output_scans, obj_mesh, output_filename):
             print(label)
         plt.legend(fontsize=16, loc='upper right')
 
-
-    import k3d
     import time
-    import randomcolor
     import matplotlib.pyplot as plt
 
     from sharpf.utils.camera_utils.view import CameraView
     from sharpf.utils.plotting import display_depth_sharpness
     from sharpf.utils.py_utils.os import change_ext
 
-
-    all_points = [
-        tt.transform_points(
-            scan['points'].reshape((-1, 3)),
-            scan['points_alignment'])
-        for scan in output_scans
-    ]
-
     views = [
         CameraView(
-            depth=scan['points'].reshape((-1, 3)),
+            depth=tt.transform_points(
+                scan['points'].reshape((-1, 3)),
+                scan['points_alignment']),
             signal=None,
             faces=scan['faces'].reshape((-1, 3)),
-            extrinsics=scan['extrinsics'],
+            extrinsics=np.dot(scan['points_alignment'], scan['extrinsics']),
             intrinsics=scan['intrinsics'],
             state='points')
-        for scan in output_scans]
-    processed_views = [view.to_pixels().to_points() for view in views]
+        for scan in views_iterable]
 
-    all_points_processed = [
-        tt.transform_points(view.depth, scan['points_alignment'])
-        for view, scan in zip(processed_views, output_scans)
-    ]
-
-    plot_height = 768
-    plot = k3d.plot(grid_visible=True, height=plot_height)
-
-    # rand_color = randomcolor.RandomColor()
-    # color = rand_color.generate(hue='red')[0]
-    # color = int('0x' + color[1:], 16)
-    #
-    plot += k3d.points(
-        np.concatenate(all_points),
-        point_size=0.25,
-        color=0xff0000,
-        shader='flat')
-
-    plot += k3d.points(
-        np.concatenate(all_points_processed),
-        point_size=0.25,
-        color=0x00ff00,
-        shader='flat')
-
-    obj_scale = output_scans[0]['obj_scale']
-    obj_alignment = output_scans[0]['obj_alignment']
+    obj_scale = views_iterable[0]['obj_scale']
+    obj_alignment = views_iterable[0]['obj_alignment']
     mesh = obj_mesh.copy().apply_scale(obj_scale).apply_transform(obj_alignment)
-    plot += k3d.mesh(
-        mesh.vertices,
-        mesh.faces,
-        color=0xaaaaaa)
 
+    plot = plot_views(views, mesh)
     plot.fetch_snapshot()
-
-    time.sleep(3)
-
+    time.sleep(10)
     output_html = change_ext(output_filename, '') + '_alignment.html'
     with open(output_html, 'w') as f:
         f.write(plot.get_snapshot())
@@ -340,7 +302,12 @@ def main(options):
 
     if options.debug:
         print('Plotting debug figures...')
-        debug_plot(output_scans, obj_mesh, options.output_filename)
+        saved_dataset = Hdf5File(
+            options.output_filename,
+            ViewIO,
+            preload=PreloadTypes.LAZY,
+            labels='*')
+        debug_plot(saved_dataset, obj_mesh, options.output_filename)
 
 
 def parse_args():

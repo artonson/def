@@ -3,6 +3,8 @@ from base64 import b64decode
 
 import k3d
 import numpy as np
+import trimesh
+import trimesh.transformations as tt
 from IPython.display import Image
 import randomcolor
 
@@ -217,3 +219,71 @@ def display_depth_sharpness(
                 sharpness_ax.axis('off')
 
     plt.tight_layout(pad=0, h_pad=0.25, w_pad=0.25)
+
+
+def get_random_color(hue=None):
+    rand_color = randomcolor.RandomColor()
+    color = rand_color.generate(hue=hue)[0]
+    color = int('0x' + color[1:], 16)
+    return color
+
+
+def illustrate_camera(
+        camera_pose,
+        l=1.0,
+        w=1.0,
+        use_head=False,
+        hs=1.0,
+):
+    camera_center = np.array([
+        camera_pose.frame_origin,
+        camera_pose.frame_origin,
+        camera_pose.frame_origin])
+
+    camera_frame = np.array([
+        camera_pose.frame_axes
+    ]) * l
+
+    x_color = 0xff0000
+    y_color = 0x00ff00
+    z_color = 0x0000ff
+
+    vectors = k3d.vectors(
+        camera_center,
+        camera_frame,
+        use_head=use_head,
+        head_size=hs,
+        line_width=w,
+        colors=[x_color, x_color, y_color, y_color, z_color, z_color], )
+
+    return vectors
+
+
+def plot_views(views, mesh):
+    plot = k3d.plot(grid_visible=True, height=768)
+
+    for view in views:
+        scan_mesh = trimesh.base.Trimesh(
+            view.depth,
+            view.faces,
+            process=False,
+            validate=False)
+
+        plot += k3d.points(
+            scan_mesh.vertices,
+            point_size=0.25,
+            color=get_random_color(hue='green'),
+            shader='flat')
+        
+        plot += illustrate_camera(
+            view.pose,
+            l=2000,
+            w=10)
+
+    plot += k3d.mesh(
+        mesh.vertices,
+        mesh.faces,
+        color=0xaaaaaa,
+        flat_shading=False)
+
+    return plot
