@@ -235,7 +235,10 @@ def debug_plot(views_iterable, obj_mesh, output_filename):
     obj_alignment = views_iterable[0]['obj_alignment']
     mesh = obj_mesh.copy().apply_scale(obj_scale).apply_transform(obj_alignment)
 
-    plot = plot_views(views, mesh)
+    plot = plot_views(
+        views, mesh,
+        camera_l=2000,
+        camera_w=1)
     plot.fetch_snapshot()
     time.sleep(10)
     output_html = change_ext(output_filename, '') + '_alignment.html'

@@ -259,7 +259,12 @@ def illustrate_camera(
     return vectors
 
 
-def plot_views(views, mesh):
+def plot_views(
+        views,
+        mesh,
+        camera_l=1,
+        camera_w=1,
+):
     plot = k3d.plot(grid_visible=True, height=768)
 
     for view in views:
@@ -277,8 +282,8 @@ def plot_views(views, mesh):
         
         plot += illustrate_camera(
             view.pose,
-            l=2000,
-            w=10)
+            l=camera_l,
+            w=camera_w)
 
     plot += k3d.mesh(
         mesh.vertices,
