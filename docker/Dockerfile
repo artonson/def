@@ -30,7 +30,8 @@ RUN apt-get clean \
     libmpfr-dev \
     libboost-dev \
     libboost-thread-dev \
-    libtbb-dev
+    libtbb-dev \
+    parallel
 
 RUN wget https://github.com/Kitware/CMake/releases/download/v3.17.4/cmake-3.17.4-Linux-x86_64.sh \
  && sh cmake-3.17.4-Linux-x86_64.sh --skip-license --prefix=/usr
