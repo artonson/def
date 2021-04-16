@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -x
+#set -x
 set -e
 
 # Set up variables -- we assume we're working in docker container
@@ -28,25 +28,30 @@ echo "Fetching scans to preprocess..."
 
 function print_prepare() {
   local folder=$1
-  echo "python ${PREPARE_SCRIPT} \\
-    -i ${folder} \\
-    -o ${OUTPUT_IMAGES_DIR}/$( basename "${folder}" )_images.hdf5 \\
-    ${DEBUG_FLAG} \\
-    ${VERBOSE_FLAG}"
+  echo "python ${PREPARE_SCRIPT}
+ -i ${folder}
+ -o ${OUTPUT_IMAGES_DIR}/$( basename "${folder}" )_preprocessed.hdf5
+ ${DEBUG_FLAG}
+ ${VERBOSE_FLAG}"
 }
-export -f print_prepare
 
 PREPARE_CMDS_FILE=all_prepare_commands.sh
 find ${INPUT_BASE_DIR} \
   -type d \
   -regextype egrep \
   -regex "${INPUT_SUBFOLDER_REGEX}" \
-  -exec bash -c 'folder="$1" print_prepare "$folder"' _ {} \; >>${PREPARE_CMDS_FILE}
+  -print0 | \
+  while IFS= read -d '' file
+  do 
+    print_prepare "$file" | tr -d '\n'
+    echo
+  done >${PREPARE_CMDS_FILE}
+
 
 # 1.1. Preprocess scans.
-#NUM_PROCESSES=20
-#echo "Preprocessing scans..."
-#parallel -j ${NUM_PROCESSES} <${PREPARE_CMDS_FILE}
+NUM_PROCESSES=20
+echo "Preprocessing scans..."
+parallel -j ${NUM_PROCESSES} <${PREPARE_CMDS_FILE}
 
 # If you don't have parallel...
 #PREPARE_PREFIX=prepare_
