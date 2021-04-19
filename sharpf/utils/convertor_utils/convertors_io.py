@@ -90,6 +90,7 @@ AnnotatedViewIO = io_struct.HDF5IO({
     'has_sharp': io_struct.Bool('has_sharp'),
     'num_sharp_curves': io_struct.Int8('num_sharp_curves'),
     'num_surfaces': io_struct.Int8('num_surfaces'),
+    'has_smell_sharpness_discontinuities': io_struct.Bool('has_smell_sharpness_discontinuities'),
 },
     len_label='item_id',
     compression='lzf')
@@ -107,6 +108,7 @@ def write_annotated_views_to_hdf5(output_filename, scans):
         for key in ['item_id', 'faces', 'orig_vert_indices', 'orig_face_indexes']:
             AnnotatedViewIO.write(f, key, scans[key])
         AnnotatedViewIO.write(f, 'has_sharp', scans['has_sharp'].numpy().astype(np.bool))
+        AnnotatedViewIO.write(f, 'has_smell_sharpness_discontinuities', scans['has_smell_sharpness_discontinuities'].numpy().astype(np.bool))
 
     print(output_filename)
 
