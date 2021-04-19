@@ -30,6 +30,7 @@ from sharpf.utils.abc_utils.abc.feature_utils import (
     compute_features_nbhood,
     remove_boundary_features,
     submesh_from_hit_surfaces)
+import sharpf.data.data_smells as smells
 
 
 def process_scans(
@@ -66,6 +67,7 @@ def process_scans(
         "always_check_adjacent_surfaces": True
     }
     annotator = load_func_from_config(ANNOTATOR_BY_TYPE, annotation_config)
+    smell_sharpness_discontinuities = smells.SmellSharpnessDiscontinuities.from_config({})
 
     depth_images = []
     for view, view_alignment in tqdm(zip(views, view_alignments), desc='Annotating depth views'):
@@ -115,6 +117,7 @@ def process_scans(
 
         num_sharp_curves = len([curve for curve in nbhood_features['curves'] if curve['sharp']])
         num_surfaces = len(nbhood_features['surfaces'])
+        has_smell_sharpness_discontinuities = smell_sharpness_discontinuities.run(points, distances)
         depth_images.append({
             'points': image,
             'faces': np.ravel(pixel_view.faces),
@@ -131,6 +134,7 @@ def process_scans(
             'orig_face_indexes': mesh_face_indexes,
             'num_sharp_curves': num_sharp_curves,
             'num_surfaces': num_surfaces,
+            'has_smell_sharpness_discontinuities': has_smell_sharpness_discontinuities,
         })
 
     print('Total {} patches'.format(len(depth_images)))

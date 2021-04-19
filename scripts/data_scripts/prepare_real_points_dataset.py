@@ -31,6 +31,7 @@ from sharpf.utils.abc_utils.abc.feature_utils import (
     remove_boundary_features,
     submesh_from_hit_surfaces)
 from sharpf.data.datasets.sharpf_io import save_whole_patches, WholePointCloudIO
+import sharpf.data.data_smells as smells
 
 DEFAULT_PATCH_SIZE = 4096
 
@@ -180,6 +181,7 @@ def process_scans(
         "always_check_adjacent_surfaces": True
     }
     annotator = load_func_from_config(ANNOTATOR_BY_TYPE, annotation_config)
+    smell_sharpness_discontinuities = smells.SmellSharpnessDiscontinuities.from_config({})
 
     point_patches = []
     iterable = patches_from_point_cloud(point_cloud, n_patches)
@@ -224,6 +226,7 @@ def process_scans(
 
             num_sharp_curves = len([curve for curve in nbhood_features['curves'] if curve['sharp']])
             num_surfaces = len(nbhood_features['surfaces'])
+            has_smell_sharpness_discontinuities = smell_sharpness_discontinuities.run(points, distances)
             point_patches.append({
                 'points': np.ravel(points),
                 'normals': np.ravel(np.zeros_like(points)),
@@ -239,7 +242,7 @@ def process_scans(
                 'has_smell_coarse_surfaces_by_num_faces': False,
                 'has_smell_coarse_surfaces_by_angles': False,
                 'has_smell_deviating_resolution': False,
-                'has_smell_sharpness_discontinuities': False,
+                'has_smell_sharpness_discontinuities': has_smell_sharpness_discontinuities,
                 'has_smell_bad_face_sampling': False,
                 'has_smell_mismatching_surface_annotation': False,
             })
