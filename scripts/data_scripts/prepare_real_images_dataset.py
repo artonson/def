@@ -106,6 +106,7 @@ def process_scans(
             nbhood,
             nbhood_features,
             aligned_points)
+        has_smell_sharpness_discontinuities = smell_sharpness_discontinuities.run(aligned_points, distances)
 
         view.signal = np.hstack((
             np.atleast_2d(distances).T,
@@ -117,7 +118,6 @@ def process_scans(
 
         num_sharp_curves = len([curve for curve in nbhood_features['curves'] if curve['sharp']])
         num_surfaces = len(nbhood_features['surfaces'])
-        has_smell_sharpness_discontinuities = smell_sharpness_discontinuities.run(aligned_points, np.ravel(distances))
         depth_images.append({
             'points': image,
             'faces': np.ravel(pixel_view.faces),
