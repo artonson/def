@@ -133,7 +133,10 @@ def process_scans(
             rxyz_euler_angles, translation).camera_to_world_4x4
 
         #  2c) load manual alignments from meshlab project
-        manual_alignment_transform = manual_alignment_transforms[scan_index]
+        try:
+            manual_alignment_transform = manual_alignment_transforms[scan_index]
+        except KeyError:
+            continue
 
         #  2e) compute transform that would align scans in source frame
         manual_alignment_transform = transform_to_frame(

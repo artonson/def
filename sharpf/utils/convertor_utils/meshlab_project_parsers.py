@@ -5,6 +5,8 @@ from io import StringIO
 import numpy as np
 import trimesh
 
+from sharpf.utils.py_utils.os import change_ext
+
 
 def load_meshlab_project(meshlab_project_filename):
     """Loads MeshLab .mlp file and gets
@@ -17,7 +19,7 @@ def load_meshlab_project(meshlab_project_filename):
     root = ET.parse(meshlab_project_filename).getroot()
 
     points_by_scan = []
-    transform_by_scan_4x4 = []
+    transform_by_scan_4x4 = {}
     item_id = None
     mesh_transform = None
 
@@ -32,10 +34,14 @@ def load_meshlab_project(meshlab_project_filename):
                 pass
 
         elif filename.endswith('.ply'):
+            # should be like 42side_5.ply or 25_03_sharp_feat_7.ply
+            _, scan_index = os.path.basename(change_ext(filename, ''))\
+                .rsplit('_', maxsplit=1)
+            scan_index = int(scan_index)
             try:
                 transform = np.loadtxt(
                     StringIO(type_tag.find('MLMatrix44').text))
-                transform_by_scan_4x4.append(transform)
+                transform_by_scan_4x4[scan_index] = transform
             except ValueError as e:
                 pass
 
