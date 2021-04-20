@@ -26,6 +26,10 @@ class ImagingFunc(ABC):
 
 class RaycastingImaging(ImagingFunc):
     def __init__(self, resolution_image, resolution_3d, projection, validate_image):
+        if isinstance(resolution_image, tuple):
+            assert len(resolution_image) == 2
+        else:
+            resolution_image = (resolution_image, resolution_image)
         self.resolution_image = resolution_image
         self.resolution_3d = resolution_3d
         self.projection = projection
@@ -95,7 +99,7 @@ class RaycastingImaging(ImagingFunc):
         if None is assign_channels:
             assign_channels = [2]
         data_channels = len(assign_channels)
-        image = np.zeros((self.resolution_image, self.resolution_image, data_channels))
+        image = np.zeros((self.resolution_image[1], self.resolution_image[0], data_channels))
         # rays origins (h, w, 3), z is the same for all points of matrix
         # distance is absolute value
         image[xy_to_ij[:, 0], xy_to_ij[:, 1]] = points[:, assign_channels]
