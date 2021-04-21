@@ -77,7 +77,7 @@ def parse_args():
 
     parser.add_argument('-i', '--input', dest='input_filename',
                         required=True, help='input files with prediction.')
-    parser.add_argument('-o', '--output', dest='output',
+    parser.add_argument('-o', '--output', dest='output_filename',
                         required=True, help='output .png filename.')
     parser.add_argument('--verbose', dest='verbose', action='store_true', default=False,
                         help='be verbose')
