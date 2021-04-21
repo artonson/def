@@ -34,7 +34,7 @@ def main(options):
         preload=PreloadTypes.LAZY,
         labels=labels)
 
-    rx, ry = options.resolution
+    rx, ry = map(int, options.resolution)
     if None is not options.crop_size:
         sy, sx = options.crop_size, options.crop_size
     elif options.depth_images:
