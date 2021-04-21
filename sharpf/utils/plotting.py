@@ -181,8 +181,12 @@ def display_depth_sharpness(
     else:
         raise ValueError('at least one of "depth_images" or "sharpness_images" must be specified')
 
-    if nrows == 1:
-        axs = [[axs]] if ncols == 1 else [axs]
+    if nrows == 1 and ncols == 1:
+        axs = [[axs]]
+    elif nrows == 1:
+        axs = np.atleast_2d(axs)
+    elif ncols == 1:
+        axs = np.atleast_2d(axs).T
 
     if None is not depth_images:
         depth_cmap = copy.copy(matplotlib.cm.get_cmap('viridis_r'))

@@ -57,11 +57,12 @@ def main(options):
         list_predictions = [patch['distances'] for patch in dataset]
         sharpness_images_for_display = [distances[slices] for distances in list_predictions]
 
+    f_x, f_y = map(float, options.figsize)
     display_depth_sharpness(
         depth_images=depth_images_for_display,
         sharpness_images=sharpness_images_for_display,
         ncols=options.ncols,
-        axes_size=options.figsize,
+        axes_size=(f_x, f_y),
         max_sharpness=options.max_distance_to_feature)
 
     plt.savefig(options.output_filename)
