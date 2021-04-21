@@ -75,10 +75,10 @@ def load_predictions(pred_data, name, pred_key='distances'):
         assert os.path.isfile(pred_data)
         predictions_filename = pred_data
 
-    if pred_key is not None:
-        data_io = fusion_io.ComparisonsIO
-    else:
+    if pred_key == 'distances':
         data_io = sharpf_io.WholeDepthMapIO
+    else:
+        data_io = fusion_io.ComparisonsIO
 
     predictions_dataset = Hdf5File(
         predictions_filename,
@@ -138,7 +138,7 @@ def main(options):
                 slice(full_h // 2 - h // 2, full_h // 2 + h // 2),
                 slice(full_w // 2 - w // 2, full_w // 2 + w // 2)] = predictions
         else:
-            predictions = predictions_uncropped
+            predictions_uncropped = predictions
         view.signal = predictions_uncropped
 
     # Run fusion of predictions using multiple view
