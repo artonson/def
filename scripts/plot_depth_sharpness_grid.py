@@ -75,10 +75,10 @@ def main(options):
 def parse_args():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('-i', '--input', dest='inputs', action='append',
+    parser.add_argument('-i', '--input', dest='input_filename',
                         required=True, help='input files with prediction.')
     parser.add_argument('-o', '--output', dest='output',
-                        required=True, help='output .hdf5 filename.')
+                        required=True, help='output .png filename.')
     parser.add_argument('--verbose', dest='verbose', action='store_true', default=False,
                         help='be verbose')
     parser.add_argument('-s', '--max_distance_to_feature', dest='max_distance_to_feature',
@@ -86,10 +86,10 @@ def parse_args():
     parser.add_argument('-c', '--crop_size', dest='crop_size',
                         default=None, type=int, required=False, help='make a crop of pixels of this size.')
     parser.add_argument('-di', '--depth_images', dest='depth_images',
-                        default=False, action='set_true', required=False,
+                        default=False, action='store_true', required=False,
                         help='display depth images.')
     parser.add_argument('-si', '--sharpness_images', dest='sharpness_images',
-                        default=False, action='set_true', required=False,
+                        default=False, action='store_true', required=False,
                         help='display sharpness images.')
     parser.add_argument('-r', '--resolution', dest='resolution', nargs=2,
                         required=True, help='resolution of the input image in pixels [width, height].')
