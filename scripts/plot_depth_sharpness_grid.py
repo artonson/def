@@ -65,8 +65,8 @@ def main(options):
     display_depth_sharpness(
         depth_images=depth_images_for_display,
         sharpness_images=sharpness_images_for_display,
-        ncols=4,
-        axes_size=(16, 16),
+        ncols=options.ncols,
+        axes_size=options.figsize,
         max_sharpness=options.max_distance_to_feature)
 
     plt.savefig(options.output_filename)
@@ -93,6 +93,10 @@ def parse_args():
                         help='display sharpness images.')
     parser.add_argument('-r', '--resolution', dest='resolution', nargs=2,
                         required=True, help='resolution of the input image in pixels [width, height].')
+    parser.add_argument('--ncols', dest='ncols',
+                        default=1, type=int, required=False, help='number of cols.')
+    parser.add_argument('-f', '--figsize', dest='figsize', nargs=2, default=(16, 16),
+                        required=True, help='figure size in inches.')
     return parser.parse_args()
 
 
