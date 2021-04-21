@@ -91,7 +91,7 @@ def parse_args():
     parser.add_argument('--ncols', dest='ncols',
                         default=1, type=int, required=False, help='number of cols.')
     parser.add_argument('-f', '--figsize', dest='figsize', nargs=2, default=(16, 16),
-                        required=True, help='figure size in inches.')
+                        required=False, help='figure size in inches.')
     return parser.parse_args()
 
 
