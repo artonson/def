@@ -44,23 +44,18 @@ def main(options):
         list_predictions = [patch['distances'] for patch in dataset]
         sy, sx = list_predictions[0].shape
 
+    slices = slice(ry // 2 - sy // 2, ry // 2 + sy // 2),\
+             slice(rx // 2 - sx // 2, rx // 2 + sx // 2)
+
     depth_images_for_display = None
     if options.depth_images:
         list_images = [patch['image'] for patch in dataset]
-        depth_images_for_display = [
-            image[
-                slice(ry // 2 - sy, ry // 2 + sy),
-                slice(rx // 2 - sx, rx // 2 + sx)]
-            for image in list_images]
+        depth_images_for_display = [image[slices] for image in list_images]
 
     sharpness_images_for_display = None
     if options.sharpness_images:
         list_predictions = [patch['distances'] for patch in dataset]
-        sharpness_images_for_display = [
-            distances[
-                slice(ry // 2 - sy, ry // 2 + sy),
-                slice(rx // 2 - sx, rx // 2 + sx)]
-            for distances in list_predictions]
+        sharpness_images_for_display = [distances[slices] for distances in list_predictions]
 
     display_depth_sharpness(
         depth_images=depth_images_for_display,
