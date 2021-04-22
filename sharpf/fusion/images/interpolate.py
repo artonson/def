@@ -69,9 +69,9 @@ def pointwise_interpolate_image(
     :return: target_signal, can_interpolate
     """
     if verbose:
-        print('Got: source_points: ', source_points.shape,
-                 ', source_signal: ', source_signal.shape, 
-                 ', target_points: ', source_points.shape)
+        print('Got: source_points: ', source_points.shape, source_points.dtype,
+                 ', source_signal: ', source_signal.shape, source_signal.dtype, 
+                 ', target_points: ', target_points.shape, target_points.dtype)
     if 'auto' == distance_interp_thr:
         if verbose:
             print('Determining distance_interp_thr... ')

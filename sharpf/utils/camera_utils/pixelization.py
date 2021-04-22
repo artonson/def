@@ -174,7 +174,7 @@ class ImagePixelizer(ImagePixelizerBase):
             depth[frustum_indexes],
             signal[frustum_indexes] if None is not signal else None,
             self.image_size_in_pixels,
-            depth_func_type='max')
+            depth_func_type='min')
         return pixels_out, depth_out, signal_out
 
     def unassign_pixels(self, pixels, signal=None):

@@ -95,7 +95,8 @@ def main(options):
         n_points,
         list_distances,
         list_indexes_in_whole,
-        list_points)
+        list_points, 
+        max_distance=options.max_distance_to_feature)
 
     ground_truth_filename = os.path.join(
         options.output_dir,
@@ -114,9 +115,9 @@ def main(options):
     # this selection is up to you, user
     combiners_list = [
         # combiners for probabilities
-        # AvgProbaPredictionsCombiner(thr=0.25),
-        # AvgProbaPredictionsCombiner(thr=0.5),
-        # AvgProbaPredictionsCombiner(thr=0.75),
+        combiners.AvgProbaPredictionsCombiner(thr=0.25),
+        combiners.AvgProbaPredictionsCombiner(thr=0.5),
+        combiners.AvgProbaPredictionsCombiner(thr=0.75),
 
         # combiners for distances
         # MedianPredictionsCombiner(),
@@ -124,7 +125,10 @@ def main(options):
         # AvgPredictionsCombiner(),
         # TruncatedAvgPredictionsCombiner(),
         # CenterCropPredictionsCombiner(brd_thr=80, func=np.min, tag='crop__min'),
-        # CenterCropPredictionsCombiner(brd_thr=80, func=TruncatedMean(0.6, func=np.min), tag='crop__adv60__min'),
+        #combiners.CenterCropPredictionsCombiner(
+        #    brd_thr=80, 
+        #    func=combiners.TruncatedMean(0.6, func=np.min),
+        #    tag='crop__adv60__min'),
         # MinsAvgPredictionsCombiner(signal_thr=0.9),
 
         # combiners + smoothers for distances
@@ -136,13 +140,13 @@ def main(options):
         #     combiner=CenterCropPredictionsCombiner(brd_thr=80, func=np.min),
         #     smoother=TotalVariationSmoother(regularizer_alpha=0.001)
         # ),
-        combiners.SmoothingCombiner(
-            combiner=combiners.CenterCropPredictionsCombiner(brd_thr=80, func=np.min),
-            smoother=smoothers.RobustLocalLinearFit(
-                lm.HuberRegressor(epsilon=4., alpha=1.),
-                n_jobs=32
-            )
-        ),
+       #combiners.SmoothingCombiner(
+       #    combiner=combiners.CenterCropPredictionsCombiner(brd_thr=80, func=np.min),
+       #    smoother=smoothers.RobustLocalLinearFit(
+       #        lm.HuberRegressor(epsilon=4., alpha=1.),
+       #        n_jobs=32
+       #    )
+       #),
     ]
 
     for combiner in combiners_list:
@@ -153,7 +157,8 @@ def main(options):
             n_points,
             list_predictions,
             list_indexes_in_whole,
-            list_points)
+            list_points,
+            max_distance=options.max_distance_to_feature)
 
         output_filename = os.path.join(
             options.output_dir,
@@ -181,6 +186,8 @@ def parse_args():
                         help='set if input data is unlabeled.')
     parser.add_argument('-k', '--key', dest='pred_key',
                         help='if set, switch to compare-io and use this key.')
+    parser.add_argument('-s', '--max_distance_to_feature', dest='max_distance_to_feature',
+                        default=1.0, type=float, required=False, help='max distance to sharp feature to compute.')
     return parser.parse_args()
 
 

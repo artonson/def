@@ -156,10 +156,10 @@ def main(options):
     # this selection is up to you, user
     combiners_list = [
 #       combiners.MedianPredictionsCombiner(),
-#       combiners.MinPredictionsCombiner(),
+       combiners.MinPredictionsCombiner(),
 #       combiners.AvgPredictionsCombiner(),
-        combiners.TruncatedAvgPredictionsCombiner(
-            func=combiners.TruncatedMean(0.6, func=np.min)),
+#        combiners.TruncatedAvgPredictionsCombiner(
+#            func=combiners.TruncatedMean(0.6, func=np.min)),
 #       combiners.MinsAvgPredictionsCombiner(signal_thr=0.9),
 #       combiners.SmoothingCombiner(
 #           combiner=combiners.MinPredictionsCombiner(),
