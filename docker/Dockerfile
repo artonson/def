@@ -86,7 +86,7 @@ ENV DYLD_LIBRARY_PATH=/usr/local/cuda/lib:$DYLD_LIBRARY_PATH
 # Install geometry-related packages
 RUN conda install -c conda-forge \
     igl=0.4.1 \
-    point_cloud_utils \
+    point_cloud_utils=0.15.1 \
     libspatialindex=1.9.3 \
     pyembree=0.1.6
 
