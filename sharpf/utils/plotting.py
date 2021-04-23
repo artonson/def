@@ -8,6 +8,8 @@ import trimesh.transformations as tt
 from IPython.display import Image
 import randomcolor
 
+import sharpf.utils.abc_utils.abc.feature_utils as def_feature_utils
+
 
 def display_sharpness(mesh=None, mesh_color=0xbbbbbb,
                       plot_meshvert=True, meshvert_color=0x666666, meshvert_psize=0.0025,
@@ -296,3 +298,23 @@ def plot_views(
         flat_shading=False)
 
     return plot
+
+
+def display_patch_decomposition(
+    mesh,
+    features,
+):
+    plot = k3d.plot(grid_visible=True, height=768)
+
+    for s in features['surfaces']:
+        color = get_random_color(hue='green')
+        submesh = def_feature_utils.get_surface_as_mesh(mesh, s)
+
+        plot += k3d.mesh(
+            submesh.vertices,
+            submesh.faces,
+            flat_shading=False,
+            color=color,
+            side='both')
+
+    plot.display()
