@@ -250,3 +250,19 @@ def submesh_from_hit_surfaces(mesh, features, mesh_face_indexes):
     nbhood = reindex_zerobased(mesh, mesh_vertex_indexes, mesh_face_indexes)
 
     return nbhood, mesh_vertex_indexes, mesh_face_indexes
+
+
+def get_sharp_edge_endpoints(mesh, features):
+    """Computes a list of (XYZ_1, XYZ_2) pairs
+    of endpoints corresponding to sharp edges."""
+
+    sharp_edge_indexes = np.concatenate([
+        mesh.edges_unique[
+            np.where(
+                np.all(np.isin(mesh.edges_unique, curve['vert_indices']), axis=1)
+            )[0]
+        ]
+        for curve in features['curves'] if curve['sharp']])
+
+    sharp_edges = mesh.vertices[sharp_edge_indexes]
+    return sharp_edges

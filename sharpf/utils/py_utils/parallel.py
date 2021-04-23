@@ -20,3 +20,7 @@ def threaded_parallel(func, iterable):
 
 def multiproc_parallel(func, iterable):
     return omp_parallel(func, iterable, backend='multiprocessing')
+
+
+def loky_parallel(func, iterable):
+    return omp_parallel(func, iterable, backend='loky')
