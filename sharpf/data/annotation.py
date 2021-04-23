@@ -6,6 +6,7 @@ import igl
 import sharpf.utils.abc_utils.abc.feature_utils as features
 from sharpf.utils.abc_utils.mesh.indexing import in2d
 import sharpf.utils.geometry_utils.aabb as aabb
+import sharpf.utils.geometry_utils.geometry as geom
 
 
 def compute_bounded_labels(
@@ -34,7 +35,7 @@ class AnnotatorFunc(ABC):
     def __init__(
             self,
             distance_upper_bound: float,
-            always_check_adjacent_surfaces: bool=False
+            always_check_adjacent_surfaces: bool = False
     ):
         """Implements computing distance-to-feature annotations.
         Given a point set aligned with a mesh and the feature
@@ -96,6 +97,25 @@ class AABBSurfacePatchAnnotator(AnnotatorFunc):
         d = find_distance(p_i, SharpFeat)
     ```
     """
+    def __init__(
+            self,
+            distance_upper_bound: float,
+            always_check_adjacent_surfaces: bool = False,
+            distance_computation_method: str = 'aabb'):
+        """Implements computing distance-to-feature annotations.
+        Given a point set aligned with a mesh and the feature
+        description of the mesh, computes distances to closest
+        sharp curves."""
+        super().__init__(distance_upper_bound, always_check_adjacent_surfaces)
+        self.distance_computation_method = distance_computation_method
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(
+            config['distance_upper_bound'],
+            always_check_adjacent_surfaces=config.get('always_check_adjacent_surfaces', False),
+            distance_computation_method=config.get('distance_computation_method', 'aabb'))
+
     def do_annotate(self, mesh_patch, features_patch, points, **kwargs):
         # index mesh vertices to search for closest sharp features
         _, point_face_indexes, _ = igl.point_mesh_squared_distance(
@@ -110,6 +130,13 @@ class AABBSurfacePatchAnnotator(AnnotatorFunc):
 
         # compute distance, iterating over points sampled from corresponding surface patches
         projections, distances, _ = self.flat_annotation(points)
+
+        if self.distance_computation_method == 'aabb':
+            pointset_edgeset_distances_projections = aabb.pointset_edgeset_distances_projections
+        elif self.distance_computation_method == 'geom':
+            pointset_edgeset_distances_projections = geom.parallel_pointset_edgeset_projections
+        else:
+            raise ValueError('distance_computation_method unknown')
 
         # iterate over points, computing stuff
         for surface_idx in range(len(features_patch['surfaces'])):
@@ -140,7 +167,7 @@ class AABBSurfacePatchAnnotator(AnnotatorFunc):
             sharp_edges = features.get_sharp_edge_endpoints(
                 mesh_patch,
                 surface_adjacent_features)
-            surface_projections, surface_distances = aabb.pointset_edgeset_distances_projections(
+            surface_projections, surface_distances = pointset_edgeset_distances_projections(
                 points[points_indexes],
                 sharp_edges)
             distances[points_indexes], projections[points_indexes] = \
