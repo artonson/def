@@ -10,7 +10,7 @@ from sharpf.utils.abc_utils.abc.feature_utils import (
     get_boundary_curves,
     get_surface_as_mesh
 )
-from sharpf.utils.geometry import mean_mmd
+from sharpf.utils.geometry_utils.geometry import mean_mmd
 
 
 class DataSmell(ABC):
