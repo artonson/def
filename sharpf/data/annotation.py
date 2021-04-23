@@ -167,7 +167,7 @@ class AABBSurfacePatchAnnotator(AnnotatorFunc):
             sharp_edges = features.get_sharp_edge_endpoints(
                 mesh_patch,
                 surface_adjacent_features)
-            surface_projections, surface_distances = pointset_edgeset_distances_projections(
+            surface_distances, surface_projections = pointset_edgeset_distances_projections(
                 points[points_indexes],
                 sharp_edges)
             distances[points_indexes], projections[points_indexes] = \

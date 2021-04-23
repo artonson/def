@@ -37,4 +37,4 @@ def pointset_edgeset_distances_projections(points, edges):
 
     projections = np.array([projection for idx, projection, distance in results])
     distances = np.array([distance for idx, projection, distance in results])
-    return projections, distances
+    return distances, projections
