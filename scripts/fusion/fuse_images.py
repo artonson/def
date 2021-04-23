@@ -123,6 +123,7 @@ def main(options):
         fused_distances_gt,
         ground_truth_filename)
 
+
     # This assumes we have predictions for each of the images
     # in the ground-truth file.
     list_predictions = load_predictions(
@@ -139,7 +140,7 @@ def main(options):
                 slice(full_w // 2 - w // 2, full_w // 2 + w // 2)] = predictions
         else:
             predictions_uncropped = predictions
-        view.signal = predictions_uncropped
+        view.signal = predictions_uncropped * options.pred_distance_scale_ratio
 
     # Run fusion of predictions using multiple view
     # interpolator algorithm.
@@ -219,6 +220,8 @@ def parse_args():
                         help='set if input data is unlabeled.')
     parser.add_argument('-s', '--max_distance_to_feature', dest='max_distance_to_feature',
                         default=1.0, type=float, required=False, help='max distance to sharp feature to compute.')
+    parser.add_argument('-r', '--pred_distance_scale_ratio', dest='pred_distance_scale_ratio',
+                        default=1.0, type=float, required=False, help='factor by which to multiply the predicted distances.')
     return parser.parse_args()
 
 
