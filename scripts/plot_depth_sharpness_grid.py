@@ -30,6 +30,8 @@ def main(options):
     if not options.depth_images and not options.sharpness_images:
         print('At least one of -di or -si must be set')
 
+    if options.verbose:
+        print('Loading datasets...')
     if options.real_world:
         dataset = Hdf5File(
             options.input_filename,
@@ -80,6 +82,8 @@ def main(options):
         sharpness_images_for_display = [distances[slices] for distances in list_predictions]
 
     f_x, f_y = map(float, options.figsize)
+    if options.verbose:
+        print('Plotting...')
     display_depth_sharpness(
         depth_images=depth_images_for_display,
         sharpness_images=sharpness_images_for_display,
@@ -87,6 +91,8 @@ def main(options):
         axes_size=(f_x, f_y),
         max_sharpness=options.max_distance_to_feature)
 
+    if options.verbose:
+        print('Saving...')
     plt.savefig(options.output_filename)
 
 
