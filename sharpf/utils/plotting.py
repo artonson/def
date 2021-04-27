@@ -144,6 +144,9 @@ def display_depth_sharpness(
         axes_size=(8, 8),
         ncols=1,
         max_sharpness=1.0,
+        bgcolor='white',
+        sharpness_hard_thr=None,
+        sharpness_hard_values=None,
 ):
     import matplotlib.cm
     import matplotlib.pyplot as plt
@@ -190,9 +193,19 @@ def display_depth_sharpness(
     elif ncols == 1:
         axs = np.atleast_2d(axs).T
 
+    is_hard_label = False
+    if None is not sharpness_hard_thr:
+        is_hard_label = True
+        if None is not sharpness_hard_values:
+            assert isinstance(sharpness_hard_values, (tuple, list)) and len(sharpness_hard_values) == 2, \
+                '"sharpness_hard_values" must be a tuple of size 2'
+            low, high = sharpness_hard_values
+        else:
+            low, high = 0.0, max_sharpness
+
     if None is not depth_images:
         depth_cmap = copy.copy(matplotlib.cm.get_cmap('viridis_r'))
-        depth_cmap.set_bad(color='black')
+        depth_cmap.set_bad(color=bgcolor)
 
         for row in range(nrows):
             for col in range(0, ncols, series):
@@ -207,8 +220,9 @@ def display_depth_sharpness(
                 depth_ax.axis('off')
 
     if None is not sharpness_images:
-        sharpness_cmap = copy.copy(matplotlib.cm.get_cmap('coolwarm_r'))
-        sharpness_cmap.set_bad(color='black')
+        # sharpness_cmap = copy.copy(matplotlib.cm.get_cmap('coolwarm_r'))
+        sharpness_cmap = copy.copy(matplotlib.cm.get_cmap('plasma_r'))
+        sharpness_cmap.set_bad(color=bgcolor)
 
         for row in range(nrows):
             for col in range(0, ncols, series):
@@ -218,6 +232,9 @@ def display_depth_sharpness(
                 sharpness_image = sharpness_images[sharpness_idx].copy()
                 background_idx = sharpness_image == 0
                 sharpness_image[background_idx] = np.nan
+                if is_hard_label:
+                    sharpness_image[sharpness_image <= sharpness_hard_thr] = low
+                    sharpness_image[sharpness_image > sharpness_hard_thr] = high
 
                 tol = 1e-3
                 sharpness_ax.imshow(sharpness_image, interpolation='nearest', cmap=sharpness_cmap,

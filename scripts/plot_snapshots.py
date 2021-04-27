@@ -30,6 +30,16 @@ def main(options):
     plot_height = 768
     plot = k3d.plot(grid_visible=True, height=plot_height)
 
+    is_hard_label = False
+    if None is not options.sharpness_hard_thr:
+        is_hard_label = True
+        if None is not options.sharpness_hard_values:
+            assert isinstance(sharpness_hard_values, (tuple, list)) and len(sharpness_hard_values) == 2, \
+                '"sharpness_hard_values" must be a tuple of size 2'
+            low, high = sharpness_hard_values
+        else:
+            low, high = 0.0, options.max_distance_to_feature
+
     for input_filename in tqdm(options.inputs, desc='Loading/plotting'):
         dataset = Hdf5File(
             input_filename,
@@ -42,10 +52,15 @@ def main(options):
         points = dataset[0]['points']
         distances = dataset[0]['distances']
 
+        if is_hard_label:
+            distances[distances <= option.sharpness_hard_thr] = low
+            distances[distances > option.sharpness_hard_thr] = high
+
+        tol = 1e-3
         colors = k3d.helpers.map_colors(
             distances,
-            k3d.colormaps.matplotlib_color_maps.coolwarm_r,
-            [0, options.max_distance_to_feature]
+            k3d.colormaps.matplotlib_color_maps.plasma_r,
+            [-tol, options.max_distance_to_feature + tol]
         ).astype(np.uint32)
 
         plot += k3d.points(
@@ -79,6 +94,13 @@ def parse_args():
     parser.add_argument('-ph', '--point_shader', dest='point_shader',
                         default='flat', choices=['flat', '3d', 'mesh'], required=False,
                         help='point shader for plotting.')
+
+    parser.add_argument('-bg', '--bgcolor', dest='bgcolor',
+                        default='white', help='set background color for print.')
+    parser.add_argument('-t', '--sharpness_hard_thr', dest='sharpness_hard_thr',
+                        default=None, type=float, help='if set, forces to compute and paint hard labels.')
+    parser.add_argument('-v', '--sharpness_hard_values', dest='sharpness_hard_values', nargs=2, default=None, type=float, 
+                        help='if set, specifies min and max sharpness values for hard labels.')
     return parser.parse_args()
 
 

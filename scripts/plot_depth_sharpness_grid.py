@@ -89,7 +89,10 @@ def main(options):
         sharpness_images=sharpness_images_for_display,
         ncols=options.ncols,
         axes_size=(f_x, f_y),
-        max_sharpness=options.max_distance_to_feature)
+        max_sharpness=options.max_distance_to_feature, 
+        bgcolor=options.bgcolor,
+        sharpness_hard_thr=options.sharpness_hard_thr,
+        sharpness_hard_values=options.sharpness_hard_values)
 
     if options.verbose:
         print('Saving...')
@@ -124,6 +127,12 @@ def parse_args():
     parser.add_argument('-w', '--real_world', dest='real_world',
                         default=False, action='store_true', required=False,
                         help='if set, this will read the input file as Views.')
+    parser.add_argument('-bg', '--bgcolor', dest='bgcolor',
+                        default='white', help='set background color for print.')
+    parser.add_argument('-t', '--sharpness_hard_thr', dest='sharpness_hard_thr',
+                        default=None, type=float, help='if set, forces to compute and paint hard labels.')
+    parser.add_argument('-v', '--sharpness_hard_values', dest='sharpness_hard_values', nargs=2, default=None, type=float, 
+                        help='if set, specifies min and max sharpness values for hard labels.')
     return parser.parse_args()
 
 
