@@ -35,7 +35,7 @@ def main(options):
             options.input_filename,
             io=AnnotatedViewIO,
             preload=PreloadTypes.LAZY,
-            labels=labels)
+            labels='*')
         pixel_views = [
             CameraView(
                 depth=scan['points'],
