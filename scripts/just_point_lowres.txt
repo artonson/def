@@ -1,0 +1,8 @@
+/home/appuser/ssd/ebogomolov/test_data/data_v2_cvpr/points_whole/low_res_whole.json/raw/51/abc_0051_00510038_1509fe78c7a4729189287091_000 3540
+/home/appuser/ssd/ebogomolov/test_data/data_v2_cvpr/points_whole/low_res_whole.json/raw/51/abc_0051_00510077_3cb33817515aa6a5e8dd638d_000 3615
+/home/appuser/ssd/ebogomolov/test_data/data_v2_cvpr/points_whole/low_res_whole.json/raw/51/abc_0051_00515031_e40ba45a0bd5fbab7ce6b155_000 5871
+/home/appuser/ssd/ebogomolov/test_data/data_v2_cvpr/points_whole/low_res_whole.json/raw/51/abc_0051_00517412_589cc2d908d6170f75acb3e2_002 6444
+/home/appuser/ssd/ebogomolov/test_data/data_v2_cvpr/points_whole/low_res_whole.json/raw/51/abc_0051_00517983_0bf71c8f7dd022fab51b8c00_000 6819
+/home/appuser/ssd/ebogomolov/test_data/data_v2_cvpr/points_whole/low_res_whole.json/raw/51/abc_0051_00510527_bb814ec02a7f1d6ec7ee7af4_000 10368
+/home/appuser/ssd/ebogomolov/test_data/data_v2_cvpr/points_whole/low_res_whole.json/raw/51/abc_0051_00513141_589af21e8460820fe92a2bef_000 12894
+/home/appuser/ssd/ebogomolov/test_data/data_v2_cvpr/points_whole/low_res_whole.json/raw/51/abc_0051_00510577_71536d4c280b04b7f4a05310_003 18060

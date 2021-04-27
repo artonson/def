@@ -166,13 +166,14 @@ def main(options):
 #           combiner=CenterCropPredictionsCombiner(brd_thr=80, func=np.min),
 #           smoother=TotalVariationSmoother(regularizer_alpha=0.001)
 #       ),
-        cc.SmoothingCombiner(
-            combiner=cc.CenterCropPredictionsCombiner(brd_thr=80, func=np.min),
-            smoother=cs.RobustLocalLinearFit(
-                lm.HuberRegressor(epsilon=4., alpha=1.),
-                n_jobs=32
-            )
-        ),
+        # cc.SmoothingCombiner(
+        #     combiner=cc.CenterCropPredictionsCombiner(brd_thr=80, func=np.min),
+        #     smoother=cs.RobustLocalLinearFit(
+        #         lm.HuberRegressor(epsilon=4., alpha=1.),
+        #         n_jobs=32
+        #     )
+        # ),
+        cc.AvgProbaPredictionsCombiner(),
     ]
     combiners = [cc.CenterCropPredictionsCombiner(brd_thr=80, func=np.min)]
 

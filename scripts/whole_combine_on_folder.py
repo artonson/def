@@ -156,7 +156,6 @@ def main(options):
 #       AvgPredictionsCombiner(),
 #       TruncatedAvgPredictionsCombiner(),
 #       CenterCropPredictionsCombiner(brd_thr=80, func=np.min, tag='crop__min'),
-        cc.CenterCropPredictionsCombiner(brd_thr=80, func=cc.TruncatedMean(0.6, func=np.min), tag='crop__adv60__min'),
 #       MinsAvgPredictionsCombiner(signal_thr=0.9),
 #       SmoothingCombiner(
 #           combiner=CenterCropPredictionsCombiner(brd_thr=80, func=np.min),
@@ -173,8 +172,10 @@ def main(options):
         #         n_jobs=32
         #     )
         # ),
-        cc.MinPredictionsCombiner(),
-        cc.CenterCropPredictionsCombiner(brd_thr=80, func=np.min, tag='crop__min')
+        # cc.CenterCropPredictionsCombiner(brd_thr=80, func=cc.TruncatedMean(0.6, func=np.min), tag='crop__adv60__min'),
+        # cc.MinPredictionsCombiner(),
+        # cc.CenterCropPredictionsCombiner(brd_thr=80, func=np.min, tag='crop__min')
+        cc.AvgProbaPredictionsCombiner(),
     ]
 
     list_indexes_in_whole = [patch['indexes_in_whole'] for patch in ground_truth_dataset]
@@ -225,34 +226,50 @@ if __name__ == '__main__':
 
     options = parse_args()
     pool_args = []
-    with open(options.files_list, "r") as f:
-        for dirname in f:
-            pair = []
-            dirname = dirname.strip()
-            if "points" not in dirname:
-                continue
-            for fname in os.listdir(pathlib.Path(options.true_filename) / dirname):
-                input_path = pathlib.Path(options.true_filename) / dirname / fname
-                pred_path = (
-                    pathlib.Path(options.pred_dir) / 
-                    (str(dirname).split(".json")[0].replace("data_v2_cvpr/", "") + "_" +
-                    "".join(str(dirname).split(".json")[1].split("/")))
-                )
-                pred_path = pred_path / os.listdir(str(pred_path))[0] / input_path.stem / "predictions"
-                out_path = pathlib.Path(options.output_dir) / dirname / input_path.stem
-                try:
-                    out_path.mkdir(parents=True, exist_ok=False)
-                except FileExistsError:
-                    pass
-                pool_args.append((input_path, pred_path, out_path))
-            
-    # for tfname in os.listdir(options.true_filename):
-    #     name = tfname.split(".")[0]
-    #     pred_dir = f"{options.pred_dir}/{name}/predictions"
-    #     out_dir = f"{options.output_dir}/{name}/"
-    #     print(out_dir)
-    #     if not os.path.exists(out_dir):
-    #         os.mkdir(out_dir)
+
+    # with open(options.files_list, "r") as f:
+    #     for dirname in f:
+    #         pair = []
+    #         dirname = dirname.strip()
+    #         if "points" not in dirname:
+    #             continue
+    #         for fname in os.listdir(pathlib.Path(options.true_filename) / dirname):
+    #             input_path = pathlib.Path(options.true_filename) / dirname / fname
+    #             pred_path = (
+    #                 pathlib.Path(options.pred_dir) / 
+    #                 (str(dirname).split(".json")[0].replace("data_v2_cvpr/", "") + "_" +
+    #                 "".join(str(dirname).split(".json")[1].split("/")))
+    #             )
+    #             pred_path = pred_path / os.listdir(str(pred_path))[0] / input_path.stem / "predictions"
+    #             out_path = pathlib.Path(options.output_dir) / dirname / input_path.stem
+    #             try:
+    #                 out_path.mkdir(parents=True, exist_ok=False)
+    #             except FileExistsError:
+    #                 pass
+    #             pool_args.append((input_path, pred_path, out_path))
+
+    for tfname in os.listdir(options.true_filename):
+        name = tfname.split(".")[0]
+        input_path = f"{options.true_filename}/{tfname}"
+        pred_dir = f"{options.pred_dir}/{name}/predictions"
+        # out_path = pathlib.Path(f"{options.output_dir}/{name}/")
+        out_path = pathlib.Path(f"{options.output_dir}/")
+        try:
+            out_path.mkdir(parents=True, exist_ok=False)
+        except FileExistsError:
+            pass
+        pool_args.append((input_path, pred_dir, out_path))
+
+    # for tfname in list(pathlib.Path(options.true_filename).rglob("*.hdf5")):
+    #     stem = tfname.stem
+    #     input_path = tfname
+    #     pred_dir = f"{options.pred_dir}/{tfname.name}"
+    #     out_path = pathlib.Path(f"{options.output_dir}")
+    #     try:
+    #         out_path.mkdir(parents=True, exist_ok=False)
+    #     except FileExistsError:
+    #         pass
+    #     pool_args.append((input_path, pred_dir, out_path))        
 
     pool_options = []
     for arg in pool_args:
