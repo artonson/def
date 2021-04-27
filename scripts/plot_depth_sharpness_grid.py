@@ -12,8 +12,9 @@ __dir__ = os.path.normpath(
 )
 sys.path[1:1] = [__dir__]
 
-from sharpf.data.datasets.sharpf_io import WholeDepthMapIO
+from sharpf.data.datasets.sharpf_io import WholeDepthMapIO, AnnotatedViewIO
 from sharpf.utils.abc_utils.hdf5.dataset import Hdf5File, PreloadTypes
+from sharpf.utils.camera_utils.view import CameraView
 from sharpf.utils.plotting import display_depth_sharpness
 
 
@@ -28,11 +29,31 @@ def main(options):
     if not options.depth_images and not options.sharpness_images:
         print('At least one of -di or -si must be set')
 
-    dataset = Hdf5File(
-        options.input_filename,
-        io=WholeDepthMapIO,
-        preload=PreloadTypes.LAZY,
-        labels=labels)
+    if options.real_world:
+        dataset = Hdf5File(
+            options.input_filename,
+            io=AnnotatedViewIO,
+            preload=PreloadTypes.LAZY,
+            labels=labels)
+        pixel_views = [
+            CameraView(
+                depth=scan['points'],
+                signal=scan['distances'],
+                faces=scan['faces'].reshape((-1, 3)),
+                extrinsics=scan['extrinsics'],
+                intrinsics=scan['intrinsics'],
+                state='pixels')
+            for scan in dataset]
+        dataset = [
+            {'image': view.depth, 'distances': view.signal}
+            for view in pixel_views]
+
+    else:
+        dataset = Hdf5File(
+            options.input_filename,
+            io=WholeDepthMapIO,
+            preload=PreloadTypes.LAZY,
+            labels=labels)
 
     rx, ry = map(int, options.resolution)
     if None is not options.crop_size:
@@ -93,6 +114,9 @@ def parse_args():
                         default=1, type=int, required=False, help='number of cols.')
     parser.add_argument('-f', '--figsize', dest='figsize', nargs=2, default=(16, 16),
                         required=False, help='figure size in inches.')
+    parser.add_argument('-w', '--real_world', dest='real_world',
+                        default=False, action='store_true', required=False,
+                        help='if set, this will read the input file as Views.')
     return parser.parse_args()
 
 
