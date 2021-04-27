@@ -38,7 +38,7 @@ def process_scans(
         obj_mesh,
         yml_features,
         item_id,
-        max_point_mesh_distance_mm=1.0,
+        max_point_mesh_distance=1.0,
         max_distance_to_feature=1.0,
         full_mesh=False,
 ):
