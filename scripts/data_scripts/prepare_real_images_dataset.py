@@ -64,7 +64,8 @@ def process_scans(
     annotation_config = {
         "type": "surface_based_aabb",
         "distance_upper_bound": max_distance_to_feature,
-        "always_check_adjacent_surfaces": True
+        "always_check_adjacent_surfaces": True,
+        "distance_computation_method": 'geom',
     }
     annotator = load_func_from_config(ANNOTATOR_BY_TYPE, annotation_config)
     smell_sharpness_discontinuities = smells.SmellSharpnessDiscontinuities.from_config({})
