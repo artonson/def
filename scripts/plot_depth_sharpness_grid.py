@@ -12,7 +12,8 @@ __dir__ = os.path.normpath(
 )
 sys.path[1:1] = [__dir__]
 
-from sharpf.data.datasets.sharpf_io import WholeDepthMapIO, AnnotatedViewIO
+from sharpf.data.datasets.sharpf_io import WholeDepthMapIO
+from sharpf.utils.convertor_utils.convertors_io import AnnotatedViewIO
 from sharpf.utils.abc_utils.hdf5.dataset import Hdf5File, PreloadTypes
 from sharpf.utils.camera_utils.view import CameraView
 from sharpf.utils.plotting import display_depth_sharpness
