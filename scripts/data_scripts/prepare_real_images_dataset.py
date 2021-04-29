@@ -75,6 +75,15 @@ def process_scans(
         points = view.depth
         aligned_points = tt.transform_points(points, view_alignment)
 
+        # select only well-aligned points
+        point_mesh_distance, mesh_face_indexes, _ = igl.point_mesh_squared_distance(
+            aligned_points,
+            mesh.vertices,
+            mesh.faces)
+        well_aligned_mask = np.sqrt(point_mesh_distance) < max_point_mesh_distance
+        aligned_points = aligned_points[well_aligned_mask]
+        mesh_face_indexes = mesh_face_indexes[well_aligned_mask]
+
         if full_mesh:
             nbhood = mesh
             nbhood_features = yml_features
@@ -82,11 +91,6 @@ def process_scans(
             mesh_face_indexes = np.arange(len(mesh.faces))
 
         else:
-            distance_sq, mesh_face_indexes, _ = igl.point_mesh_squared_distance(
-                aligned_points,
-                mesh.vertices,
-                mesh.faces)
-
             nbhood, mesh_vertex_indexes, mesh_face_indexes = \
                 submesh_from_hit_surfaces(mesh, yml_features, mesh_face_indexes)
 
@@ -109,10 +113,9 @@ def process_scans(
             aligned_points)
         has_smell_sharpness_discontinuities = smell_sharpness_discontinuities.run(aligned_points, distances)
 
-        view.signal = np.hstack((
-            np.atleast_2d(distances).T,
-            directions,
-        ))
+        view.depth = aligned_points
+        view.signal = np.hstack((np.atleast_2d(distances).T, directions))
+
         pixel_view = view.to_pixels()
         image = pixel_view.depth
         distances, directions = pixel_view.signal[:, :, 0], pixel_view.signal[:, :, 1:]
