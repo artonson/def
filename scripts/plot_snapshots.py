@@ -28,7 +28,11 @@ def main(options):
         compression='lzf')
 
     plot_height = 768
-    plot = k3d.plot(grid_visible=True, height=plot_height)
+    plot = k3d.plot(
+        grid_visible=True,
+        height=plot_height,
+        background_color=options.bgcolor,
+        camera_auto_fit=True)
 
     is_hard_label = False
     if None is not options.sharpness_hard_thr:
@@ -83,20 +87,20 @@ def parse_args():
     parser.add_argument('-i', '--input', dest='inputs', action='append',
                         required=True, help='input files with prediction.')
     parser.add_argument('-o', '--output', dest='output',
-                        required=True, help='output .hdf5 filename.')
+                        required=True, help='output .html filename.')
     parser.add_argument('--verbose', dest='verbose', action='store_true', default=False,
                         help='be verbose')
     parser.add_argument('-s', '--max_distance_to_feature', dest='max_distance_to_feature',
-                        default=1.0, type=float, required=False, help='max distance to sharp feature to compute.')
+                        default=1.0, type=float, required=False, help='max distance to sharp feature to display.')
     parser.add_argument('-ps', '--point_size', dest='point_size',
                         default=0.02, type=float, required=False,
-                        help='point size for plotting.')
+                        help='point size for plotting (should equal resolution_3d).')
     parser.add_argument('-ph', '--point_shader', dest='point_shader',
                         default='flat', choices=['flat', '3d', 'mesh'], required=False,
                         help='point shader for plotting.')
 
     parser.add_argument('-bg', '--bgcolor', dest='bgcolor',
-                        default='white', help='set background color for print.')
+                        default='0xffffff', help='set background color for print.')
     parser.add_argument('-t', '--sharpness_hard_thr', dest='sharpness_hard_thr',
                         default=None, type=float, help='if set, forces to compute and paint hard labels.')
     parser.add_argument('-v', '--sharpness_hard_values', dest='sharpness_hard_values', nargs=2, default=None, type=float, 
