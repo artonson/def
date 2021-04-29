@@ -34,9 +34,9 @@ def main(options):
     if None is not options.sharpness_hard_thr:
         is_hard_label = True
         if None is not options.sharpness_hard_values:
-            assert isinstance(sharpness_hard_values, (tuple, list)) and len(sharpness_hard_values) == 2, \
+            assert isinstance(options.sharpness_hard_values, (tuple, list)) and len(options.sharpness_hard_values) == 2, \
                 '"sharpness_hard_values" must be a tuple of size 2'
-            low, high = sharpness_hard_values
+            low, high = options.sharpness_hard_values
         else:
             low, high = 0.0, options.max_distance_to_feature
 
@@ -53,8 +53,8 @@ def main(options):
         distances = dataset[0]['distances']
 
         if is_hard_label:
-            distances[distances <= option.sharpness_hard_thr] = low
-            distances[distances > option.sharpness_hard_thr] = high
+            distances[distances <= options.sharpness_hard_thr] = low
+            distances[distances > options.sharpness_hard_thr] = high
 
         tol = 1e-3
         colors = k3d.helpers.map_colors(
