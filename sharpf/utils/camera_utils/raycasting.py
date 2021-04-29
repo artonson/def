@@ -23,7 +23,7 @@ def generate_rays(image_resolution, resolution_3d, radius=1.0):
         assert len(image_resolution) == 2
     else:
         image_resolution = (image_resolution, image_resolution)
-    image_width, image_height = image_resolution
+    image_height, image_width = image_resolution
 
     # generate an array of screen coordinates for the rays
     # (rays are placed at locations [i, j] in the image)
@@ -33,11 +33,16 @@ def generate_rays(image_resolution, resolution_3d, radius=1.0):
     # place rays physically in locations determined by screen coordinates,
     # then shift so that camera origin is in the midpoint in the image,
     # and linearly stretch so each pixel takes exactly resolution_3d space
-    screen_aspect_ratio = image_width / image_height
-    rays_origins = (rays_screen_coords / np.array([[image_height, image_width]]))   # [h, w, 2], in [0, 1]
-    factor = image_height / 2 * resolution_3d
-    rays_origins[:, 0] = (-2 * rays_origins[:, 0] + 1) * factor  # to [-1, 1] + aspect transform
-    rays_origins[:, 1] = (-2 * rays_origins[:, 1] + 1) * factor * screen_aspect_ratio
+    # screen_aspect_ratio = image_width / image_height
+    # rays_origins = (rays_screen_coords / np.array([[image_height, image_width]]))   # [h, w, 2], in [0, 1]
+    # factor = image_height / 2 * resolution_3d
+    # rays_origins[:, 0] = (-2 * rays_origins[:, 0] + 1) * factor  # to [-1, 1] + aspect transform
+    # rays_origins[:, 1] = (-2 * rays_origins[:, 1] + 1) * factor * screen_aspect_ratio
+
+    rays_origins = np.zeros_like(rays_screen_coords, dtype=np.float64)
+    rays_origins[:, 0] = (rays_screen_coords[:, 0] - image_height / 2) * resolution_3d
+    rays_origins[:, 1] = (rays_screen_coords[:, 1] - image_width / 2) * resolution_3d
+
     rays_origins = np.concatenate([
         rays_origins,
         np.zeros_like(rays_origins[:, [0]])
