@@ -113,7 +113,7 @@ def process_scans(
             aligned_points)
         has_smell_sharpness_discontinuities = smell_sharpness_discontinuities.run(aligned_points, distances)
 
-        view.depth = aligned_points
+        view.depth = points[well_aligned_mask]
         view.signal = np.hstack((np.atleast_2d(distances).T, directions))
 
         pixel_view = view.to_pixels()
@@ -196,10 +196,11 @@ def debug_plot(output_scans, obj_mesh, output_filename, max_distance_to_feature)
     plot_height = 768
     plot = k3d.plot(grid_visible=True, height=plot_height)
 
+    tol = 1e-3
     colors = k3d.helpers.map_colors(
         fused_distances_gt,
-        k3d.colormaps.matplotlib_color_maps.coolwarm_r,
-        [0, max_distance_to_feature]
+        k3d.colormaps.matplotlib_color_maps.plasma_r,
+        [-tol, options.max_distance_to_feature + tol]
     ).astype(np.uint32)
 
     plot += k3d.points(
@@ -233,7 +234,8 @@ def debug_plot(output_scans, obj_mesh, output_filename, max_distance_to_feature)
         sharpness_images=sharpness_images_for_display,
         ncols=4,
         axes_size=(16, 16),
-        max_sharpness=max_distance_to_feature)
+        max_sharpness=max_distance_to_feature,
+        bgcolor='black')
     output_png = change_ext(output_filename, '') + '_depthmaps.png'
     plt.savefig(output_png)
 
