@@ -71,7 +71,7 @@ def parallel_pointset_edgeset_projections(points, edges):
 
     fn = _point_edgeset_projection_with_index
     it = ((index, point, edges) for index, point in enumerate(points))
-    for point_idx, distance, projection in loky_parallel(fn, it):
+    for point_idx, distance, projection in loky_parallel(fn, it, batch_size=64):
         distances[point_idx], projections[point_idx] = distance, projection
     return distances, projections
 

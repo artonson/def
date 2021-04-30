@@ -3,9 +3,12 @@ import os
 from joblib import Parallel, delayed
 
 
-def omp_parallel(func, iterable, backend='threading'):
+def omp_parallel(func, iterable, backend='threading', **parallel_kwargs):
     n_omp_threads = int(os.environ.get('OMP_NUM_THREADS', 1))
-    parallel = Parallel(n_jobs=n_omp_threads, backend=backend)
+    parallel = Parallel(
+        n_jobs=n_omp_threads,
+        backend=backend,
+        **parallel_kwargs)
 
     def ensure_tuple(args):
         return args if isinstance(args, tuple) else (args,)
@@ -14,13 +17,13 @@ def omp_parallel(func, iterable, backend='threading'):
     return parallel(delayed_iterable)
 
 
-def threaded_parallel(func, iterable):
-    return omp_parallel(func, iterable, backend='threading')
+def threaded_parallel(func, iterable, **parallel_kwargs):
+    return omp_parallel(func, iterable, backend='threading', **parallel_kwargs)
 
 
-def multiproc_parallel(func, iterable):
-    return omp_parallel(func, iterable, backend='multiprocessing')
+def multiproc_parallel(func, iterable, **parallel_kwargs):
+    return omp_parallel(func, iterable, backend='multiprocessing', **parallel_kwargs)
 
 
-def loky_parallel(func, iterable):
-    return omp_parallel(func, iterable, backend='loky')
+def loky_parallel(func, iterable, **parallel_kwargs):
+    return omp_parallel(func, iterable, backend='loky', **parallel_kwargs)
