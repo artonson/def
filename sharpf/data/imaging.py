@@ -25,7 +25,7 @@ class ImagingFunc(ABC):
 
 
 class RaycastingImaging(ImagingFunc):
-    def __init__(self, resolution_image, resolution_3d, projection, validate_image):
+    def __init__(self, resolution_image, resolution_3d, projection=None, validate_image=False):
         if isinstance(resolution_image, tuple):
             assert len(resolution_image) == 2
         else:

@@ -100,7 +100,7 @@ def parse_args():
                         help='point shader for plotting.')
 
     parser.add_argument('-bg', '--bgcolor', dest='bgcolor',
-                        default='0xffffff', help='set background color for print.')
+                        default=0xffffff, help='set background color for print.')
     parser.add_argument('-t', '--sharpness_hard_thr', dest='sharpness_hard_thr',
                         default=None, type=float, help='if set, forces to compute and paint hard labels.')
     parser.add_argument('-v', '--sharpness_hard_values', dest='sharpness_hard_values', nargs=2, default=None, type=float, 
