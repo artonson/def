@@ -139,6 +139,7 @@ class CameraView:
         depth and signal images using this view's data."""
         view = self.to_points(inplace=inplace)
         view.pose = deepcopy(other.pose)
+        view.extrinsics = deepcopy(other.extrinsics)
         view = view.to_state(other.state)
         return view
 
