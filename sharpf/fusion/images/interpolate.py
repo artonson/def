@@ -53,6 +53,7 @@ def pointwise_interpolate_image(
         distance_interp_thr = 'auto',
         z_distance_threshold: int = 2.0,
         interpolator_function: str = 'bisplrep',
+        interp_ratio_thr: float = 0.25,
         verbose: bool = False,
 ):
     """Execute view-view interpolation point by point.
@@ -101,6 +102,9 @@ def pointwise_interpolate_image(
     can_interpolate = compress_mask(xy_mask, z_mask)
     can_interpolate_indexes = np.where(can_interpolate)[0]
     target_signal = np.zeros(len(target_points), dtype=float)
+    if len(can_interpolate_indexes) < interp_ratio_thr * len(target_points):
+        can_interpolate_indexes = []
+        can_interpolate = np.zeros_like(xy_mask).astype(np.bool)
 
     interp_fn = {
         'bisplrep': bisplrep_interpolate,

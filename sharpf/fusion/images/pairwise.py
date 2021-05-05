@@ -12,6 +12,7 @@ def interpolate_views_as_images(
         distance_interp_thr: float = 1.0,
         nn_set_size: int = 8,
         z_distance_threshold: int = 2.0,
+        interp_ratio_thr: float = 0.25,
         verbose: bool = False,
 ) -> Tuple[CameraView, np.ndarray]:
 
@@ -36,6 +37,7 @@ def interpolate_views_as_images(
         distance_interp_thr=distance_interp_thr,
         nn_set_size=nn_set_size,
         z_distance_threshold=z_distance_threshold,
+        interp_ratio_thr=interp_ratio_thr,
         verbose=verbose)
     target_view.signal = target_signal
 
