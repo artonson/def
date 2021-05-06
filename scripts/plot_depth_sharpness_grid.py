@@ -25,6 +25,7 @@ def sharpness_with_depth_background(
         depth_bg_value=1.0,
         sharpness_bg_value=0.0,
 ):
+    assert sharpness_image.shape == depth_image.shape
     image = sharpness_image.copy()
     image[depth_image == depth_bg_value] = sharpness_bg_value
     return image
@@ -92,14 +93,14 @@ def main(options):
         list_predictions = [patch['distances'] for patch in dataset]
         sharpness_images_for_display = [distances[slices] for distances in list_predictions]
 
-    if options.depth_images and options.sharpness_images and options.depth_bg_value:
+    if options.depth_images and options.sharpness_images and options.bg_from_depth:
         sharpness_images_for_display = [sharpness_with_depth_background(
             sharpness_image,
             depth_image,
             depth_bg_value=options.depth_bg_value,
             sharpness_bg_value=options.sharpness_bg_value)
         for sharpness_image, depth_image in
-            zip(depth_images_for_display, sharpness_images_for_display)]
+            zip(sharpness_images_for_display, depth_images_for_display)]
 
     f_x, f_y = map(float, options.figsize)
     if options.verbose:
