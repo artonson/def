@@ -65,6 +65,7 @@ def pointwise_interpolate_image(
     :param distance_interp_thr: max distance that a nearest neighbor can be away from
     :param z_distance_threshold: max distance along depth that a nearest neighbor can be away from
     :param interpolator_function: type of interpolate function to use ('bisplrep' or 'interp2d')
+    :param interp_ratio_thr: if this much fraction of target_points remains after masking, do not interpolate
     :param verbose: print something on output
 
     :return: target_signal, can_interpolate

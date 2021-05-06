@@ -59,6 +59,7 @@ class MultiViewPredictionsInterpolator(MultiViewInterpolatorBase):
             nn_set_size: int = 8,
             z_distance_threshold: int = 2.0,
             interp_ratio_thr: float = 0.25,
+            boundary_width_to_remove: int = 0,
             verbose: bool = False,
     ):
         super().__init__()
@@ -67,6 +68,7 @@ class MultiViewPredictionsInterpolator(MultiViewInterpolatorBase):
         self.nn_set_size = nn_set_size
         self.z_distance_threshold = z_distance_threshold
         self.interp_ratio_thr = interp_ratio_thr
+        self.boundary_width_to_remove = boundary_width_to_remove
         self.verbose = verbose
 
     def __call__(
@@ -85,6 +87,7 @@ class MultiViewPredictionsInterpolator(MultiViewInterpolatorBase):
             'nn_set_size': self.nn_set_size,
             'z_distance_threshold': self.z_distance_threshold,
             'interp_ratio_thr': self.interp_ratio_thr,
+            'boundary_width_to_remove': self.boundary_width_to_remove,
             'verbose': self.verbose,
         }
         data_iterable = (
@@ -119,8 +122,9 @@ class MultiViewPredictionsInterpolator(MultiViewInterpolatorBase):
             n_jobs=config['n_jobs'],
             distance_interpolation_threshold=config['distance_interpolation_threshold'],
             z_distance_threshold=config['z_distance_threshold'],
-            interp_ratio_thr=config['interp_ratio_thr'],
             nn_set_size=config['nn_set_size'],
+            interp_ratio_thr=config['interp_ratio_thr'],
+            boundary_width_to_remove=config['boundary_width_to_remove'],
             verbose=config['verbose'],
         )
 
