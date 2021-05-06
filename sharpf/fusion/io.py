@@ -79,3 +79,16 @@ def save_full_model_predictions(points, predictions, filename):
     with h5py.File(filename, 'w') as f:
         FusedPredictionsIO.write(f, 'points', [points])
         FusedPredictionsIO.write(f, 'distances', [predictions])
+
+
+def save_annotated_images(annotated_images, filename):
+    AnnotatedImageIO = io_struct.HDF5IO(
+        {'image': io_struct.Float64('image'),
+         'distances': io_struct.Float64('distances')},
+        len_label='distances',
+        compression='lzf')
+    collate_fn = partial(io_struct.collate_mapping_with_io, io=AnnotatedImageIO)
+    patches = collate_fn(annotated_images)
+    with h5py.File(filename, 'w') as f:
+        AnnotatedImageIO.write(f, 'image', patches['image'])
+        AnnotatedImageIO.write(f, 'distances', patches['distances'])

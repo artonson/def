@@ -140,6 +140,8 @@ def display_depth_sharpness(
         bgcolor='white',
         sharpness_hard_thr=None,
         sharpness_hard_values=None,
+        depth_bg_value=0.0,
+        sharpness_bg_value=0.0,
 ):
     import matplotlib.cm
     import matplotlib.pyplot as plt
@@ -206,7 +208,7 @@ def display_depth_sharpness(
                 depth_ax = axs[row][col]
 
                 depth_image = depth_images[depth_idx].copy()
-                background_idx = depth_image == 0
+                background_idx = depth_image == depth_bg_value
                 depth_image[background_idx] = np.nan
 
                 depth_ax.imshow(depth_image, interpolation='nearest', cmap=depth_cmap)
@@ -223,7 +225,7 @@ def display_depth_sharpness(
                 sharpness_ax = axs[row][col + 1] if series == 2 else axs[row][col]
 
                 sharpness_image = sharpness_images[sharpness_idx].copy()
-                background_idx = sharpness_image == 0
+                background_idx = sharpness_image == sharpness_bg_value
                 sharpness_image[background_idx] = np.nan
                 if is_hard_label:
                     sharpness_image[sharpness_image <= sharpness_hard_thr] = low

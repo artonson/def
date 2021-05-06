@@ -1,15 +1,5 @@
 #!/usr/bin/env python3
 
-# Given an input dir with predictions (list of npy files)
-# and an input file with ground truth (multiple point patches),
-# this script:
-#  1) builds a single file with ground truth predictions
-#  2) runs a series of various prediction consolidation algorithms,
-#     saving consolidated predictions into an output folder
-#
-# Convenient file structure for using this script:
-#
-
 import argparse
 import os
 import sys
@@ -40,8 +30,6 @@ import sharpf.utils.convertor_utils.rangevision_utils as rv_utils
 def load_ground_truth(true_filename, unlabeled=False):
     """Loads a specified representation of """
     data_io = convertors_io.AnnotatedViewIO
-
-    # load ground truth and save to a single patch
     ground_truth_dataset = Hdf5File(
         true_filename,
         io=data_io,
@@ -61,7 +49,7 @@ def load_ground_truth(true_filename, unlabeled=False):
     return views, view_alignments
 
 
-def load_predictions(pred_data, name, pred_key='distances'):
+def load_predictions(pred_data, name, views, pred_key='distances'):
     if os.path.isdir(pred_data):
         predictions_filename = os.path.join(
             options.output_dir,
@@ -87,7 +75,26 @@ def load_predictions(pred_data, name, pred_key='distances'):
         labels=[pred_key])
     list_predictions = [patch[pred_key] for patch in predictions_dataset]
 
-    return list_predictions
+    views_predicted = []
+    for view, predictions in zip(views, list_predictions):
+        full_h, full_w = rv_utils.RV_SPECTRUM_CAM_RESOLUTION[::-1]
+        h, w = predictions.shape
+        if (full_h, full_w) != (h, w):
+            predictions_uncropped = np.zeros((full_h, full_w))
+            predictions_uncropped[
+                slice(full_h // 2 - h // 2, full_h // 2 + h // 2),
+                slice(full_w // 2 - w // 2, full_w // 2 + w // 2)] = predictions
+        else:
+            predictions_uncropped = predictions
+        view_predicted = view.copy()
+        view_predicted.signal = predictions_uncropped * options.pred_distance_scale_ratio
+        views_predicted.append(view_predicted)
+
+    annotated_images = [{'image': view.depth, 'distances': view.signal}
+                    for view in views_predicted]
+    fusion_io.save_annotated_images(annotated_images, predictions_filename)
+
+    return views_predicted
 
 
 def main(options):
@@ -123,24 +130,13 @@ def main(options):
         fused_distances_gt,
         ground_truth_filename)
 
-
     # This assumes we have predictions for each of the images
     # in the ground-truth file.
-    list_predictions = load_predictions(
+    views_predicted = load_predictions(
         options.pred_dir,
         name,
+        views,
         pred_key=options.pred_key or 'distances')
-    for view, predictions in zip(views, list_predictions):
-        full_h, full_w = rv_utils.RV_SPECTRUM_CAM_RESOLUTION[::-1]
-        h, w = predictions.shape
-        if (full_h, full_w) != (h, w):
-            predictions_uncropped = np.zeros((full_h, full_w))
-            predictions_uncropped[
-                slice(full_h // 2 - h // 2, full_h // 2 + h // 2),
-                slice(full_w // 2 - w // 2, full_w // 2 + w // 2)] = predictions
-        else:
-            predictions_uncropped = predictions
-        view.signal = predictions_uncropped * options.pred_distance_scale_ratio
 
     # Run fusion of predictions using multiple view
     # interpolator algorithm.
@@ -151,7 +147,7 @@ def main(options):
         'n_jobs': options.n_jobs
     })
     mvs_interpolator = load_func_from_config(MVS_INTERPOLATORS, config)
-    list_predictions, list_indexes_in_whole, list_points = mvs_interpolator(views)
+    list_predictions, list_indexes_in_whole, list_points = mvs_interpolator(views_predicted)
 
     # run various algorithms for consolidating predictions
     # this selection is up to you, user
@@ -170,13 +166,13 @@ def main(options):
 #           combiner=combiners.MinPredictionsCombiner(),
 #           smoother=smoothers.TotalVariationSmoother(regularizer_alpha=0.001)
 #       ),
-#       combiners.SmoothingCombiner(
-#           combiner=combiners.MinPredictionsCombiner(),
-#           smoother=smoothers.RobustLocalLinearFit(
-#               lm.HuberRegressor(epsilon=4., alpha=1.),
-#               n_jobs=32
-#           )
-#       ),
+      combiners.SmoothingCombiner(
+          combiner=combiners.MinPredictionsCombiner(),
+          smoother=smoothers.RobustLocalLinearFit(
+              lm.HuberRegressor(epsilon=4., alpha=1.),
+              n_jobs=32
+          )
+      ),
     ]
 
     for combiner in combiners_list:

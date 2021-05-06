@@ -19,6 +19,17 @@ from sharpf.utils.camera_utils.view import CameraView
 from sharpf.utils.plotting import display_depth_sharpness
 
 
+def sharpness_with_depth_background(
+        sharpness_image,
+        depth_image,
+        depth_bg_value=1.0,
+        sharpness_bg_value=0.0,
+):
+    image = sharpness_image.copy()
+    image[depth_image == depth_bg_value] = sharpness_bg_value
+    return image
+
+
 def main(options):
     labels = []
     if options.depth_images:
@@ -81,6 +92,15 @@ def main(options):
         list_predictions = [patch['distances'] for patch in dataset]
         sharpness_images_for_display = [distances[slices] for distances in list_predictions]
 
+    if options.depth_images and options.sharpness_images and options.depth_bg_value:
+        sharpness_images_for_display = [sharpness_with_depth_background(
+            sharpness_image,
+            depth_image,
+            depth_bg_value=options.depth_bg_value,
+            sharpness_bg_value=options.sharpness_bg_value)
+        for sharpness_image, depth_image in
+            zip(depth_images_for_display, sharpness_images_for_display)]
+
     f_x, f_y = map(float, options.figsize)
     if options.verbose:
         print('Plotting...')
@@ -92,7 +112,9 @@ def main(options):
         max_sharpness=options.max_distance_to_feature, 
         bgcolor=options.bgcolor,
         sharpness_hard_thr=options.sharpness_hard_thr,
-        sharpness_hard_values=options.sharpness_hard_values)
+        sharpness_hard_values=options.sharpness_hard_values,
+        depth_bg_value=options.depth_bg_value,
+        sharpness_bg_value=options.sharpness_bg_value)
 
     if options.verbose:
         print('Saving...')
@@ -133,6 +155,14 @@ def parse_args():
                         default=None, type=float, help='if set, forces to compute and paint hard labels.')
     parser.add_argument('-v', '--sharpness_hard_values', dest='sharpness_hard_values', nargs=2, default=None, type=float, 
                         help='if set, specifies min and max sharpness values for hard labels.')
+    parser.add_argument('-bgd', '--bg_from_depth', dest='bg_from_depth',
+                        default=False, action='store_true', required=False,
+                        help='if set, this will set background in the sharpness image '
+                             'to background in the depth image.')
+    parser.add_argument('-dv', '--depth_bg_value', dest='depth_bg_value', default=0.0, type=float,
+                        help='if set, specifies depth value to be treated as background (0.0 by default).')
+    parser.add_argument('-sv', '--sharpness_bg_value', dest='sharpness_bg_value', default=0.0, type=float,
+                        help='if set, specifies sharpness value to be treated as background (0.0 by default).')
     return parser.parse_args()
 
 

@@ -2,3 +2,5 @@ type: image
 distance_interpolation_threshold: 'auto'
 nn_set_size: 8
 z_distance_threshold: 2.5
+interp_ratio_thr: 0.25
+boundary_width_to_remove: 0
