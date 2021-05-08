@@ -76,10 +76,69 @@ def min_bbox_for_all_images(images, bg_value):
     return top, bottom, left, right
 
 
+def align_to_center_mass(images, bg_value, bbox, center_y=False, center_x=False):
+    top, bottom, left, right = bbox
+
+    tops, bottoms, lefts, rights = [[]] * 4
+    for image in images:
+        y, x = np.where((image != bg_value).astype(float))
+        if center_y:
+            c_y = np.mean(y).round().astype(int)
+            delta_y = c_y - (top + bottom) // 2
+            tops.append(top - delta_y)
+            bottoms.append(bottom - delta_y)
+
+        if center_x:
+            c_x = np.mean(x).round().astype(int)
+            delta_x = c_x - (left + right) // 2
+            lefts.append(left + delta_x)
+            rights.append(right + delta_x)
+
+    return tops, bottoms, lefts, rights
+
+
 def cw_to_tblr(cx, cy, sx, sy):
     halfsize_y, halfsize_x = sy // 2, sx // 2
     top, bottom, left, right = cy - halfsize_y, cy + halfsize_y, \
                                cx - halfsize_x, cx + halfsize_x
+    return top, bottom, left, right
+
+
+def snap_bbox_to_2k(bbox):
+    """Make bbox size equal to 2^K where K is
+        min(k | 2^K > max(width, height)).
+    Returns a bbox centered at the input bbox's center
+    but with the size 2^K."""
+    top, bottom, left, right = bbox
+    k = max(np.ceil(np.log2(right - left)).astype(int),
+            np.ceil(np.log2(bottom - top)).astype(int))
+    sy, sx = 2 ** k, 2 ** k
+    cy, cx = (top + bottom) // 2, (right + left) // 2
+    top2k, bottom2k, left2k, right2k = cw_to_tblr(cx, cy, sx, sx)
+    return top2k, bottom2k, left2k, right2k
+
+
+def snap_to_image(bbox, image_size_x, image_size_y):
+    top, bottom, left, right = bbox
+
+    delta_y = 0
+    if top < 0 and bottom > image_size_y:
+        raise ValueError('cannot make crop: top = {}, bottom = {}'.format(top, bottom))
+    elif top < 0:
+        delta_y = -top
+    elif bottom > image_size_y:
+        delta_y = image_size_y - bottom
+    top, bottom = top + delta_y, bottom + delta_y
+
+    delta_x = 0
+    if left < 0 and right > image_size_x:
+        raise ValueError('cannot make crop: left = {}, right = {}'.format(left, right))
+    elif left < 0:
+        delta_x = -left
+    elif right > image_size_x:
+        delta_x = image_size_x - right
+    left, right = left + delta_x, right + delta_x
+
     return top, bottom, left, right
 
 
@@ -95,31 +154,48 @@ def main(options):
     if options.sharpness_images:
         sharpness_images = load_data_by_label(options.input_filename, 'distances', options.real_world)
 
-    res_x, res_y = options.resolution
+    images = depth_images or sharpness_images
+    res_y, res_x = images[0].shape
     center_x, center_y = res_x // 2, res_y // 2
     if isinstance(options.crop_size, int):
-        image_size_y, image_size_x = options.crop_size, options.crop_size
-        top, bottom, left, right = cw_to_tblr(center_x, center_y, image_size_y, image_size_x)
+        bbox = cw_to_tblr(center_x, center_y, options.crop_size, options.crop_size)
     elif isinstance(options.crop_size, str) and options.crop_size == 'full':
-        images = depth_images or sharpness_images
-        image_size_y, image_size_x = images[0].shape
-        top, bottom, left, right = cw_to_tblr(center_x, center_y, image_size_y, image_size_x)
+        bbox = cw_to_tblr(center_x, center_y, res_x, res_y)
     elif isinstance(options.crop_size, str) and options.crop_size == 'auto':
-        images = depth_images or sharpness_images
-        top, bottom, left, right = min_bbox_for_all_images(images, options.depth_bg_value)
+        bbox = min_bbox_for_all_images(images, options.depth_bg_value)
+    elif isinstance(options.crop_size, str) and options.crop_size == 'auto2k':
+        bbox = min_bbox_for_all_images(images, options.depth_bg_value)
+        bbox = snap_bbox_to_2k(bbox)
+        bbox = snap_to_image(bbox, res_x, res_y)
     else:
         print('Cannot interpret -c/--crop_size option: "{}"'.format(options.crop_size), file=sys.stderr)
         exit(1)
 
-    slices = slice(top, bottom), slice(left, right)
+    if options.center_x or options.center_y:
+        bg_value = options.depth_bg_value if options.depth_images else options.sharpness_bg_value
+        tops, bottoms, lefts, rights = align_to_center_mass(
+            images, bg_value, bbox,
+            center_x=options.center_x,
+            center_y=options.center_y)
+        bboxes = [snap_to_image((top, bottom, left, right), res_x, res_y)
+                  for top, bottom, left, right in zip(tops, bottoms, lefts, rights)]
+        tops, bottoms, lefts, rights = zip(*bboxes)  # unpack list of tuples to tuple of lists
+
+    else:
+        top, bottom, left, right = bbox
+        n = len(images)
+        tops, bottoms, lefts, rights = [top] * n, [bottom] * n, [left] * n, [right] * n
+
+    slices = [(slice(top, bottom), slice(left, right))
+              for top, bottom, left, right in zip(tops, bottoms, lefts, rights)]
 
     depth_images_for_display = None
     if options.depth_images:
-        depth_images_for_display = [image[slices] for image in depth_images]
+        depth_images_for_display = [image[s] for image, s in zip(depth_images, slices)]
 
     sharpness_images_for_display = None
     if options.sharpness_images:
-        sharpness_images_for_display = [distances[slices] for distances in sharpness_images]
+        sharpness_images_for_display = [distances[s] for distances, s in zip(sharpness_images, slices)]
 
     if options.depth_images and options.sharpness_images and options.bg_from_depth:
         sharpness_images_for_display = [sharpness_with_depth_background(
@@ -127,7 +203,7 @@ def main(options):
             depth_image,
             depth_bg_value=options.depth_bg_value,
             sharpness_bg_value=options.sharpness_bg_value)
-        for sharpness_image, depth_image in
+            for sharpness_image, depth_image in
             zip(sharpness_images_for_display, depth_images_for_display)]
 
     f_x, f_y = map(float, options.figsize)
@@ -172,8 +248,6 @@ def parse_args():
     parser.add_argument('-si', '--sharpness_images', dest='sharpness_images',
                         default=False, action='store_true', required=False,
                         help='display sharpness images.')
-    parser.add_argument('-r', '--resolution', dest='resolution', nargs=2, type=int,
-                        required=True, help='resolution of the input image in pixels [width, height].')
     parser.add_argument('--ncols', dest='ncols',
                         default=1, type=int, required=False, help='number of cols.')
     parser.add_argument('-f', '--figsize', dest='figsize', nargs=2, default=(16, 16),
@@ -195,6 +269,12 @@ def parse_args():
                         help='if set, specifies depth value to be treated as background (0.0 by default).')
     parser.add_argument('-sv', '--sharpness_bg_value', dest='sharpness_bg_value', default=0.0, type=float,
                         help='if set, specifies sharpness value to be treated as background (0.0 by default).')
+    parser.add_argument('-cx', '--center_x', dest='center_x',
+                        default=False, action='store_true', required=False,
+                        help='if set, centers image in crop along horizontal axis.')
+    parser.add_argument('-cy', '--center_y', dest='center_y',
+                        default=False, action='store_true', required=False,
+                        help='if set, centers image in crop along vertical axis.')
     return parser.parse_args()
 
 
