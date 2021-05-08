@@ -75,13 +75,17 @@ class RMSEQuantile(Metric):
 
 
 class PointwiseMaskSelector(Callable):
+    def __init__(self, name): self._name = name
+    def __str__(self): return self._name
+
     def __call__(self, true_instance: MutableMapping, pred_label: MutableMapping) \
             -> Tuple[MutableMapping, MutableMapping]:
         pass
 
 
 class DistanceLessThan(PointwiseMaskSelector):
-    def __init__(self, threshold):
+    def __init__(self, threshold, name):
+        super().__init__(name)
         self._threshold = threshold
 
     def __call__(self, true_instance, pred_label):
@@ -97,12 +101,12 @@ class DistanceLessThan(PointwiseMaskSelector):
 
 
 class MaskedMetric(Metric):
-    def __init__(self, mask_threshold, metric):
+    def __init__(self, masking, metric):
         self._metric = metric
-        self._masking = DistanceLessThan(mask_threshold)
+        self._masking = masking
 
     def __str__(self):
-        return 'M{}'.format(str(self._metric))
+        return '{}-{}'.format(str(self._metric), str(self._masking))
 
     def __call__(self, true_instance, pred_label):
         true_instance, pred_label = self._masking(true_instance, pred_label)
@@ -121,3 +125,6 @@ class RescaledMetric(Metric):
         value = self._metric(true_instance, pred_label)
         return value * self._scale_factor
 
+
+class IOU(Metric):
+    pass

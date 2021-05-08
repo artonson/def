@@ -70,23 +70,27 @@ def convert_npylist_to_hdf5(input_dir, output_filename, io):
     save_predictions(patches, output_filename)
 
 
+FusedPredictionsIO = io_struct.HDF5IO(
+    {'points': io_struct.Float64('points'),
+     'distances': io_struct.Float64('distances')},
+    len_label='distances',
+    compression='lzf')
+
+
 def save_full_model_predictions(points, predictions, filename):
-    FusedPredictionsIO = io_struct.HDF5IO(
-        {'points': io_struct.Float64('points'),
-         'distances': io_struct.Float64('distances')},
-        len_label='distances',
-        compression='lzf')
     with h5py.File(filename, 'w') as f:
         FusedPredictionsIO.write(f, 'points', [points])
         FusedPredictionsIO.write(f, 'distances', [predictions])
 
 
+AnnotatedImageIO = io_struct.HDF5IO(
+    {'image': io_struct.Float64('image'),
+     'distances': io_struct.Float64('distances')},
+    len_label='distances',
+    compression='lzf')
+
+
 def save_annotated_images(annotated_images, filename):
-    AnnotatedImageIO = io_struct.HDF5IO(
-        {'image': io_struct.Float64('image'),
-         'distances': io_struct.Float64('distances')},
-        len_label='distances',
-        compression='lzf')
     collate_fn = partial(io_struct.collate_mapping_with_io, io=AnnotatedImageIO)
     patches = collate_fn(annotated_images)
     with h5py.File(filename, 'w') as f:
