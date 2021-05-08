@@ -1,0 +1,6 @@
+type: image
+distance_interpolation_threshold: auto
+nn_set_size: 4
+z_distance_threshold: 4.0
+interp_ratio_thr: 0.0
+boundary_width_to_remove: 0
