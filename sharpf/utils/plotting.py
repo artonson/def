@@ -170,12 +170,14 @@ def display_depth_sharpness(
         n_images = len(depth_images)
         ncols, nrows, series = ncols, n_images // ncols, 1
 
+        axes_size = axes_size[0] * ncols, axes_size[1] * nrows
         _, axs = plt.subplots(figsize=axes_size, nrows=nrows, ncols=ncols)
 
     elif None is not sharpness_images:
         n_images = len(sharpness_images)
         ncols, nrows, series = ncols, n_images // ncols, 1
 
+        axes_size = axes_size[0] * ncols, axes_size[1] * nrows
         _, axs = plt.subplots(figsize=axes_size, nrows=nrows, ncols=ncols)
 
     else:
