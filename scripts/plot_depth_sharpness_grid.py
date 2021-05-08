@@ -227,7 +227,9 @@ def main(options):
         sharpness_hard_thr=options.sharpness_hard_thr,
         sharpness_hard_values=options.sharpness_hard_values,
         depth_bg_value=options.depth_bg_value,
-        sharpness_bg_value=options.sharpness_bg_value)
+        sharpness_bg_value=options.sharpness_bg_value,
+        depth_cmap=options.depth_cmap,
+        sharpness_cmap=options.sharpness_cmap)
 
     if options.verbose:
         print('Saving...')
@@ -235,54 +237,133 @@ def main(options):
 
 
 def parse_args():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-    parser.add_argument('-i', '--input', dest='input_filename',
-                        required=True, help='input files with prediction.')
-    parser.add_argument('-o', '--output', dest='output_filename',
-                        required=True, help='output .png filename.')
-    parser.add_argument('--verbose', dest='verbose', action='store_true', default=False,
-                        help='be verbose')
-    parser.add_argument('-s', '--max_distance_to_feature', dest='max_distance_to_feature',
-                        default=1.0, type=float, required=False, help='max distance to sharp feature to compute.')
-    parser.add_argument('-c', '--crop_size', dest='crop_size',
-                        default='auto', required=False,
-                        help='make a crop of pixels of this size '
-                             '[default: "auto" to crop an image of smallest size 2^K centered '
-                             'on image center, "full" to show the entire image].')
-    parser.add_argument('-di', '--depth_images', dest='depth_images',
-                        default=False, action='store_true', required=False,
-                        help='display depth images.')
-    parser.add_argument('-si', '--sharpness_images', dest='sharpness_images',
-                        default=False, action='store_true', required=False,
-                        help='display sharpness images.')
-    parser.add_argument('--ncols', dest='ncols',
-                        default=1, type=int, required=False, help='number of cols.')
-    parser.add_argument('-f', '--figsize', dest='figsize', nargs=2, default=(16, 16),
-                        required=False, help='figure size in inches.')
-    parser.add_argument('-w', '--real_world', dest='real_world',
-                        default=False, action='store_true', required=False,
-                        help='if set, this will read the input file as Views.')
-    parser.add_argument('-bg', '--bgcolor', dest='bgcolor',
-                        default='white', help='set background color for print.')
-    parser.add_argument('-t', '--sharpness_hard_thr', dest='sharpness_hard_thr',
-                        default=None, type=float, help='if set, forces to compute and paint hard labels.')
-    parser.add_argument('-v', '--sharpness_hard_values', dest='sharpness_hard_values', nargs=2, default=None, type=float, 
-                        help='if set, specifies min and max sharpness values for hard labels.')
-    parser.add_argument('-bgd', '--bg_from_depth', dest='bg_from_depth',
-                        default=False, action='store_true', required=False,
-                        help='if set, this will set background in the sharpness image '
-                             'to background in the depth image.')
-    parser.add_argument('-dv', '--depth_bg_value', dest='depth_bg_value', default=0.0, type=float,
-                        help='if set, specifies depth value to be treated as background (0.0 by default).')
-    parser.add_argument('-sv', '--sharpness_bg_value', dest='sharpness_bg_value', default=0.0, type=float,
-                        help='if set, specifies sharpness value to be treated as background (0.0 by default).')
-    parser.add_argument('-cx', '--center_x', dest='center_x',
-                        default=False, action='store_true', required=False,
-                        help='if set, centers image in crop along horizontal axis.')
-    parser.add_argument('-cy', '--center_y', dest='center_y',
-                        default=False, action='store_true', required=False,
-                        help='if set, centers image in crop along vertical axis.')
+    parser.add_argument(
+        '-i', '--input',
+        dest='input_filename',
+        required=True,
+        help='input files with prediction.')
+    parser.add_argument(
+        '-o', '--output',
+        dest='output_filename',
+        required=True,
+        help='output .png filename.')
+    parser.add_argument(
+        '--verbose',
+        dest='verbose',
+        action='store_true',
+        default=False,
+        help='be verbose')
+
+    parser.add_argument(
+        '-c', '--crop_size',
+        dest='crop_size',
+        default='auto',
+        help='make a crop of pixels of this size '
+             '[default: "auto" to crop an image of smallest size 2^K centered '
+             'on image center, "full" to show the entire image].')
+    parser.add_argument(
+        '-cx', '--center_x',
+        dest='center_x',
+        default=False,
+        action='store_true',
+        help='if set, centers images in crop along horizontal axis.')
+    parser.add_argument(
+        '-cy',
+        '--center_y',
+        dest='center_y',
+        default=False,
+        action='store_true',
+        help='if set, centers images in crop along vertical axis.')
+
+    parser.add_argument(
+        '-di', '--depth_images',
+        dest='depth_images',
+        default=False,
+        action='store_true',
+        help='display depth images.')
+    parser.add_argument(
+        '-si', '--sharpness_images',
+        dest='sharpness_images',
+        default=False,
+        action='store_true',
+        help='display sharpness images.')
+
+    parser.add_argument(
+        '--ncols',
+        dest='ncols',
+        default=1,
+        type=int,
+        help='number of cols.')
+    parser.add_argument(
+        '-f', '--figsize',
+        dest='figsize',
+        nargs=2,
+        default=(16, 16),
+        help='figure size in inches.')
+
+    parser.add_argument(
+        '-w', '--real_world',
+        dest='real_world',
+        default=False,
+        action='store_true',
+        help='if set, this will read the input file as Views.')
+
+    parser.add_argument(
+        '-bg', '--bgcolor',
+        dest='bgcolor',
+        default='white',
+        help='set background color for print.')
+    parser.add_argument(
+        '-st', '--sharpness_hard_thr',
+        dest='sharpness_hard_thr',
+        type=float,
+        help='if set, forces to compute and paint hard labels.')
+    parser.add_argument(
+        '-sh', '--sharpness_hard_values',
+        dest='sharpness_hard_values',
+        nargs=2,
+        type=float,
+        help='if set, specifies min and max sharpness values for hard labels.')
+    parser.add_argument(
+        '-bgd', '--bg_from_depth',
+        dest='bg_from_depth',
+        default=False,
+        action='store_true',
+        help='if set, this will set background in the sharpness image '
+             'to background in the depth image.')
+    parser.add_argument(
+        '-dv', '--depth_bg_value',
+        dest='depth_bg_value',
+        default=0.0,
+        type=float,
+        help='if set, specifies depth value to be treated as background (0.0 by default).')
+    parser.add_argument(
+        '-sv', '--sharpness_bg_value',
+        dest='sharpness_bg_value',
+        default=0.0,
+        type=float,
+        help='if set, specifies sharpness value to be treated as background (0.0 by default).')
+    parser.add_argument(
+        '-dcm', '--depth_cmap',
+        dest='depth_cmap',
+        default='viridis_r',
+        type=str,
+        help='depth colormap to use.')
+    parser.add_argument(
+        '-scm', '--sharpness_cmap',
+        dest='sharpness_cmap',
+        default='plasma_r',
+        type=str,
+        help='sharpness colormap to use.')
+    parser.add_argument(
+        '-s', '--max_distance_to_feature',
+        dest='max_distance_to_feature',
+        type=float,
+        default=1.0,
+        help='max distance to sharp feature to display.')
     return parser.parse_args()
 
 

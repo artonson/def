@@ -142,7 +142,8 @@ def display_depth_sharpness(
         sharpness_hard_values=None,
         depth_bg_value=0.0,
         sharpness_bg_value=0.0,
-):
+        depth_cmap='viridis_r',
+        sharpness_cmap='plasma_r'):
     import matplotlib.cm
     import matplotlib.pyplot as plt
 
@@ -201,8 +202,8 @@ def display_depth_sharpness(
             low, high = 0.0, max_sharpness
 
     if None is not depth_images:
-        depth_cmap = copy.copy(matplotlib.cm.get_cmap('viridis_r'))
-        depth_cmap.set_bad(color=bgcolor)
+        depth_colormap = copy.copy(matplotlib.cm.get_cmap(depth_cmap))
+        depth_colormap.set_bad(color=bgcolor)
 
         for row in range(nrows):
             for col in range(0, ncols, series):
@@ -213,13 +214,12 @@ def display_depth_sharpness(
                 background_idx = depth_image == depth_bg_value
                 depth_image[background_idx] = np.nan
 
-                depth_ax.imshow(depth_image, interpolation='nearest', cmap=depth_cmap)
+                depth_ax.imshow(depth_image, interpolation='nearest', cmap=depth_colormap)
                 depth_ax.axis('off')
 
     if None is not sharpness_images:
-        # sharpness_cmap = copy.copy(matplotlib.cm.get_cmap('coolwarm_r'))
-        sharpness_cmap = copy.copy(matplotlib.cm.get_cmap('plasma_r'))
-        sharpness_cmap.set_bad(color=bgcolor)
+        sharpness_colormap = copy.copy(matplotlib.cm.get_cmap(sharpness_cmap))
+        sharpness_colormap.set_bad(color=bgcolor)
 
         for row in range(nrows):
             for col in range(0, ncols, series):
@@ -234,7 +234,7 @@ def display_depth_sharpness(
                     sharpness_image[sharpness_image > sharpness_hard_thr] = high
 
                 tol = 1e-3
-                sharpness_ax.imshow(sharpness_image, interpolation='nearest', cmap=sharpness_cmap,
+                sharpness_ax.imshow(sharpness_image, interpolation='nearest', cmap=sharpness_colormap,
                                     vmin=-tol, vmax=max_sharpness + tol)
                 sharpness_ax.axis('off')
 
