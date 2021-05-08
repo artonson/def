@@ -145,7 +145,7 @@ def main(options):
         for view, view_predicted in zip(views, views_predicted)]
     predictions_filename = os.path.join(
         options.output_dir,
-        '{}__{}.hdf5'.format(name, 'gt_pred_absdiff'))
+        '{}__{}.hdf5'.format(name, 'absdiff'))
     fusion_io.save_annotated_images(diff_images, predictions_filename)
 
     # Run fusion of predictions using multiple view
@@ -165,8 +165,8 @@ def main(options):
 #       combiners.MedianPredictionsCombiner(),
        combiners.MinPredictionsCombiner(),
 #       combiners.AvgPredictionsCombiner(),
-#        combiners.TruncatedAvgPredictionsCombiner(
-#            func=combiners.TruncatedMean(0.6, func=np.min)),
+       combiners.TruncatedAvgPredictionsCombiner(
+           func=combiners.TruncatedMean(0.6, func=np.min)),
 #       combiners.MinsAvgPredictionsCombiner(signal_thr=0.9),
 #       combiners.SmoothingCombiner(
 #           combiner=combiners.MinPredictionsCombiner(),
@@ -195,13 +195,21 @@ def main(options):
             list_indexes_in_whole,
             list_points,
             max_distance=options.max_distance_to_feature)
-
         output_filename = os.path.join(
             options.output_dir,
             '{}__{}.hdf5'.format(name, combiner.tag))
         fusion_io.save_full_model_predictions(
             fused_points_pred,
             fused_distances_pred,
+            output_filename)
+
+        fused_distances_diff = np.abs(fused_distances_gt - fused_distances_pred)
+        output_filename = os.path.join(
+            options.output_dir,
+            '{}__{}__{}.hdf5'.format(name, combiner.tag, 'absdiff'))
+        fusion_io.save_full_model_predictions(
+            fused_points_pred,
+            fused_distances_diff,
             output_filename)
 
 
