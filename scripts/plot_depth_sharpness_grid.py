@@ -77,23 +77,28 @@ def min_bbox_for_all_images(images, bg_value):
 
 
 def align_to_center_mass(images, bg_value, bbox, center_y=False, center_x=False):
-    top, bottom, left, right = bbox
-
-    tops, bottoms, lefts, rights = [[]] * 4
-    for image in images:
+    def align_image(image, bg_value, bbox, center_y=False, center_x=False):
+        top, bottom, left, right = bbox
         y, x = np.where((image != bg_value).astype(float))
+
+        top_a, bottom_a = top, bottom
         if center_y:
             c_y = np.mean(y).round().astype(int)
             delta_y = c_y - (top + bottom) // 2
-            tops.append(top - delta_y)
-            bottoms.append(bottom - delta_y)
+            top_a, bottom_a = top - delta_y, bottom - delta_y
 
+        left_a, right_a = left, right
         if center_x:
             c_x = np.mean(x).round().astype(int)
             delta_x = c_x - (left + right) // 2
-            lefts.append(left + delta_x)
-            rights.append(right + delta_x)
+            left_a = left + delta_x
+            right_a = right + delta_x
 
+        return top_a, bottom_a, left_a, right_a
+
+    tops, bottoms, lefts, rights = zip(*[
+        align_image(image, bg_value, bbox, center_y=center_y, center_x=center_x)
+        for image in images])
     return tops, bottoms, lefts, rights
 
 
