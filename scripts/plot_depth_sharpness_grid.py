@@ -5,11 +5,11 @@ import os
 import sys
 
 import matplotlib.pyplot as plt
+import numpy as np
 
 __dir__ = os.path.normpath(
     os.path.join(
-        os.path.dirname(os.path.realpath(__file__)), '..')
-)
+        os.path.dirname(os.path.realpath(__file__)), '..'))
 sys.path[1:1] = [__dir__]
 
 from sharpf.data.datasets.sharpf_io import WholeDepthMapIO
@@ -31,22 +31,10 @@ def sharpness_with_depth_background(
     return image
 
 
-def main(options):
-    labels = []
-    if options.depth_images:
-        labels.append('image')
-
-    if options.sharpness_images:
-        labels.append('distances')
-
-    if not options.depth_images and not options.sharpness_images:
-        print('At least one of -di or -si must be set')
-
-    if options.verbose:
-        print('Loading datasets...')
-    if options.real_world:
+def load_data_by_label(filename, label, real_world=False):
+    if real_world:
         dataset = Hdf5File(
-            options.input_filename,
+            filename,
             io=AnnotatedViewIO,
             preload=PreloadTypes.LAZY,
             labels='*')
@@ -68,30 +56,70 @@ def main(options):
             options.input_filename,
             io=WholeDepthMapIO,
             preload=PreloadTypes.LAZY,
-            labels=labels)
+            labels=[label])
 
-    rx, ry = map(int, options.resolution)
-    if None is not options.crop_size:
-        sy, sx = options.crop_size, options.crop_size
-    elif options.depth_images:
-        list_images = [patch['image'] for patch in dataset]
-        sy, sx = list_images[0].shape
-    elif options.sharpness_images:
-        list_predictions = [patch['distances'] for patch in dataset]
-        sy, sx = list_predictions[0].shape
+    list_data = [patch[label] for patch in dataset]
+    return list_data
 
-    slices = slice(ry // 2 - sy // 2, ry // 2 + sy // 2),\
-             slice(rx // 2 - sx // 2, rx // 2 + sx // 2)
+
+def min_bbox_for_all_images(images, bg_value):
+    """Given a sequence of 2d images, find max bounding box
+    that covers the set image != bg_value for each image."""
+    top, left = images[0].shape
+    bottom, right = 0, 0
+    for image in images:
+        y, x = np.where((image != bg_value).astype(float))
+        top_i, bottom_i = np.min(y), np.max(y)
+        top, bottom = min(top, top_i), max(bottom, bottom_i)
+        left_i, right_i = np.min(x), np.max(x)
+        left, right = min(left, left_i), max(right, right_i)
+    return top, bottom, left, right
+
+
+def cw_to_tblr(cx, cy, sx, sy):
+    halfsize_y, halfsize_x = sy // 2, sx // 2
+    top, bottom, left, right = cy - halfsize_y, cy + halfsize_y, \
+                               cx - halfsize_x, cx + halfsize_x
+    return top, bottom, left, right
+
+
+def main(options):
+    if options.verbose:
+        print('Loading datasets...')
+    if not options.depth_images and not options.sharpness_images:
+        print('At least one of -di or -si must be set', file=sys.stderr)
+        exit(1)
+    depth_images = sharpness_images = None
+    if options.depth_images:
+        depth_images = load_data_by_label(options.input_filename, 'image', options.real_world)
+    if options.sharpness_images:
+        sharpness_images = load_data_by_label(options.input_filename, 'distances', options.real_world)
+
+    res_x, res_y = options.resolution
+    center_x, center_y = res_x // 2, res_y // 2
+    if isinstance(options.crop_size, int):
+        image_size_y, image_size_x = options.crop_size, options.crop_size
+        top, bottom, left, right = cw_to_tblr(center_x, center_y, image_size_y, image_size_x)
+    elif isinstance(options.crop_size, str) and options.crop_size == 'full':
+        images = depth_images or sharpness_images
+        image_size_y, image_size_x = images[0].shape
+        top, bottom, left, right = cw_to_tblr(center_x, center_y, image_size_y, image_size_x)
+    elif isinstance(options.crop_size, str) and options.crop_size == 'auto':
+        images = depth_images or sharpness_images
+        top, bottom, left, right = min_bbox_for_all_images(images, options.depth_bg_value)
+    else:
+        print('Cannot interpret -c/--crop_size option: "{}"'.format(options.crop_size), file=sys.stderr)
+        exit(1)
+
+    slices = slice(top, bottom), slice(left, right)
 
     depth_images_for_display = None
     if options.depth_images:
-        list_images = [patch['image'] for patch in dataset]
-        depth_images_for_display = [image[slices] for image in list_images]
+        depth_images_for_display = [image[slices] for image in depth_images]
 
     sharpness_images_for_display = None
     if options.sharpness_images:
-        list_predictions = [patch['distances'] for patch in dataset]
-        sharpness_images_for_display = [distances[slices] for distances in list_predictions]
+        sharpness_images_for_display = [distances[slices] for distances in sharpness_images]
 
     if options.depth_images and options.sharpness_images and options.bg_from_depth:
         sharpness_images_for_display = [sharpness_with_depth_background(
@@ -134,14 +162,17 @@ def parse_args():
     parser.add_argument('-s', '--max_distance_to_feature', dest='max_distance_to_feature',
                         default=1.0, type=float, required=False, help='max distance to sharp feature to compute.')
     parser.add_argument('-c', '--crop_size', dest='crop_size',
-                        default=None, type=int, required=False, help='make a crop of pixels of this size.')
+                        default='auto', required=False,
+                        help='make a crop of pixels of this size '
+                             '[default: "auto" to crop an image of smallest size 2^K centered '
+                             'on image center, "full" to show the entire image].')
     parser.add_argument('-di', '--depth_images', dest='depth_images',
                         default=False, action='store_true', required=False,
                         help='display depth images.')
     parser.add_argument('-si', '--sharpness_images', dest='sharpness_images',
                         default=False, action='store_true', required=False,
                         help='display sharpness images.')
-    parser.add_argument('-r', '--resolution', dest='resolution', nargs=2,
+    parser.add_argument('-r', '--resolution', dest='resolution', nargs=2, type=int,
                         required=True, help='resolution of the input image in pixels [width, height].')
     parser.add_argument('--ncols', dest='ncols',
                         default=1, type=int, required=False, help='number of cols.')
