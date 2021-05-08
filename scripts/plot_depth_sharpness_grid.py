@@ -162,14 +162,15 @@ def main(options):
     images = depth_images or sharpness_images
     res_y, res_x = images[0].shape
     center_x, center_y = res_x // 2, res_y // 2
+    bg_value = options.depth_bg_value if options.depth_images else options.sharpness_bg_value
     if isinstance(options.crop_size, int):
         bbox = cw_to_tblr(center_x, center_y, options.crop_size, options.crop_size)
     elif isinstance(options.crop_size, str) and options.crop_size == 'full':
         bbox = cw_to_tblr(center_x, center_y, res_x, res_y)
     elif isinstance(options.crop_size, str) and options.crop_size == 'auto':
-        bbox = min_bbox_for_all_images(images, options.depth_bg_value)
+        bbox = min_bbox_for_all_images(images, bg_value)
     elif isinstance(options.crop_size, str) and options.crop_size == 'auto2k':
-        bbox = min_bbox_for_all_images(images, options.depth_bg_value)
+        bbox = min_bbox_for_all_images(images, bg_value)
         bbox = snap_bbox_to_2k(bbox)
         bbox = snap_to_image(bbox, res_x, res_y)
     else:
@@ -177,7 +178,6 @@ def main(options):
         exit(1)
 
     if options.center_x or options.center_y:
-        bg_value = options.depth_bg_value if options.depth_images else options.sharpness_bg_value
         tops, bottoms, lefts, rights = align_to_center_mass(
             images, bg_value, bbox,
             center_x=options.center_x,
