@@ -177,6 +177,9 @@ def main(options):
         print('Cannot interpret -c/--crop_size option: "{}"'.format(options.crop_size), file=sys.stderr)
         exit(1)
 
+    if options.verbose:
+        print('Bbox size wxh: {} x {}'.format(bbox[3] - bbox[2], bbox[1] - bbox[0]))
+
     if options.center_x or options.center_y:
         tops, bottoms, lefts, rights = align_to_center_mass(
             images, bg_value, bbox,
