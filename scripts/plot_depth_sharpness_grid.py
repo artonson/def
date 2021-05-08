@@ -4,7 +4,6 @@ import argparse
 import os
 import sys
 
-import matplotlib.pyplot as plt
 import numpy as np
 
 __dir__ = os.path.normpath(
@@ -218,8 +217,8 @@ def main(options):
     if options.verbose:
         print('Plotting...')
     display_depth_sharpness(
-        depth_images=depth_images_for_display,
-        sharpness_images=sharpness_images_for_display,
+        depth_images=depth_images_for_display if options.depth_images_plot else None,
+        sharpness_images=sharpness_images_for_display if options.sharpness_images_plot else None,
         ncols=options.ncols,
         axes_size=(f_x, f_y),
         max_sharpness=options.max_distance_to_feature, 
@@ -233,6 +232,7 @@ def main(options):
 
     if options.verbose:
         print('Saving...')
+    import matplotlib.pyplot as plt
     plt.savefig(options.output_filename)
 
 
@@ -283,13 +283,25 @@ def parse_args():
         dest='depth_images',
         default=False,
         action='store_true',
-        help='display depth images.')
+        help='load depth images.')
     parser.add_argument(
         '-si', '--sharpness_images',
         dest='sharpness_images',
         default=False,
         action='store_true',
-        help='display sharpness images.')
+        help='load sharpness images.')
+    parser.add_argument(
+        '-dp', '--depth_images_plot',
+        dest='depth_images_plot',
+        default=False,
+        action='store_true',
+        help='plot depth images.')
+    parser.add_argument(
+        '-sp', '--sharpness_images_plot',
+        dest='sharpness_images_plot',
+        default=False,
+        action='store_true',
+        help='plot sharpness images.')
 
     parser.add_argument(
         '--ncols',
