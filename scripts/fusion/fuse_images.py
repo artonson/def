@@ -138,6 +138,16 @@ def main(options):
         views,
         pred_key=options.pred_key or 'distances')
 
+    # Compute differences and save for visualization.
+    diff_images = [{
+        'image': view.depth,
+        'distances': np.abs(view.signal - view_predicted.signal)}
+        for view, view_predicted in zip(views, views_predicted)]
+    predictions_filename = os.path.join(
+        options.output_dir,
+        '{}__{}.hdf5'.format(name, 'gt_pred_absdiff'))
+    fusion_io.save_annotated_images(diff_images, predictions_filename)
+
     # Run fusion of predictions using multiple view
     # interpolator algorithm.
     with open(options.fusion_config, 'r') as yml_file:
