@@ -66,7 +66,7 @@ class RMSEQuantile(Metric):
         self._normalize = normalize
 
     def __str__(self):
-        return 'q{0:d}RMSE'.format(int(self._proba * 100))
+        return 'q{}RMSE'.format(int(self._proba * 100))
 
     def __call__(self, true_instance, pred_label):
         diff_sq = PointwiseSquaredError()(true_instance, pred_label)
