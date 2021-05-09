@@ -176,13 +176,13 @@ def main(options):
 #           combiner=combiners.MinPredictionsCombiner(),
 #           smoother=smoothers.TotalVariationSmoother(regularizer_alpha=0.001)
 #       ),
-      combiners.SmoothingCombiner(
-          combiner=combiners.MinPredictionsCombiner(),
-          smoother=smoothers.RobustLocalLinearFit(
-              lm.HuberRegressor(epsilon=4., alpha=1.),
-              n_jobs=32
-          )
-      ),
+#      combiners.SmoothingCombiner(
+#          combiner=combiners.MinPredictionsCombiner(),
+#          smoother=smoothers.RobustLocalLinearFit(
+#              lm.HuberRegressor(epsilon=4., alpha=1.),
+#              n_jobs=32
+#          )
+#      ),
     ]
 
     for combiner in combiners_list:

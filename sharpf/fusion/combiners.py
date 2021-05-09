@@ -77,7 +77,7 @@ class PointwisePredictionsCombiner(PredictionsCombiner):
                 predictions_variants[idx].append(distances[i])
 
         # step 2: consolidate predictions
-        for idx, values in predictions_variants.items():
+        for idx, values in tqdm(predictions_variants.items()):
             fused_distances_pred[idx] = self._func(values)
 
         return fused_points_pred, fused_distances_pred, predictions_variants
