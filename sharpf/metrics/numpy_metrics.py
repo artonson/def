@@ -46,7 +46,7 @@ class BadPoints(Metric):
         self._normalize = normalize
 
     def __str__(self):
-        return 'BadPoints({0:3.3g})'.format(np.sqrt(self._threshold_sq))
+        return 'BadPoints({0:.3g})'.format(np.sqrt(self._threshold_sq))
 
     def __call__(self, true_instance, pred_label):
         diff_sq = PointwiseSquaredError()(true_instance, pred_label)
