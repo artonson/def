@@ -31,15 +31,15 @@ def main(options):
         labels=['distances'])
     pred_distances = {'distances': pred_dataset[0]['distances']}
 
-    rmse = nm.RMSE()
-    q95rmse = nm.RMSEQuantile(0.95)
+    rmse = nm.RMSE(normalize=True)
+    q95rmse = nm.RMSEQuantile(0.95, normalize=True)
     r1 = options.resolution_3d
-    bad_points_1r = nm.BadPoints(r1)
+    bad_points_1r = nm.BadPoints(r1, normalize=True)
     r4 = options.resolution_3d * 4
-    bad_points_4r = nm.BadPoints(r4)
+    bad_points_4r = nm.BadPoints(r4, normalize=True)
     iou = nm.IOU(r1)
 
-    all_mask = nm.DistanceLessThan(np.max(true_distances) + 1e-6, name='ALL')
+    all_mask = nm.DistanceLessThan(np.max(true_distances['distances']) + 1e-6, name='ALL')
     RMSE_ALL = nm.MaskedMetric(all_mask, rmse)
     q95RMSE_ALL = nm.MaskedMetric(all_mask, q95rmse)
 
@@ -48,7 +48,7 @@ def main(options):
     mBadPoints_4r_CloseSharp = nm.MaskedMetric(closesharp_mask, bad_points_4r)
 
     # for our whole models, we keep all points
-    sharp_mask = nm.DistanceLessThan(np.max(true_distances) + 1e-6, name='Sharp')
+    sharp_mask = nm.DistanceLessThan(np.max(true_distances['distances']) + 1e-6, name='Sharp')
     IOU_Sharp = nm.MaskedMetric(sharp_mask, iou)
 
     metrics = [
@@ -75,19 +75,16 @@ def parse_args():
     parser.add_argument(
         '-t', '--true-filename',
         dest='true_filename',
-        type=argparse.FileType('r'),
         required=True,
         help='path to GT file with fused points and distances.')
     parser.add_argument(
         '-p', '--pred-filename',
         dest='pred_filename',
-        type=argparse.FileType('r'),
         required=True,
         help='path to PRED file with fused points and distances.')
     parser.add_argument(
         '-o', '--out-filename',
         dest='out_filename',
-        type=argparse.FileType('w'),
         default=sys.stdout,
         help='path to OUTPUT file with metrics (if None, print metrics to stdout).')
 

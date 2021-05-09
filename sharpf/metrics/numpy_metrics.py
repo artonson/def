@@ -71,6 +71,10 @@ class RMSEQuantile(Metric):
     def __call__(self, true_instance, pred_label):
         diff_sq = PointwiseSquaredError()(true_instance, pred_label)
         q = np.quantile(diff_sq, self._proba)
+
+        if self._normalize:
+            q /= len(diff_sq)
+
         return q
 
 
