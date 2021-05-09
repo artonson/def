@@ -22,14 +22,14 @@ def main(options):
         io=fusion_io.FusedPredictionsIO,
         preload=PreloadTypes.LAZY,
         labels=['distances'])
-    true_distances = true_dataset[0]['distances']
+    true_distances = {'distances': true_dataset[0]['distances']}
 
     pred_dataset = Hdf5File(
         options.pred_filename,
         io=fusion_io.FusedPredictionsIO,
         preload=PreloadTypes.LAZY,
         labels=['distances'])
-    pred_distances = pred_dataset[0]['distances']
+    pred_distances = {'distances': pred_dataset[0]['distances']}
 
     rmse = nm.RMSE()
     q95rmse = nm.RMSEQuantile(0.95)
@@ -37,7 +37,7 @@ def main(options):
     bad_points_1r = nm.BadPoints(r1)
     r4 = options.resolution_3d * 4
     bad_points_4r = nm.BadPoints(r4)
-    iou = nm.IOU()
+    iou = nm.IOU(r1)
 
     all_mask = nm.DistanceLessThan(np.max(true_distances) + 1e-6, name='ALL')
     RMSE_ALL = nm.MaskedMetric(all_mask, rmse)

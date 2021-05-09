@@ -46,7 +46,7 @@ class BadPoints(Metric):
         self._normalize = normalize
 
     def __str__(self):
-        return 'Bad {0:3.3g}'.format(np.sqrt(self._threshold_sq))
+        return 'BadPoints({0:3.3g})'.format(np.sqrt(self._threshold_sq))
 
     def __call__(self, true_instance, pred_label):
         diff_sq = PointwiseSquaredError()(true_instance, pred_label)
@@ -66,7 +66,7 @@ class RMSEQuantile(Metric):
         self._normalize = normalize
 
     def __str__(self):
-        return 'Q {0:3.3g}'.format(self._proba)
+        return 'q{0:d}RMSE'.format(int(self._proba * 100))
 
     def __call__(self, true_instance, pred_label):
         diff_sq = PointwiseSquaredError()(true_instance, pred_label)
@@ -127,4 +127,19 @@ class RescaledMetric(Metric):
 
 
 class IOU(Metric):
-    pass
+    """Intersection over union."""
+    def __init__(self, threshold):
+        self._threshold = threshold
+
+    def __str__(self):
+        return 'IOU'
+
+    def __call__(self, true_instance, pred_label):
+        from sklearn.metrics import jaccard_score
+        y_true = (true_instance['distances'] < self._threshold).astype(float)
+        y_pred = (pred_label['distances'] < self._threshold).astype(float)
+        iou = jaccard_score(y_true, y_pred)
+        # intersection = y_pred * y_true
+        # union = y_true + y_pred - intersection
+        # iou = intersection.sum() / union.sum()
+        return iou
