@@ -5,20 +5,22 @@ from glob import glob
 from io import BytesIO
 import os
 import sys
+from typing import Mapping
+import warnings
 
 import igl
 import numpy as np
+import trimesh
 import trimesh.transformations as tt
 from tqdm import tqdm
 import yaml
 
 __dir__ = os.path.normpath(
     os.path.join(
-        os.path.dirname(os.path.realpath(__file__)), '../..')
-)
+        os.path.dirname(os.path.realpath(__file__)), '../..'))
 sys.path[1:1] = [__dir__]
 
-from sharpf.data.annotation import ANNOTATOR_BY_TYPE
+from sharpf.data.annotation import ANNOTATOR_BY_TYPE, AnnotatorFunc
 from sharpf.utils.camera_utils.view import CameraView
 from sharpf.utils.py_utils.config import load_func_from_config
 from sharpf.utils.abc_utils.hdf5.dataset import Hdf5File, PreloadTypes
@@ -31,6 +33,100 @@ from sharpf.utils.abc_utils.abc.feature_utils import (
     remove_boundary_features,
     submesh_from_hit_surfaces)
 import sharpf.data.data_smells as smells
+from sharpf.utils.numpy_utils.sliding_window import crop_around_nonzero, sliding_window_with_offset
+
+
+def annotate_view(
+        view: CameraView,
+        view_alignment: np.ndarray,
+        aligned_mesh: trimesh.base.Trimesh,
+        features: Mapping,
+        annotator: AnnotatorFunc,
+        smell_sharpness_discontinuities: smells.DataSmell,
+        max_point_mesh_distance=1.0,
+        full_mesh=False,
+):
+    points = view.depth
+    aligned_points = tt.transform_points(points, view_alignment)
+
+    # select only well-aligned points
+    point_mesh_distance, mesh_face_indexes, _ = igl.point_mesh_squared_distance(
+        aligned_points,
+        aligned_mesh.vertices,
+        aligned_mesh.faces)
+    well_aligned_mask = np.sqrt(point_mesh_distance) < max_point_mesh_distance
+    aligned_points = aligned_points[well_aligned_mask]
+    mesh_face_indexes = mesh_face_indexes[well_aligned_mask]
+    view.depth = points[well_aligned_mask]
+
+    if full_mesh:
+        nbhood = aligned_mesh
+        nbhood_features = features
+        mesh_vertex_indexes = np.arange(len(aligned_mesh.vertices))
+        mesh_face_indexes = np.arange(len(aligned_mesh.faces))
+
+    else:
+        nbhood, mesh_vertex_indexes, mesh_face_indexes = submesh_from_hit_surfaces(
+            aligned_mesh,
+            features,
+            mesh_face_indexes)
+
+        nbhood_features = compute_features_nbhood(
+            aligned_mesh,
+            features,
+            mesh_face_indexes,
+            mesh_vertex_indexes=mesh_vertex_indexes)
+
+        nbhood_features = remove_boundary_features(
+            nbhood,
+            nbhood_features,
+            how='edges')
+
+    distances, directions, has_sharp = annotator.annotate(
+        nbhood,
+        nbhood_features,
+        aligned_points)
+    has_smell_sharpness_discontinuities = smell_sharpness_discontinuities.run(
+        aligned_points, distances)
+
+    view.signal = np.hstack((np.atleast_2d(distances).T, directions))
+    pixel_view = view.to_pixels()
+
+    num_sharp_curves = len([curve for curve in nbhood_features['curves'] if curve['sharp']])
+    num_surfaces = len(nbhood_features['surfaces'])
+    annotation = {
+        'points': pixel_view.depth,
+        'faces': np.ravel(pixel_view.faces),
+        'distances': pixel_view.signal[:, :, 0],
+        'directions': pixel_view.signal[:, :, 1:],
+        'has_sharp': has_sharp,
+        'orig_vert_indices': mesh_vertex_indexes,
+        'orig_face_indexes': mesh_face_indexes,
+        'num_sharp_curves': num_sharp_curves,
+        'num_surfaces': num_surfaces,
+        'has_smell_sharpness_discontinuities': has_smell_sharpness_discontinuities,
+    }
+    return annotation
+
+
+def crop_patch_views(view, patch_size, step_size):
+    pixel_view = view.to_pixels()
+    crop_depth, (top, bottom, left, right) = crop_around_nonzero(
+        pixel_view.depth, return_bbox=True)
+
+    patch_views = []
+    for patch_image, (y_off, x_off) in sliding_window_with_offset(
+            crop_depth, patch_size, step_size):
+        patch_view = pixel_view.copy()
+        patch_view.depth = np.zeros_like(patch_view.depth)
+        s_y, s_x = patch_image.shape
+        patch_view.depth[
+            top + y_off:top + y_off + s_y,
+            left + x_off:left + x_off + s_x] = patch_image
+        patch_view.to_points(inplace=True)
+        patch_views.append(patch_view)
+
+    return patch_views
 
 
 def process_scans(
@@ -41,7 +137,14 @@ def process_scans(
         max_point_mesh_distance=1.0,
         max_distance_to_feature=1.0,
         full_mesh=False,
+        patch_size=None,
+        step_size=None,
 ):
+    if None is not patch_size and None is step_size:
+        step_size = patch_size / 2
+
+    if None is not step_size and None is patch_size:
+        warnings.warn('step_size set but patch_size unknown, skipping')
 
     obj_alignment_transform = dataset[0]['obj_alignment']
     obj_scale = dataset[0]['obj_scale']
@@ -72,74 +175,34 @@ def process_scans(
 
     depth_images = []
     for view, view_alignment in tqdm(zip(views, view_alignments), desc='Annotating depth views'):
-        points = view.depth
-        aligned_points = tt.transform_points(points, view_alignment)
 
-        # select only well-aligned points
-        point_mesh_distance, mesh_face_indexes, _ = igl.point_mesh_squared_distance(
-            aligned_points,
-            mesh.vertices,
-            mesh.faces)
-        well_aligned_mask = np.sqrt(point_mesh_distance) < max_point_mesh_distance
-        aligned_points = aligned_points[well_aligned_mask]
-        mesh_face_indexes = mesh_face_indexes[well_aligned_mask]
-
-        if full_mesh:
-            nbhood = mesh
-            nbhood_features = yml_features
-            mesh_vertex_indexes = np.arange(len(mesh.vertices))
-            mesh_face_indexes = np.arange(len(mesh.faces))
-
+        if None is not patch_size:
+            views_for_annotation = crop_patch_views(
+                view,
+                (patch_size, patch_size),
+                (step_size, step_size))
         else:
-            nbhood, mesh_vertex_indexes, mesh_face_indexes = \
-                submesh_from_hit_surfaces(mesh, yml_features, mesh_face_indexes)
+            views_for_annotation = [view]
 
-            # create annotations: condition the features onto the nbhood
-            nbhood_features = compute_features_nbhood(
+        for view_for_annotation in views_for_annotation:
+            annotation = annotate_view(
+                view_for_annotation,
+                view_alignment,
                 mesh,
                 yml_features,
-                mesh_face_indexes,
-                mesh_vertex_indexes=mesh_vertex_indexes)
-
-            # remove vertices lying on the boundary (sharp edges found in 1 face only)
-            nbhood_features = remove_boundary_features(
-                nbhood,
-                nbhood_features,
-                how='edges')
-
-        distances, directions, has_sharp = annotator.annotate(
-            nbhood,
-            nbhood_features,
-            aligned_points)
-        has_smell_sharpness_discontinuities = smell_sharpness_discontinuities.run(aligned_points, distances)
-
-        view.depth = points[well_aligned_mask]
-        view.signal = np.hstack((np.atleast_2d(distances).T, directions))
-
-        pixel_view = view.to_pixels()
-        image = pixel_view.depth
-        distances, directions = pixel_view.signal[:, :, 0], pixel_view.signal[:, :, 1:]
-
-        num_sharp_curves = len([curve for curve in nbhood_features['curves'] if curve['sharp']])
-        num_surfaces = len(nbhood_features['surfaces'])
-        depth_images.append({
-            'points': image,
-            'faces': np.ravel(pixel_view.faces),
-            'points_alignment': view_alignment,
-            'extrinsics': pixel_view.extrinsics,
-            'intrinsics': pixel_view.intrinsics,
-            'obj_alignment': obj_alignment_transform,
-            'obj_scale': obj_scale,
-            'item_id': item_id,
-            'distances': distances,
-            'directions': directions,
-            'has_sharp': has_sharp,
-            'orig_vert_indices': mesh_vertex_indexes,
-            'orig_face_indexes': mesh_face_indexes,
-            'num_sharp_curves': num_sharp_curves,
-            'num_surfaces': num_surfaces,
-            'has_smell_sharpness_discontinuities': has_smell_sharpness_discontinuities,
-        })
+                annotator,
+                smell_sharpness_discontinuities,
+                max_point_mesh_distance=max_point_mesh_distance,
+                full_mesh=full_mesh)
+            annotation.update({
+                'points_alignment': view_alignment,
+                'extrinsics': view_for_annotation.extrinsics,
+                'intrinsics': view_for_annotation.intrinsics,
+                'obj_alignment': obj_alignment_transform,
+                'obj_scale': obj_scale,
+                'item_id': item_id,
+            })
+            depth_images.append(annotation)
 
     print('Total {} patches'.format(len(depth_images)))
 
@@ -272,6 +335,8 @@ def main(options):
         options.max_point_mesh_distance,
         options.max_distance_to_feature,
         options.full_mesh,
+        options.patch_size,
+        options.step_size,
     )
 
     print('Writing output file...')
@@ -303,6 +368,10 @@ def parse_args():
                         default=1.0, type=float, required=False, help='max distance to sharp feature to compute.')
     parser.add_argument('-f', '--full_mesh', action='store_true', default=False,
                         required=False, help='use the full mesh annotation (no removal of curves due to visibility).')
+    parser.add_argument('-p', '--patch_size', dest='patch_size', default=None, type=int,
+                        help='if set, specifies a size of the (square) patch to be used.')
+    parser.add_argument('-t', '--step_size', dest='step_size', default=None, type=int,
+                        help='if set, specifies a size of the stride to be used (otherwise set to patch_size / 2).')
     return parser.parse_args()
 
 

@@ -150,7 +150,7 @@ def process_scans(
         obj_mesh,
         yml_features,
         item_id,
-        max_point_mesh_distance_mm=1.0,
+        max_point_mesh_distance=1.0,
         max_distance_to_feature=1.0
 ):
 
@@ -193,7 +193,7 @@ def process_scans(
                 points,
                 mesh.vertices,
                 mesh.faces)
-            indexes = np.where(np.sqrt(distance_sq) < max_point_mesh_distance_mm)[0]
+            indexes = np.where(np.sqrt(distance_sq) < max_point_mesh_distance)[0]
             if len(indexes) < DEFAULT_PATCH_SIZE:
                 continue
 
