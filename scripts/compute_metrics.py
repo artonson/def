@@ -31,14 +31,14 @@ def main(options):
         preload=PreloadTypes.LAZY,
         labels=['distances'])
     sharpness_masks = [item['distances'] != options.sharpness_bg_value for item in true_dataset]
-    true_distances = [{'distances': item['distances'][sharpness_masks]} for item in true_dataset]
+    true_distances = [{'distances': item['distances'][mask]} for item, mask in zip(true_dataset, sharpness_masks)]
 
     pred_dataset = Hdf5File(
         options.pred_filename,
         io=pred_data_io,
         preload=PreloadTypes.LAZY,
         labels=['distances'])
-    pred_distances = [{'distances': item['distances'][sharpness_masks]} for item in pred_dataset]
+    pred_distances = [{'distances': item['distances'][mask]} for item, mask in zip(pred_dataset, sharpness_masks)]
 
     rmse = nm.RMSE()
     q95rmse = nm.RMSEQuantile(0.95)
@@ -48,7 +48,7 @@ def main(options):
     bad_points_4r = nm.BadPoints(r4, normalize=True)
     iou = nm.IOU(r1)
 
-    max_distances_all = np.max(item['distances'] for item in true_distances) + 1e-6
+    max_distances_all = np.max([np.max(item['distances']) for item in true_distances]) + 1e-6
     all_mask = nm.DistanceLessThan(max_distances_all, name='ALL')
     RMSE_ALL = nm.MaskedMetric(all_mask, rmse)
     q95RMSE_ALL = nm.MaskedMetric(all_mask, q95rmse)
