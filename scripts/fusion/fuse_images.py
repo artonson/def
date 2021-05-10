@@ -157,8 +157,27 @@ def main(options):
         'n_jobs': options.n_jobs
     })
     mvs_interpolator = load_func_from_config(MVS_INTERPOLATORS, config)
-    list_predictions, list_indexes_in_whole, list_points = mvs_interpolator(views_predicted)
 
+    # Compute the fused point cloud also by reprojecting views:
+    # use the ground-truth single-view annotations.
+    list_predictions, list_indexes_in_whole, list_points = mvs_interpolator(views)
+    n_points = np.sum([len(points) for points in list_points])
+    fused_points_gt, fused_distances_gt, prediction_variants_gt = combiners.GroundTruthCombiner()(
+        n_points,
+        list_predictions,
+        list_indexes_in_whole,
+        list_points,
+        max_distance=options.max_distance_to_feature)
+
+    ground_truth_filename = os.path.join(
+        options.output_dir,
+        '{}__{}.hdf5'.format(name, 'ground_truth__interp'))
+    fusion_io.save_full_model_predictions(
+        fused_points_gt,
+        fused_distances_gt,
+        ground_truth_filename)
+
+    list_predictions, list_indexes_in_whole, list_points = mvs_interpolator(views_predicted)
     # run various algorithms for consolidating predictions
     # this selection is up to you, user
     combiners_list = [
