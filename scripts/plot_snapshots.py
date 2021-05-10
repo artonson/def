@@ -44,7 +44,8 @@ def main(options):
         else:
             low, high = 0.0, options.max_distance_to_feature
 
-    for input_filename in tqdm(options.inputs, desc='Loading/plotting'):
+    input_cmaps = options.input_cmaps or ['plasma_r'] * len(options.inputs)
+    for input_filename, input_cmap in tqdm(zip(options.inputs, input_cmaps), desc='Loading/plotting'):
         dataset = Hdf5File(
             input_filename,
             io=FusedPredictionsIO,
@@ -60,10 +61,11 @@ def main(options):
             distances[distances <= options.sharpness_hard_thr] = low
             distances[distances > options.sharpness_hard_thr] = high
 
+        cmap = getattr(k3d.colormaps.matplotlib_color_maps, input_cmap)
         tol = 1e-3
         colors = k3d.helpers.map_colors(
             distances,
-            k3d.colormaps.matplotlib_color_maps.plasma_r,
+            cmap,
             [-tol, options.max_distance_to_feature + tol]
         ).astype(np.uint32)
 
@@ -105,6 +107,10 @@ def parse_args():
                         default=None, type=float, help='if set, forces to compute and paint hard labels.')
     parser.add_argument('-v', '--sharpness_hard_values', dest='sharpness_hard_values', nargs=2, default=None, type=float, 
                         help='if set, specifies min and max sharpness values for hard labels.')
+
+    parser.add_argument('-icm', '--input_cmaps', dest='input_cmaps', action='append',
+                        help='if specified, this should be a list of string colormaps (e.g. "plasma_r", '
+                             'one per input file).')
     return parser.parse_args()
 
 
