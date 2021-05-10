@@ -125,7 +125,7 @@ def parse_args():
         default=1.0,
         help='max distance to sharp feature to evaluate.')
     parser.add_argument(
-        '-sv', '--sharpness_bg_value',
+        '-sbg', '--sharpness_bg_value',
         dest='sharpness_bg_value',
         default=0.0,
         type=float,
