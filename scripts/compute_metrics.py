@@ -30,14 +30,15 @@ def main(options):
         io=true_data_io,
         preload=PreloadTypes.LAZY,
         labels=['distances'])
-    true_distances = [{'distances': item['distances']} for item in true_dataset]
+    sharpness_masks = [item['distances'] != options.sharpness_bg_value for item in true_dataset]
+    true_distances = [{'distances': item['distances'][sharpness_masks]} for item in true_dataset]
 
     pred_dataset = Hdf5File(
         options.pred_filename,
         io=pred_data_io,
         preload=PreloadTypes.LAZY,
         labels=['distances'])
-    pred_distances = [{'distances': item['distances']} for item in pred_dataset]
+    pred_distances = [{'distances': item['distances'][sharpness_masks]} for item in pred_dataset]
 
     rmse = nm.RMSE()
     q95rmse = nm.RMSEQuantile(0.95)
@@ -123,6 +124,12 @@ def parse_args():
         type=float,
         default=1.0,
         help='max distance to sharp feature to evaluate.')
+    parser.add_argument(
+        '-sv', '--sharpness_bg_value',
+        dest='sharpness_bg_value',
+        default=0.0,
+        type=float,
+        help='if set, specifies sharpness value to be treated as background.')
     return parser.parse_args()
 
 
