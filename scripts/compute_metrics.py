@@ -31,8 +31,8 @@ def main(options):
         labels=['distances'])
     pred_distances = {'distances': pred_dataset[0]['distances']}
 
-    rmse = nm.RMSE(normalize=True)
-    q95rmse = nm.RMSEQuantile(0.95, normalize=True)
+    rmse = nm.RMSE()
+    q95rmse = nm.RMSEQuantile(0.95)
     r1 = options.resolution_3d
     bad_points_1r = nm.BadPoints(r1, normalize=True)
     r4 = options.resolution_3d * 4
