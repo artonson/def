@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 
 #set -x
-set -e
+# set -e
 
 # Set up variables -- we assume we're working in docker container
 # where all of the aligned scans are mounted into subfolder in '/data' folder.
 # Also assume '/logs' is mounted and writable.
 # '/code' contains path to this repository.
-INPUT_BASE_DIR=/data/mirrored_11
-INPUT_SUBFOLDER_REGEX='.*/[0-9]+(top|side)(_folder)?'
-OUTPUT_BASE_DIR=/logs/sharp_features_real_data
+INPUT_BASE_DIR=/data
+INPUT_SUBFOLDER_REGEX='.*/[0-9]+(top|side|side2)(_folder)?'
+#OUTPUT_BASE_DIR=/logs/sharp_features_real_data
 #OUTPUT_PREPROCESSED_DIR=${OUTPUT_BASE_DIR}/preprocessed
 #OUTPUT_POINTS_DIR=${OUTPUT_BASE_DIR}/points
 #OUTPUT_IMAGES_DIR=${OUTPUT_BASE_DIR}/images
@@ -18,8 +18,9 @@ PREPARE_SCRIPT=/code/scripts/data_scripts/prepare_real_scans.py
 POINTS_SCRIPT=/code/scripts/data_scripts/prepare_real_points_dataset.py
 IMAGES_SCRIPT=/code/scripts/data_scripts/prepare_real_images_dataset.py
 
-MAX_POINT_MESH_DISTANCE=10.0
-MAX_DISTANCE_TO_FEATURE=2.5
+MAX_POINT_MESH_DISTANCE=99999
+MAX_DISTANCE_TO_FEATURE=10.0
+SUFFIX="__aligninf_partmesh_whole"
 
 DEBUG_FLAG="--debug"
 VERBOSE_FLAG="--verbose"
@@ -56,7 +57,7 @@ find ${INPUT_BASE_DIR} \
 echo "Preprocessing scans..."
 
 NUM_PROCESSES=36
-parallel -j ${NUM_PROCESSES} <${PREPARE_CMDS_FILE}
+# parallel -j ${NUM_PROCESSES} <${PREPARE_CMDS_FILE}
 
 # If you don't have parallel...
 #PREPARE_PREFIX=prepare_
@@ -67,18 +68,18 @@ parallel -j ${NUM_PROCESSES} <${PREPARE_CMDS_FILE}
 
 ####################################################################
 # 3. Collect information about existing scans that need conversion.
-#echo "Preparing scans to process as point clouds..."
+echo "Preparing scans to process as point clouds..."
 
 function preprocess_points() {
   local folder=$1
   echo "python ${POINTS_SCRIPT}
  -i ${folder}
- -o ${folder}/$( basename "${folder}" )_points.hdf5
+ -o ${folder}/$( basename "${folder}" )_points${SUFFIX}.hdf5
  -d ${MAX_POINT_MESH_DISTANCE}
  -s ${MAX_DISTANCE_TO_FEATURE}
  ${DEBUG_FLAG}
  ${VERBOSE_FLAG}
- >${folder}/$( basename "${folder}" )_points.log 2>&1"
+ >${folder}/$( basename "${folder}" )_points${SUFFIX}.log 2>&1"
 }
 
 POINTS_CMDS_FILE=all_points_commands.sh
@@ -98,45 +99,47 @@ find ${INPUT_BASE_DIR} \
 # 4. Prepare points datasets
 echo "Preprocessing scans as point clouds..."
 
-NUM_PROCESSES=36
-parallel -j ${NUM_PROCESSES} <${POINTS_CMDS_FILE}
+NUM_PROCESSES=8
+#export OMP_NUM_THREADS=4
+#parallel --progress -j ${NUM_PROCESSES} <${POINTS_CMDS_FILE}
 
 
 ####################################################################
 # 5. Collect information about existing scans that need conversion.
-#echo "Preparing scans to process as images..."
+echo "Preparing scans to process as images..."
 
-#function preprocess_images() {
-#  local folder=$1
-#  echo "python ${IMAGES_SCRIPT}
-# -i ${folder}
-# -o ${folder}/$( basename "${folder}" )_images.hdf5
-# -d ${MAX_POINT_MESH_DISTANCE}
-# -s ${MAX_DISTANCE_TO_FEATURE}
+function preprocess_images() {
+  local folder=$1
+  echo "python ${IMAGES_SCRIPT}
+ -i ${folder}
+ -o ${folder}/$( basename "${folder}" )_images${SUFFIX}.hdf5
+ -d ${MAX_POINT_MESH_DISTANCE}
+ -s ${MAX_DISTANCE_TO_FEATURE}
+ ${DEBUG_FLAG}
+ ${VERBOSE_FLAG}
+ >${folder}/$( basename "${folder}" )_images${SUFFIX}.log 2>&1"
 # --full_mesh
-# ${DEBUG_FLAG}
-# ${VERBOSE_FLAG}
-# >${folder}/$( basename "${folder}" )_images.log 2>&1"
-#}
+}
 
-#IMAGES_CMDS_FILE=all_images_commands.sh
-#find ${INPUT_BASE_DIR} \
-#  -type d \
-#  -regextype egrep \
-#  -regex "${INPUT_SUBFOLDER_REGEX}" \
-#  -print0 | \
-#  while IFS= read -d '' file
-#  do 
-#    preprocess_images "$file" | tr -d '\n'
-#    echo
-#  done >${IMAGES_CMDS_FILE}
+IMAGES_CMDS_FILE=all_images_commands.sh
+find ${INPUT_BASE_DIR} \
+  -type d \
+  -regextype egrep \
+  -regex "${INPUT_SUBFOLDER_REGEX}" \
+  -print0 | \
+  while IFS= read -d '' file
+  do 
+    preprocess_images "$file" | tr -d '\n'
+    echo
+  done >${IMAGES_CMDS_FILE}
 
 
 ####################################################################
 # 6. Prepare images datasets
-#echo "Preprocessing scans as images..."
+echo "Preprocessing scans as images..."
 
-#NUM_PROCESSES=36
-#parallel --progress -j ${NUM_PROCESSES} <${IMAGES_CMDS_FILE}
+NUM_PROCESSES=2
+export OMP_NUM_THREADS=18
+parallel --progress -j ${NUM_PROCESSES} <${IMAGES_CMDS_FILE}
 
 
