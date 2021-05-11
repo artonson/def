@@ -158,24 +158,24 @@ def main(options):
     })
     mvs_interpolator = load_func_from_config(MVS_INTERPOLATORS, config)
 
-    # Compute the fused point cloud also by reprojecting views:
-    # use the ground-truth single-view annotations.
-    list_predictions, list_indexes_in_whole, list_points = mvs_interpolator(views)
-    n_points = np.sum([len(points) for points in list_points])
-    fused_points_gt, fused_distances_gt, prediction_variants_gt = combiners.GroundTruthCombiner()(
-        n_points,
-        list_predictions,
-        list_indexes_in_whole,
-        list_points,
-        max_distance=options.max_distance_to_feature)
+    if options.compute_interpolated_gt:
+        # Compute the fused point cloud also by reprojecting views:
+        # use the ground-truth single-view annotations.
+        list_predictions, list_indexes_in_whole, list_points = mvs_interpolator(views)
+        fused_points_gt, fused_distances_gt, prediction_variants_gt = combiners.GroundTruthCombiner()(
+            n_points,
+            list_predictions,
+            list_indexes_in_whole,
+            list_points,
+            max_distance=options.max_distance_to_feature)
 
-    ground_truth_filename = os.path.join(
-        options.output_dir,
-        '{}__{}.hdf5'.format(name, 'ground_truth__interp'))
-    fusion_io.save_full_model_predictions(
-        fused_points_gt,
-        fused_distances_gt,
-        ground_truth_filename)
+        ground_truth_filename = os.path.join(
+            options.output_dir,
+            '{}__{}.hdf5'.format(name, 'ground_truth__interp'))
+        fusion_io.save_full_model_predictions(
+            fused_points_gt,
+            fused_distances_gt,
+            ground_truth_filename)
 
     list_predictions, list_indexes_in_whole, list_points = mvs_interpolator(views_predicted)
     # run various algorithms for consolidating predictions
@@ -222,15 +222,6 @@ def main(options):
             fused_distances_pred,
             output_filename)
 
-        fused_distances_diff = np.abs(fused_distances_gt - fused_distances_pred)
-        output_filename = os.path.join(
-            options.output_dir,
-            '{}__{}__{}.hdf5'.format(name, combiner.tag, 'absdiff'))
-        fusion_io.save_full_model_predictions(
-            fused_points_pred,
-            fused_distances_diff,
-            output_filename)
-
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -251,6 +242,8 @@ def parse_args():
                         required=False, help='number of jobs to use for fusion.')
     parser.add_argument('-u', '--unlabeled', dest='unlabeled', action='store_true', default=False,
                         help='set if input data is unlabeled.')
+    parser.add_argument('-igt', '--compute_interpolated_gt', dest='compute_interpolated_gt',
+                        action='store_true', default=False, help='run real interpolation to get whole model gt.')
     parser.add_argument('-s', '--max_distance_to_feature', dest='max_distance_to_feature',
                         default=1.0, type=float, required=False, help='max distance to sharp feature to compute.')
     parser.add_argument('-r', '--pred_distance_scale_ratio', dest='pred_distance_scale_ratio',
