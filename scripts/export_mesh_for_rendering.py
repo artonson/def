@@ -8,7 +8,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib import cm
 import trimesh
-import tqdm
+from tqdm import tqdm
 
 __dir__ = os.path.normpath(
     os.path.join(
@@ -57,6 +57,10 @@ def main(options):
                 '"sharpness_hard_values" must be a tuple of size 2'
             low, high = options.sharpness_hard_values
 
+    if is_hard_label:
+        distances[distances <= options.sharpness_hard_thr] = low
+        distances[distances > options.sharpness_hard_thr] = high
+
     tol = 1e-3
     helper = MplColorHelper(
         options.input_cmap,
@@ -69,13 +73,9 @@ def main(options):
 
     full_mesh = []
     for point, distance in iterable:
-        if is_hard_label:
-            distances[distances <= options.sharpness_hard_thr] = low
-            distances[distances > options.sharpness_hard_thr] = high
-
         rgba = helper.get_rgb(distance)
         mesh = trimesh.creation.icosphere(
-            subdivisions=1,
+            subdivisions=options.subdivisions,
             radius=options.point_size,
             color=rgba[:3])
         mesh.vertices += point
@@ -99,8 +99,8 @@ def parse_args():
 
     parser.add_argument('-i', '--input_filename', dest='input_filename',
                         required=True, help='input file with fused filename.')
-    parser.add_argument('-o', '--output_filename', dest='output',
-                        required=True, help='output .html filename.')
+    parser.add_argument('-o', '--output_filename', dest='output_filename',
+                        required=True, help='output .obj filename.')
     parser.add_argument('-s', '--max_distance_to_feature', dest='max_distance_to_feature',
                         default=1.0, type=float, required=False, help='max distance to sharp feature to display.')
     parser.add_argument('-ps', '--point_size', dest='point_size',
@@ -115,6 +115,8 @@ def parse_args():
     parser.add_argument('-icm', '--input_cmap', dest='input_cmap', default='plasma_r',
                         help='if specified, this should be a list of string colormaps (e.g. "plasma_r", '
                              'one per input file).')
+    parser.add_argument('-sub', '--subdivisions', dest='subdivisions', default=1, type=int,
+                        help='number of subdivisions to make (more results in higher detailed points).')
     return parser.parse_args()
 
 
