@@ -122,8 +122,8 @@ def parse_args():
     parser.add_argument('-c', '--chunk', required=True, help='ABC chunk id to process.')
     parser.add_argument('-o', '--output-filename', dest='output_filename',
                         required=True, help='output filename.')
-    parser.add_argument('-thr', '--annotation-threshold', dest='output_filename',
-                        required=True, help='output filename.')
+    # parser.add_argument('-thr', '--annotation-threshold', dest='output_filename',
+    #                     required=True, help='output filename.')
 
     parser.add_argument('--verbose', dest='verbose', action='store_true', default=False,
                         required=False, help='be verbose')
