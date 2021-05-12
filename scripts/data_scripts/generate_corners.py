@@ -104,7 +104,7 @@ def make_patches(options):
         config = json.load(config_file)
 
     with ABCChunk([obj_filename, feat_filename]) as abc_data:
-        abc_item = abc_data.get_one(options.input_shape_id)
+        abc_item = abc_data.get(options.input_shape_id)
         corner_xyz = get_corners(abc_item, config)
         np.savetxt(options.output_filename, corner_xyz)
 
