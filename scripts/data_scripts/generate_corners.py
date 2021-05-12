@@ -124,6 +124,8 @@ def parse_args():
                         required=True, help='output filename.')
     # parser.add_argument('-thr', '--annotation-threshold', dest='output_filename',
     #                     required=True, help='output filename.')
+    parser.add_argument('-g', '--dataset-config', dest='dataset_config',
+                        required=True, help='dataset configuration file.')
 
     parser.add_argument('--verbose', dest='verbose', action='store_true', default=False,
                         required=False, help='be verbose')
