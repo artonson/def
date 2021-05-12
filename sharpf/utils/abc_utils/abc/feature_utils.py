@@ -266,3 +266,15 @@ def get_sharp_edge_endpoints(mesh, features):
 
     sharp_edges = mesh.vertices[sharp_edge_indexes]
     return sharp_edges
+
+
+def get_corner_vertex_indexes(features):
+    curves = features['curves']
+    n_verts = np.max([np.max(curve['vert_indices']) for curve in curves])
+    curves_per_vertex = np.zeros(n_verts)
+    for curve in curves:
+        curve_vertex_indexes = np.array(curve['vert_indices'])
+        curves_per_vertex[curve_vertex_indexes] += 1
+
+    corner_vertex_indexes = curves_per_vertex[curves_per_vertex > 2]
+    return corner_vertex_indexes
