@@ -88,13 +88,13 @@ def get_corners(abc_item, config):
 
 def make_patches(options):
     obj_filename = os.path.join(
-        options.input_dir,
+        options.data_dir,
         ABC_7Z_FILEMASK.format(
             chunk=options.chunk.zfill(4),
             modality=ABCModality.OBJ.value,
             version='00'))
     feat_filename = os.path.join(
-        options.input_dir,
+        options.data_dir,
         ABC_7Z_FILEMASK.format(
             chunk=options.chunk.zfill(4),
             modality=ABCModality.FEAT.value,
