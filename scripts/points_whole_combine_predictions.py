@@ -166,15 +166,19 @@ def main(options):
 #           combiner=CenterCropPredictionsCombiner(brd_thr=80, func=np.min),
 #           smoother=TotalVariationSmoother(regularizer_alpha=0.001)
 #       ),
+        cc.CenterCropPredictionsCombiner(
+            brd_thr=80,
+            func=cc.TruncatedMean(probability=0.6, func=np.min)),
         cc.SmoothingCombiner(
-            combiner=cc.CenterCropPredictionsCombiner(brd_thr=80, func=np.min),
+            combiner=cc.CenterCropPredictionsCombiner(
+                brd_thr=80,
+                func=cc.TruncatedMean(probability=0.6, func=np.min)),
             smoother=cs.RobustLocalLinearFit(
                 lm.HuberRegressor(epsilon=4., alpha=1.),
                 n_jobs=32
             )
         ),
     ]
-    combiners = [cc.CenterCropPredictionsCombiner(brd_thr=80, func=np.min)]
 
     list_indexes_in_whole = [patch['indexes_in_whole'] for patch in ground_truth_dataset]
     list_points = [patch['points'].reshape((-1, 3)) for patch in ground_truth_dataset]
@@ -183,11 +187,11 @@ def main(options):
         if options.verbose:
             print('Running {}'.format(combiner.tag))
 
-        combined_predictions, prediction_variants = \
+        fused_points_pred, fused_distances_pred, prediction_variants = \
             combiner(n_points, list_predictions, list_indexes_in_whole, list_points)
 
         output_filename = os.path.join(options.output_dir, '{}__{}.hdf5'.format(name, combiner.tag))
-        save_full_model_predictions(whole_model_points_gt, combined_predictions, output_filename)
+        save_full_model_predictions(fused_points_pred, fused_distances_pred, output_filename)
 
 
 def parse_args():
