@@ -88,8 +88,8 @@ def get_edges(abc_item, config):
             is_edgevert_in_curve = np.isin(mesh.edges_unique, curve['vert_indices'])
             is_edge_in_curve = np.all(is_edgevert_in_curve, axis=1)
             edge_in_curve_indexes = np.where(is_edge_in_curve)[0]
-            curve_edges = mesh.edges_unique[edge_in_curve_indexes]
-            curve_segment_xyz = mesh.vertices[curve_edges]
+            curve_edges = mesh.edges_unique[edge_in_curve_indexes]  # n_curve, 2
+            curve_segment_xyz = mesh.vertices[curve_edges]  # n_curve, 2, 3
             curve_segments.append((curve_id, curve['type'], np.ravel(curve_segment_xyz)))
 
     return curve_segments
