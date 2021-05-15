@@ -170,6 +170,15 @@ def process_scans(
         point_cloud.append(aligned_points)
 
     point_cloud = np.concatenate(point_cloud)
+    distance_sq, _, _ = igl.point_mesh_squared_distance(
+        point_cloud,
+        mesh.vertices,
+        mesh.faces)
+    close_enough_indexes = np.where(np.sqrt(distance_sq) < max_point_mesh_distance_mm)[0]
+    print('{} out of {} points are closer to GT mesh than {} mm '
+          'and have been selected for annotation'.format(
+        len(close_enough_indexes), len(point_cloud), max_point_mesh_distance_mm))
+    point_cloud = point_cloud[close_enough_indexes]
 
     n_patches = int(len(point_cloud) * 10 / DEFAULT_PATCH_SIZE)
     print('n_patches = ', n_patches)
@@ -178,7 +187,8 @@ def process_scans(
     annotation_config = {
         "type": "surface_based_aabb",
         "distance_upper_bound": max_distance_to_feature,
-        "always_check_adjacent_surfaces": True
+        "always_check_adjacent_surfaces": True,
+        "distance_computation_method": 'geom',
     }
     annotator = load_func_from_config(ANNOTATOR_BY_TYPE, annotation_config)
     smell_sharpness_discontinuities = smells.SmellSharpnessDiscontinuities.from_config({})
