@@ -1,8 +1,8 @@
 #!/bin/bash
 
-#SBATCH --job-name=sharpf-fuse-image-synth
-#SBATCH --output=/trinity/home/e.bogomolov/tmp/sharpf_images/%A_%a.out
-#SBATCH --error=/trinity/home/e.bogomolov/tmp/sharpf_images/%A_%a.err
+#SBATCH --job-name=def-plot-snapshots
+#SBATCH --output=/trinity/home/a.artemov/tmp/def-plot-snapshots/%A_%a.out
+#SBATCH --error=/trinity/home/a.artemov/tmp/def-plot-snapshots/%A_%a.err
 #SBATCH --array=1-550
 #SBATCH --time=00:10:00
 #SBATCH --partition=htc
