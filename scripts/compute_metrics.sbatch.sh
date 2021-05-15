@@ -8,7 +8,7 @@
 #SBATCH --partition=htc
 #SBATCH --cpus-per-task=1
 #SBATCH --ntasks=1
-#SBATCH --mem-per-cpu=2g
+#SBATCH --mem-per-cpu=4g
 #SBATCH --oversubscribe
 
 __usage="
@@ -53,41 +53,85 @@ echo "  CONTAINER OPTIONS:"
 echo "  code path:            ${CODE_PATH_CONTAINER}"
 echo "  "
 
-N_TASKS=${SLURM_NTASKS}
 OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
-COMBINE_SCRIPT="${CODE_PATH_CONTAINER}/scripts/compute_metrics.py"
-
-PARAM_DISTANCE_INTERP_FACTOR=6.0
-PARAM_NN_SET_SIZE=8
-PARAM_INTERPOLATOR_FUNCTION=bisplrep
+METRICS_SCRIPT="${CODE_PATH_CONTAINER}/scripts/compute_metrics.py"
 
 # Read SLURM_ARRAY_TASK_ID num lines from standard input,
-# stopping at line whole number equals SLURM_ARRAY_TASK_ID
+# stopping at line whose number equals SLURM_ARRAY_TASK_ID
 count=0
-while IFS=' ' read -r TRUE_FILENAME_GLOBAL PRED_PATH_GLOBAL OUTPUT_PATH_GLOBAL OUT_HTML PARAM_RESOLUTION_3D; do
+while IFS=' ' read -r source_filename resolution_3d; do
     (( count++ ))
     if (( count == SLURM_ARRAY_TASK_ID )); then
         break
     fi
 done <"${1:-/dev/stdin}"
 
+INPUT_BASE_DIR=/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr
+FUSION_BASE_DIR=/gpfs/gpfs0/3ddl/sharp_features/whole_fused/data_v2_cvpr
+output_path_global="${FUSION_BASE_DIR}/$( realpath --relative-to  ${INPUT_BASE_DIR} "${source_filename}" )"
 
-#SLICE_START=$(( SLICE_SIZE * SLURM_ARRAY_TASK_ID ))
-#SLICE_END=$(( SLICE_SIZE * (SLURM_ARRAY_TASK_ID + 1) ))
-#echo "SLURM_ARRAY_TASK_ID=${SLURM_ARRAY_TASK_ID} SLICE_START=${SLICE_START} SLICE_END=${SLICE_END}"
-#
-echo ${OUT_HTML}
-singularity exec \
-  --bind ${CODE_PATH_HOST}:${CODE_PATH_CONTAINER} \
-  --bind "${PWD}":/run/user \
-  --bind /gpfs:/gpfs \
-  "${SIMAGE_FILENAME}" \
-      bash -c 'export OMP_NUM_THREADS='"${OMP_NUM_THREADS}; \\
-      python3 ${COMBINE_SCRIPT} \\
-        -t ${TRUE_FILENAME_GLOBAL} \\
-        -p ${PRED_PATH_GLOBAL} \\
-        -o ${OUTPUT_PATH_GLOBAL}/metrics.txt \\
-        -r ${PARAM_RESOLUTION_3D} \\
-           1> >(tee ${OUTPUT_PATH_GLOBAL}/${SLURM_ARRAY_TASK_ID}.out) \\
-           2> >(tee ${OUTPUT_PATH_GLOBAL}/${SLURM_ARRAY_TASK_ID}.err)"
+fused_gt="${output_path_global}/$( basename "${source_filename}" .hdf5)__ground_truth.hdf5"
+
+fused_pred_min="${output_path_global}/$( basename "${source_filename}" .hdf5)__min.hdf5"
+fused_pred_min__metrics="${output_path_global}/$( basename "${source_filename}" .hdf5)__min__metrics.txt"
+
+fused_pred_adv60="${output_path_global}/$( basename "${source_filename}" .hdf5)__adv60__min.hdf5"
+fused_pred_adv60__metrics="${output_path_global}/$( basename "${source_filename}" .hdf5)__adv60__metrics.txt"
+
+fused_pred_linreg="${output_path_global}/$( basename "${source_filename}" .hdf5)__adv60__min__linreg.hdf5"
+fused_pred_linreg__metrics="${output_path_global}/$( basename "${source_filename}" .hdf5)__linreg__metrics.txt"
+
+if [[ -f ${fused_pred_min} ]]
+then
+  singularity exec \
+    --bind ${CODE_PATH_HOST}:${CODE_PATH_CONTAINER} \
+    --bind "${PWD}":/run/user \
+    --bind /gpfs:/gpfs \
+    "${SIMAGE_FILENAME}" \
+        bash -c 'export OMP_NUM_THREADS='"${OMP_NUM_THREADS}; \\
+        python3 ${METRICS_SCRIPT} \\
+          -t ${fused_gt} \\
+          -p ${fused_pred_min} \\
+          -o ${fused_pred_min__metrics} \\
+          -r ${resolution_3d} \\
+          ${VERBOSE_ARG} \\
+             1> >(tee ${output_path_global}/${SLURM_ARRAY_TASK_ID}.out) \\
+             2> >(tee ${output_path_global}/${SLURM_ARRAY_TASK_ID}.err)"
+fi
+
+if [[ -f ${fused_pred_adv60} ]]
+then
+  singularity exec \
+    --bind ${CODE_PATH_HOST}:${CODE_PATH_CONTAINER} \
+    --bind "${PWD}":/run/user \
+    --bind /gpfs:/gpfs \
+    "${SIMAGE_FILENAME}" \
+        bash -c 'export OMP_NUM_THREADS='"${OMP_NUM_THREADS}; \\
+        python3 ${METRICS_SCRIPT} \\
+          -t ${fused_gt} \\
+          -p ${fused_pred_adv60} \\
+          -o ${fused_pred_adv60__metrics} \\
+          -r ${resolution_3d} \\
+          ${VERBOSE_ARG} \\
+             1> >(tee ${output_path_global}/${SLURM_ARRAY_TASK_ID}.out) \\
+             2> >(tee ${output_path_global}/${SLURM_ARRAY_TASK_ID}.err)"
+fi
+
+if [[ -f ${fused_pred_linreg} ]]
+then
+  singularity exec \
+    --bind ${CODE_PATH_HOST}:${CODE_PATH_CONTAINER} \
+    --bind "${PWD}":/run/user \
+    --bind /gpfs:/gpfs \
+    "${SIMAGE_FILENAME}" \
+        bash -c 'export OMP_NUM_THREADS='"${OMP_NUM_THREADS}; \\
+        python3 ${METRICS_SCRIPT} \\
+          -t ${fused_gt} \\
+          -p ${fused_pred_linreg} \\
+          -o ${fused_pred_linreg__metrics} \\
+          -r ${resolution_3d} \\
+          ${VERBOSE_ARG} \\
+             1> >(tee ${output_path_global}/${SLURM_ARRAY_TASK_ID}.out) \\
+             2> >(tee ${output_path_global}/${SLURM_ARRAY_TASK_ID}.err)"
+fi
