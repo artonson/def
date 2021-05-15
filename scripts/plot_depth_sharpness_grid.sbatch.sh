@@ -74,6 +74,12 @@ output_path_global="${FUSION_BASE_DIR}/$( realpath --relative-to  ${INPUT_BASE_D
 
 views_gt=${source_filename}
 views_gt__grid="${output_path_global}/$( basename "${source_filename}" .hdf5)__ground_truth.png"
+views_pred="${output_path_global}/$( basename "${source_filename}" .hdf5)__predictions.hdf5"
+views_pred__grid="${output_path_global}/$( basename "${source_filename}" .hdf5)__predictions.png"
+views_absdiff="${output_path_global}/$( basename "${source_filename}" .hdf5)__absdiff.hdf5"
+views_absdiff__grid="${output_path_global}/$( basename "${source_filename}" .hdf5)__absdiff.png"
+views_result__grid="${output_path_global}/$( basename "${source_filename}" .hdf5)__result.png"
+
 
 MAX_DISTANCE=1.1
 singularity exec \
@@ -95,46 +101,49 @@ singularity exec \
            1> >(tee ${output_path_global}/${SLURM_ARRAY_TASK_ID}.out) \\
            2> >(tee ${output_path_global}/${SLURM_ARRAY_TASK_ID}.err)"
 
+singularity exec \
+  --bind ${CODE_PATH_HOST}:${CODE_PATH_CONTAINER} \
+  --bind "${PWD}":/run/user \
+  --bind /gpfs:/gpfs \
+  "${SIMAGE_FILENAME}" \
+      bash -c 'export OMP_NUM_THREADS='"${OMP_NUM_THREADS}; \\
+      python3 ${PLOT_SCRIPT} \\
+        -i ${views_pred} \
+        -o ${views_pred__grid} \
+        -s ${MAX_DISTANCE} \\
+        -di -si -sp \\
+        --ncols 1 \\
+        -f 8 8 \\
+        -c auto -cx \\
+        -dv 0 -sv 0 -bgd \\
+        ${VERBOSE_ARG} \\
+           1> >(tee ${output_path_global}/${SLURM_ARRAY_TASK_ID}.out) \\
+           2> >(tee ${output_path_global}/${SLURM_ARRAY_TASK_ID}.err)"
 
-#if [[ -f ${fused_pred_min} ]]
-#then
-#  echo ${fused_pred_min__metrics}
-#fi
-#
-#if [[ -f ${fused_pred_adv60} ]]
-#then
-#  echo ${fused_pred_adv60__metrics}
-#  singularity exec \
-#    --bind ${CODE_PATH_HOST}:${CODE_PATH_CONTAINER} \
-#    --bind "${PWD}":/run/user \
-#    --bind /gpfs:/gpfs \
-#    "${SIMAGE_FILENAME}" \
-#        bash -c 'export OMP_NUM_THREADS='"${OMP_NUM_THREADS}; \\
-#        python3 ${PLOT_SCRIPT} \\
-#          -t ${fused_gt} \\
-#          -p ${fused_pred_adv60} \\
-#          -o ${fused_pred_adv60__metrics} \\
-#          -r ${resolution_3d} \\
-#          ${VERBOSE_ARG} \\
-#             1> >(tee ${output_path_global}/${SLURM_ARRAY_TASK_ID}.out) \\
-#             2> >(tee ${output_path_global}/${SLURM_ARRAY_TASK_ID}.err)"
-#fi
-#
-#if [[ -f ${fused_pred_linreg} ]]
-#then
-#  echo ${fused_pred_linreg__metrics}
-#  singularity exec \
-#    --bind ${CODE_PATH_HOST}:${CODE_PATH_CONTAINER} \
-#    --bind "${PWD}":/run/user \
-#    --bind /gpfs:/gpfs \
-#    "${SIMAGE_FILENAME}" \
-#        bash -c 'export OMP_NUM_THREADS='"${OMP_NUM_THREADS}; \\
-#        python3 ${PLOT_SCRIPT} \\
-#          -t ${fused_gt} \\
-#          -p ${fused_pred_linreg} \\
-#          -o ${fused_pred_linreg__metrics} \\
-#          -r ${resolution_3d} \\
-#          ${VERBOSE_ARG} \\
-#             1> >(tee ${output_path_global}/${SLURM_ARRAY_TASK_ID}.out) \\
-#             2> >(tee ${output_path_global}/${SLURM_ARRAY_TASK_ID}.err)"
-#fi
+singularity exec \
+  --bind ${CODE_PATH_HOST}:${CODE_PATH_CONTAINER} \
+  --bind "${PWD}":/run/user \
+  --bind /gpfs:/gpfs \
+  "${SIMAGE_FILENAME}" \
+      bash -c 'export OMP_NUM_THREADS='"${OMP_NUM_THREADS}; \\
+      python3 ${PLOT_SCRIPT} \\
+        -i ${views_absdiff} \
+        -o ${views_absdiff__grid} \
+        -s ${MAX_DISTANCE} \\
+        -di -si -sp \\
+        --ncols 1 \\
+        -f 8 8 \\
+        -c auto -cx \\
+        -dv 0 -sv 0 -bgd \\
+        -scm plasma \\
+        ${VERBOSE_ARG} \\
+           1> >(tee ${output_path_global}/${SLURM_ARRAY_TASK_ID}.out) \\
+           2> >(tee ${output_path_global}/${SLURM_ARRAY_TASK_ID}.err)"
+
+wait
+/usr/bin/convert \
+    ${views_gt__grid} \
+    ${views_pred__grid} \
+    ${views_absdiff__grid} \
+    +append ${views_result__grid}
+
