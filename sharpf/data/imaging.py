@@ -25,7 +25,7 @@ class ImagingFunc(ABC):
 
 
 class RaycastingImaging(ImagingFunc):
-    def __init__(self, resolution_image, resolution_3d, projection, validate_image):
+    def __init__(self, resolution_image, resolution_3d, projection=None, validate_image=False):
         self.resolution_image = resolution_image
         self.resolution_3d = resolution_3d
         self.projection = projection
