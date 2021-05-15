@@ -34,7 +34,7 @@ import sharpf.consolidation.smoothers as cs
 
 
 SingleViewPredictionsIO = io_struct.HDF5IO(
-    {'image': io_struct.Float64('distances'),
+    {'image': io_struct.Float64('image'),
      'distances': io_struct.Float64('distances')},
     len_label='distances',
     compression='lzf')
