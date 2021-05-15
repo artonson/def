@@ -3,6 +3,7 @@
 import argparse
 import os
 import sys
+import io
 
 import numpy as np
 
@@ -72,7 +73,8 @@ def main(options):
     for true_item, pred_item in zip(true_distances, pred_distances):
         item_values = [metric(true_item, pred_item) for metric in metrics]
         values.append(item_values)
-
+    fp = options.out_filename
+    fp = open(fp, 'w') if not isinstance(fp, io.TextIOBase) else fp
     print(
         '{metrics_names}\n{items_values}'.format(
             metrics_names=','.join([str(metric) for metric in metrics]),
@@ -80,7 +82,8 @@ def main(options):
                 ','.join([str(value) for value in item_values])
                 for item_values in values])
         ),
-        file=options.out_filename)
+        file=fp)
+    fp.close()
 
 
 def parse_args():
