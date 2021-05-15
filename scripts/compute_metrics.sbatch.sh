@@ -1,9 +1,9 @@
 #!/bin/bash
 
-#SBATCH --job-name=sharpf-fuse-image-synth
-#SBATCH --output=/trinity/home/e.bogomolov/tmp/sharpf_images/%A_%a.out
-#SBATCH --error=/trinity/home/e.bogomolov/tmp/sharpf_images/%A_%a.err
-#SBATCH --array=1-550
+#SBATCH --job-name=def-fuse-metrics
+#SBATCH --output=/trinity/home/a.artemov/tmp/def-fuse-metrics/%A_%a.out
+#SBATCH --error=/trinity/home/a.artemov/tmp/def-fuse-metrics/%A_%a.err
+#SBATCH --array=1-1
 #SBATCH --time=00:10:00
 #SBATCH --partition=htc
 #SBATCH --cpus-per-task=1
@@ -12,12 +12,12 @@
 #SBATCH --oversubscribe
 
 __usage="
-Usage: $0 [-v] <[input_filename]
+Usage: $0 [-v] [input_filename]
 
   -v:   if set, verbose mode is activated (more output from the script generally)
 
 Example:
-  sbatch $( basename "$0" ) -v <inputs.txt
+  sbatch $( basename "$0" ) -v inputs.txt
 "
 
 usage() { echo "$__usage" >&2; }
@@ -32,13 +32,14 @@ do
     esac
 done
 
+set -x
 if [[ "${VERBOSE}" = true ]]; then
     set -x
     VERBOSE_ARG="--verbose"
 fi
 
 # get image filenames from here
-PROJECT_ROOT=/trinity/home/e.bogomolov/data_quality
+PROJECT_ROOT=/trinity/home/a.artemov/repos/sharp_features
 source "${PROJECT_ROOT}"/env.sh
 
 CODE_PATH_CONTAINER="/code"
@@ -67,9 +68,10 @@ while IFS=' ' read -r source_filename resolution_3d; do
     fi
 done <"${1:-/dev/stdin}"
 
+
 INPUT_BASE_DIR=/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr
 FUSION_BASE_DIR=/gpfs/gpfs0/3ddl/sharp_features/whole_fused/data_v2_cvpr
-output_path_global="${FUSION_BASE_DIR}/$( realpath --relative-to  ${INPUT_BASE_DIR} "${source_filename}" )"
+output_path_global="${FUSION_BASE_DIR}/$( realpath --relative-to  ${INPUT_BASE_DIR} "${source_filename%.*}" )"
 
 fused_gt="${output_path_global}/$( basename "${source_filename}" .hdf5)__ground_truth.hdf5"
 
@@ -84,6 +86,7 @@ fused_pred_linreg__metrics="${output_path_global}/$( basename "${source_filename
 
 if [[ -f ${fused_pred_min} ]]
 then
+  echo ${fused_pred_min__metrics}
   singularity exec \
     --bind ${CODE_PATH_HOST}:${CODE_PATH_CONTAINER} \
     --bind "${PWD}":/run/user \
@@ -102,6 +105,7 @@ fi
 
 if [[ -f ${fused_pred_adv60} ]]
 then
+  echo ${fused_pred_adv60__metrics}
   singularity exec \
     --bind ${CODE_PATH_HOST}:${CODE_PATH_CONTAINER} \
     --bind "${PWD}":/run/user \
@@ -120,6 +124,7 @@ fi
 
 if [[ -f ${fused_pred_linreg} ]]
 then
+  echo ${fused_pred_linreg__metrics}
   singularity exec \
     --bind ${CODE_PATH_HOST}:${CODE_PATH_CONTAINER} \
     --bind "${PWD}":/run/user \
