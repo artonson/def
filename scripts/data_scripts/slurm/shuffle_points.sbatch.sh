@@ -103,11 +103,11 @@ singularity exec \
         --random-seed ${RANDOM_SEED} \\
         --max-loaded-files ${MAX_LOADED_FILES} \\
         ${VERBOSE_ARG} \\
-        -io points \\
-        -fk has_smell_coarse_surfaces_by_num_faces \\
-        -fk has_smell_coarse_surfaces_by_angles \\
-        -fk has_smell_sharpness_discontinuities \\
+        -io whole_points \\
         "
+#       -fk has_smell_coarse_surfaces_by_num_faces \\
+#       -fk has_smell_coarse_surfaces_by_angles \\
+#       -fk has_smell_sharpness_discontinuities \\
 
 #      -fk has_smell_mismatching_surface_annotation
 #      -fk has_smell_bad_face_sampling
