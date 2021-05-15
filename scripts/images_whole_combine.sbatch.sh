@@ -3,10 +3,10 @@
 #SBATCH --job-name=sharpf-fuse-image-synth
 #SBATCH --output=/trinity/home/a.artemov/tmp/sharpf_images/%A_%a.out
 #SBATCH --error=/trinity/home/a.artemov/tmp/sharpf_images/%A_%a.err
-#SBATCH --array=1-100
+#SBATCH --array=1-1
 #SBATCH --time=24:00:00
 #SBATCH --partition=htc
-#SBATCH --cpus-per-task=4
+#SBATCH --cpus-per-task=16
 #SBATCH --ntasks=1
 #SBATCH --mem-per-cpu=8g
 #SBATCH --oversubscribe
