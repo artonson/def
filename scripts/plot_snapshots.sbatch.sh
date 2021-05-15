@@ -3,7 +3,7 @@
 #SBATCH --job-name=def-plot-snapshots
 #SBATCH --output=/trinity/home/a.artemov/tmp/def-plot-snapshots/%A_%a.out
 #SBATCH --error=/trinity/home/a.artemov/tmp/def-plot-snapshots/%A_%a.err
-#SBATCH --array=1-550
+#SBATCH --array=1-1
 #SBATCH --time=00:10:00
 #SBATCH --partition=htc
 #SBATCH --cpus-per-task=1
@@ -32,6 +32,7 @@ do
     esac
 done
 
+set -x
 if [[ "${VERBOSE}" = true ]]; then
     set -x
     VERBOSE_ARG="--verbose"
@@ -113,8 +114,8 @@ singularity exec \
   "${SIMAGE_FILENAME}" \
       bash -c 'export OMP_NUM_THREADS='"${OMP_NUM_THREADS}; \\
       python3 ${SNAPSHOT_SCRIPT} \\
-        ${input_arg}
-        ${icm_arg}
+        ${input_arg} \\
+        ${icm_arg} \\
         -s ${POINT_SIZE} \\
         -ps ${resolution_3d} \\
         -ph ${POINT_SHADER} \\
