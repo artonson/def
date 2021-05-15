@@ -38,7 +38,7 @@ if [[ "${VERBOSE}" = true ]]; then
 fi
 
 # get image filenames from here
-PROJECT_ROOT=/trinity/home/e.bogomolov/data_quality
+PROJECT_ROOT=/trinity/home/a.artemov/repos/sharp_features
 source "${PROJECT_ROOT}"/env.sh
 
 CODE_PATH_CONTAINER="/code"
@@ -71,7 +71,7 @@ done <"${1:-/dev/stdin}"
 
 INPUT_BASE_DIR=/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr
 FUSION_BASE_DIR=/gpfs/gpfs0/3ddl/sharp_features/whole_fused/data_v2_cvpr
-output_path_global="${FUSION_BASE_DIR}/$( realpath --relative-to  ${INPUT_BASE_DIR} "${source_filename}" )"
+output_path_global="${FUSION_BASE_DIR}/$( realpath --relative-to  ${INPUT_BASE_DIR} "${source_filename%.*}" )"
 
 fused_gt="${output_path_global}/$( basename "${source_filename}" .hdf5)__ground_truth.hdf5"
 
