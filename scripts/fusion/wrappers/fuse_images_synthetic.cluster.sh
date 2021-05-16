@@ -4,18 +4,20 @@ set -x
 
 DATASET_FILE_DIR="/gpfs/gpfs0/3ddl/sharp_features/whole_fused"
 
-DATASETS="images_whole__high_res_whole.json.txt
-images_whole__med_res_whole.json.txt
-images_whole__low_res_whole.json.txt
-images_whole__high_res_whole_0.005.json.txt
-images_whole__high_res_whole_0.02.json.txt
-images_whole__high_res_whole_0.08.json.txt"
+DATASETS="images_whole__high_res_whole.json.txt"
+#DATASETS="images_whole__high_res_whole.json.txt
+#images_whole__med_res_whole.json.txt
+#images_whole__low_res_whole.json.txt
+#images_whole__high_res_whole_0.005.json.txt
+#images_whole__high_res_whole_0.02.json.txt
+#images_whole__high_res_whole_0.08.json.txt"
 
-METHODS="def
-vcm
-ecn
-sfh
-pie"
+METHODS="def"
+#METHODS="def
+#vcm
+#ecn
+#sfh
+#pie"
 
 PROJECT_ROOT=/trinity/home/a.artemov/repos/sharp_features2
 FUSION_ANALYSIS_SBATCH="${PROJECT_ROOT}/scripts/fusion/slurm/fusion_analysis.sbatch.sh"
@@ -52,21 +54,24 @@ run_slurm_jobs() {
     --parsable \
     --array=1-"${task_count}" \
     "${COMPUTE_METRICS_SBATCH}" \
-    "${dataset_file}"
+      -m "${method_dirname}" \
+      -i "${dataset_file}"
 
   # Draw images
   sbatch \
     --parsable \
     --array=1-"${task_count}" \
     "${PLOT_DSG_SBATCH}" \
-    "${dataset_file}"
+      -m "${method_dirname}" \
+      -i "${dataset_file}"
 
   # Draw HTMLs
   sbatch \
     --parsable \
     --array=1-"${task_count}" \
     "${PLOT_SNAPSHOTS_SBATCH}" \
-    "${dataset_file}"
+      -m "${method_dirname}" \
+      -i "${dataset_file}"
 
 }
 
@@ -76,8 +81,8 @@ for dataset in ${DATASETS}; do
     task_count=1
     run_slurm_jobs \
       "${DATASET_FILE_DIR}/${dataset}" \
-      "${method}"
-      task_count
+      "${method}" \
+      ${task_count}
   done
 
 done
