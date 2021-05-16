@@ -47,7 +47,11 @@ def main(options):
     bad_points_1r = nm.BadPoints(r1, normalize=True)
     r4 = options.resolution_3d * 4
     bad_points_4r = nm.BadPoints(r4, normalize=True)
-    iou = nm.IOU(r1)
+    iou_1r = nm.IntersectionOverUnion(r1, r1)
+    iou_4r = nm.IntersectionOverUnion(r1, r4)
+    ap = nm.AveragePrecision(r1)
+    fpr_1r = nm.FalsePositivesRate(r1, r1)
+    fpr_4r = nm.FalsePositivesRate(r1, r4)
 
     max_distances_all = np.max([np.max(item['distances']) for item in true_distances]) + 1e-6
     all_mask = nm.DistanceLessThan(max_distances_all, name='ALL')
@@ -60,14 +64,22 @@ def main(options):
 
     # for our whole models, we keep all points
     sharp_mask = nm.DistanceLessThan(max_distances_all, name='Sharp')
-    IOU_Sharp = nm.MaskedMetric(sharp_mask, iou)
+    IOU_1r_Sharp = nm.MaskedMetric(sharp_mask, iou_1r)
+    IOU_4r_Sharp = nm.MaskedMetric(sharp_mask, iou_4r)
+    AP_Sharp = nm.MaskedMetric(sharp_mask, ap)
+    FPR_1r_Sharp = nm.MaskedMetric(sharp_mask, fpr_1r)
+    FPR_4r_Sharp = nm.MaskedMetric(sharp_mask, fpr_4r)
 
     metrics = [
         RMSE_ALL,
         q95RMSE_ALL,
         mBadPoints_1r_CloseSharp,
         mBadPoints_4r_CloseSharp,
-        IOU_Sharp,
+        IOU_1r_Sharp,
+        IOU_4r_Sharp,
+        AP_Sharp,
+        FPR_1r_Sharp,
+        FPR_4r_Sharp,
     ]
     values = []
     for true_item, pred_item in zip(true_distances, pred_distances):
