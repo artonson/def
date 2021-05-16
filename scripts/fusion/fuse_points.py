@@ -187,7 +187,7 @@ def parse_args():
                         help='Path to output (suffixes indicating various methods will be added).')
     parser.add_argument('-u', '--unlabeled', dest='unlabeled', action='store_true', default=False,
                         help='set if input data is unlabeled.')
-    parser.add_argument('-j', '--jobs', dest='n_jobs', default=4,
+    parser.add_argument('-j', '--jobs', dest='n_jobs', default=4, type=int,
                         required=False, help='number of jobs to use for fusion.')
     parser.add_argument('-k', '--key', dest='pred_key',
                         help='if set, switch to compare-io and use this key.')

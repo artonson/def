@@ -50,7 +50,7 @@ do
 
     for f in $( ls -1 ${INPUT_DIR_GT} )
     do
-        patches_gt="/data/${VIEWS_DATASET}/test/${f}"
+        patches_gt="/data/${gt_dataset}/test/${f}"
         patches_pred_dir="${INPUT_DIR_PRED}/$( basename "$f" .hdf5)/predictions/"
 
          ${FUSE_SCRIPT} \
