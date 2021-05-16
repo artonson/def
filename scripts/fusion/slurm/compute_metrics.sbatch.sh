@@ -30,8 +30,8 @@ while getopts "vi:m:" opt
 do
     case ${opt} in
         v) VERBOSE=true;;
-        m) INPUT_FILENAME=$OPTARG;;
-        i) METHOD=$OPTARG;;
+        i) INPUT_FILENAME=$OPTARG;;
+        m) METHOD=$OPTARG;;
         *) usage; exit 1 ;;
     esac
 done
@@ -43,7 +43,7 @@ if [[ "${VERBOSE}" = true ]]; then
 fi
 
 # get image filenames from here
-PROJECT_ROOT=/trinity/home/a.artemov/repos/sharp_features
+PROJECT_ROOT=/trinity/home/a.artemov/repos/sharp_features2
 source "${PROJECT_ROOT}"/env.sh
 
 CODE_PATH_CONTAINER="/code"

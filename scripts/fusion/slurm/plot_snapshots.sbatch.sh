@@ -24,19 +24,19 @@ Example:
 
 usage() { echo "$__usage" >&2; }
 
+set -x
 # Get all the required options and set the necessary variables
 VERBOSE=false
 while getopts "vi:m:" opt
 do
     case ${opt} in
         v) VERBOSE=true;;
-        m) INPUT_FILENAME=$OPTARG;;
-        i) METHOD=$OPTARG;;
+        i) INPUT_FILENAME=$OPTARG;;
+        m) METHOD=$OPTARG;;
         *) usage; exit 1 ;;
     esac
 done
 
-set -x
 if [[ "${VERBOSE}" = true ]]; then
     set -x
     VERBOSE_ARG="--verbose"
@@ -74,6 +74,7 @@ while IFS=' ' read -r source_filename resolution_3d; do
     fi
 done <"${INPUT_FILENAME:-/dev/stdin}"
 
+echo ${source_filename}
 INPUT_BASE_DIR=/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr
 FUSION_BASE_DIR=/gpfs/gpfs0/3ddl/sharp_features/whole_fused/data_v2_cvpr
 output_path_global="${FUSION_BASE_DIR}/$( realpath --relative-to  ${INPUT_BASE_DIR} "${source_filename%.*}" )/${METHOD}"

@@ -30,8 +30,8 @@ while getopts "vi:m:" opt
 do
     case ${opt} in
         v) VERBOSE=true;;
-        m) INPUT_FILENAME=$OPTARG;;
-        i) METHOD=$OPTARG;;
+        i) INPUT_FILENAME=$OPTARG;;
+        m) METHOD=$OPTARG;;
         *) usage; exit 1 ;;
     esac
 done
@@ -43,7 +43,7 @@ if [[ "${VERBOSE}" = true ]]; then
 fi
 
 # get image filenames from here
-PROJECT_ROOT=/trinity/home/a.artemov/repos/sharp_features
+PROJECT_ROOT=/trinity/home/a.artemov/repos/sharp_features2
 source "${PROJECT_ROOT}"/env.sh
 
 CODE_PATH_CONTAINER="/code"
@@ -144,9 +144,12 @@ singularity exec \
            1> >(tee ${output_path_global}/${SLURM_ARRAY_TASK_ID}.out) \\
            2> >(tee ${output_path_global}/${SLURM_ARRAY_TASK_ID}.err)"
 
+wait
 MAGICK_IMAGE=/trinity/shared/singularity-images/ImageMagick7.simg
 MAGICK_CONVERT=/usr/local/bin/convert
-singularity exec ${MAGICK_IMAGE} \
+singularity exec \
+  --bind /gpfs:/gpfs \
+  ${MAGICK_IMAGE} \
   ${MAGICK_CONVERT} \
     "${views_gt__grid}" \
     "${views_pred__grid}" \

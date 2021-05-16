@@ -30,8 +30,8 @@ while getopts "vi:m:" opt
 do
     case ${opt} in
         v) VERBOSE=true;;
-        m) INPUT_FILENAME=$OPTARG;;
-        i) METHOD=$OPTARG;;
+        i) INPUT_FILENAME=$OPTARG;;
+        m) METHOD=$OPTARG;;
         *) usage; exit 1 ;;
     esac
 done
