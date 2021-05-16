@@ -55,7 +55,7 @@ def load_ground_truth(true_filename, unlabeled=False):
     return n_points, list_distances, list_indexes_in_whole, list_points
 
 
-def load_predictions(pred_data, name, pred_key='distances'):
+def load_predictions(pred_data, name, pred_key='distances', pred_distance_scale_ratio=1.):
     if os.path.isdir(pred_data):
         predictions_filename = os.path.join(
             options.output_dir,
@@ -79,7 +79,12 @@ def load_predictions(pred_data, name, pred_key='distances'):
         io=data_io,
         preload=PreloadTypes.LAZY,
         labels=[pred_key])
-    list_predictions = [patch[pred_key] for patch in predictions_dataset]
+    list_predictions = [patch[pred_key] * pred_distance_scale_ratio for patch in predictions_dataset]
+
+    fusion_io.save_predictions(
+        [{'distances': distances} for distances in list_predictions],
+         predictions_filename,
+        fusion_io.PointPatchPredictionsIO)
 
     return list_predictions
 
@@ -109,9 +114,8 @@ def main(options):
     list_predictions = load_predictions(
         options.pred_data,
         name,
-        pred_key=options.pred_key or 'distances')
-    list_predictions = [distances * options.pred_distance_scale_ratio
-                        for distances in list_predictions]
+        pred_key=options.pred_key or 'distances',
+        pred_distance_scale_ratio=options.pred_distance_scale_ratio)
 
     # run various algorithms for consolidating predictions
     # this selection is up to you, user

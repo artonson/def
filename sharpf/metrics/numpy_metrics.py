@@ -131,7 +131,11 @@ class MaskedMetric(Metric):
 
     def __call__(self, true_instance, pred_label):
         true_instance, pred_label = self._masking(true_instance, pred_label)
-        return self._metric(true_instance, pred_label)
+        if len(true_instance['distances']) == 0:
+            print(str(self), 'nan')
+            return 'nan'
+        else:
+            return self._metric(true_instance, pred_label)
 
 
 class RescaledMetric(Metric):
@@ -179,7 +183,7 @@ class AveragePrecision(Metric):
         from sklearn.metrics import average_precision_score
         y_true = (true_instance['distances'] < self._threshold).astype(float)
         y_pred = pred_label['distances']
-        ap = average_precision_score(y_true, y_pred)
+        ap = average_precision_score(y_true, y_pred, pos_label=1)
         return ap
 
 
@@ -196,8 +200,9 @@ class FalsePositivesRate(Metric):
         from sklearn.metrics import confusion_matrix
         y_true = (true_instance['distances'] < self._gt_threshold).astype(float)
         y_pred = (pred_label['distances'] < self._pred_threshold).astype(float)
-        cm = confusion_matrix(y_true, y_pred)
+        cm = confusion_matrix(y_true, y_pred, labels=[0, 1])
         fp = cm[0][1]
         tn = cm[0][0]
-        fpr = fp / (fp + tn)
+        tol = 1e-6
+        fpr = fp / (fp + tn + tol)
         return fpr
