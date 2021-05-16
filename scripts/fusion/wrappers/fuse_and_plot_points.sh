@@ -37,7 +37,7 @@ do
 
     INPUT_DIR_GT=/data/${gt_dataset}/test
     INPUT_DIR_PRED=/logs/${pred_dataset}/med
-    OUTPUT_DIR=/logs/${pred_dataset}/amed
+    OUTPUT_DIR=/logs/${pred_dataset}/med
     echo "${INPUT_DIR_GT} ${INPUT_DIR_PRED} ${OUTPUT_DIR}"
 
     output_path_config=${OUTPUT_DIR}/fusion
