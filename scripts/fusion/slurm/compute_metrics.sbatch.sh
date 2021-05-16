@@ -12,22 +12,26 @@
 #SBATCH --oversubscribe
 
 __usage="
-Usage: $0 [-v] [input_filename]
+Usage: $0 [-v] -m method -i input_filename
 
   -v:   if set, verbose mode is activated (more output from the script generally)
+  -m:   method which is used as sub-dir where to read predictions and store output
+  -i:   input filename with format FILENAME<space>RESOLUTION_3D
 
 Example:
-  sbatch $( basename "$0" ) -v inputs.txt
+  sbatch $( basename "$0" ) -v -m def -i inputs.txt
 "
 
 usage() { echo "$__usage" >&2; }
 
 # Get all the required options and set the necessary variables
 VERBOSE=false
-while getopts "v" opt
+while getopts "vi:m:" opt
 do
     case ${opt} in
         v) VERBOSE=true;;
+        m) INPUT_FILENAME=$OPTARG;;
+        i) METHOD=$OPTARG;;
         *) usage; exit 1 ;;
     esac
 done
@@ -66,12 +70,12 @@ while IFS=' ' read -r source_filename resolution_3d; do
     if (( count == SLURM_ARRAY_TASK_ID )); then
         break
     fi
-done <"${1:-/dev/stdin}"
+done <"${INPUT_FILENAME:-/dev/stdin}"
 
 
 INPUT_BASE_DIR=/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr
 FUSION_BASE_DIR=/gpfs/gpfs0/3ddl/sharp_features/whole_fused/data_v2_cvpr
-output_path_global="${FUSION_BASE_DIR}/$( realpath --relative-to  ${INPUT_BASE_DIR} "${source_filename%.*}" )"
+output_path_global="${FUSION_BASE_DIR}/$( realpath --relative-to  ${INPUT_BASE_DIR} "${source_filename%.*}" )/${METHOD}"
 
 fused_gt="${output_path_global}/$( basename "${source_filename}" .hdf5)__ground_truth.hdf5"
 
