@@ -154,7 +154,7 @@ class IntersectionOverUnion(Metric):
         self._pred_threshold = pred_threshold
 
     def __str__(self):
-        return 'IOU({0:.3g}})'.format(self._pred_threshold)
+        return 'IOU({0:.3g})'.format(self._pred_threshold)
 
     def __call__(self, true_instance, pred_label):
         from sklearn.metrics import jaccard_score
@@ -190,7 +190,7 @@ class FalsePositivesRate(Metric):
         self._pred_threshold = pred_threshold
 
     def __str__(self):
-        return 'FPR({0:.3g}})'.format(self._pred_threshold)
+        return 'FPR({0:.3g})'.format(self._pred_threshold)
 
     def __call__(self, true_instance, pred_label):
         from sklearn.metrics import confusion_matrix
