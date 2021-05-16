@@ -39,7 +39,7 @@ if [[ "${VERBOSE}" = true ]]; then
 fi
 
 # get image filenames from here
-PROJECT_ROOT=/trinity/home/a.artemov/repos/sharp_features
+PROJECT_ROOT=/trinity/home/a.artemov/repos/sharp_features2
 source "${PROJECT_ROOT}"/env.sh
 
 CODE_PATH_CONTAINER="/code"
@@ -80,7 +80,7 @@ fused_pred_min_absdiff="${output_path_global}/$( basename "${source_filename}" .
 fused_pred_adv60="${output_path_global}/$( basename "${source_filename}" .hdf5)__adv60__min.hdf5"
 fused_pred_adv60_absdiff="${output_path_global}/$( basename "${source_filename}" .hdf5)__adv60__absdiff.hdf5"
 
-fused_pred_linreg="${output_path_global}/$( basename "${source_filename}" .hdf5)__adv60__min__linreg.hdf5"
+fused_pred_linreg="${output_path_global}/$( basename "${source_filename}" .hdf5)__crop__linreg.hdf5"
 fused_pred_linreg_absdiff="${output_path_global}/$( basename "${source_filename}" .hdf5)__linreg__absdiff.hdf5"
 
 if [[ -f ${fused_pred_min} ]]
