@@ -4,7 +4,8 @@ import argparse
 import os
 import sys
 
-import trimesh
+import numpy as np
+from tqdm import tqdm
 
 __dir__ = os.path.normpath(
     os.path.join(
@@ -35,18 +36,15 @@ def main(options):
         for scan in ground_truth_dataset]
 
     point_patches = []
-    for view in views:
+    for view in tqdm(views):
         view = view.to_points()
-        mesh = trimesh.base.Trimesh(
-            vertices=view.depth,
-            faces=view.faces)
-        distances = view.signal
 
         point_patches.append({
-            'points': mesh.vertices,
-            'distances': distances,
-            'normals': mesh.vertex_normals,
-            'directions': 0,
+            'points': np.ravel(view.depth),
+            'distances': np.array(view.signal),
+            'normals': [],
+            'directions': [],
+            'indexes_in_whole': [],
             'item_id': os.path.basename(options.input_filename),
             'orig_vert_indices': [],
             'orig_face_indexes': [],
@@ -61,7 +59,9 @@ def main(options):
             'has_smell_mismatching_surface_annotation': False,
         })
 
-    sharpf_io.save_point_patches(point_patches, options.output_filename)
+
+    sharpf_io.save_whole_patches(point_patches, options.output_filename)
+    print(options.output_filename)
 
 
 def parse_args():
