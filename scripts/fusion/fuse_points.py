@@ -110,25 +110,27 @@ def main(options):
         options.pred_data,
         name,
         pred_key=options.pred_key or 'distances')
+    list_predictions = [distances * options.pred_distance_scale_ratio
+                        for distances in list_predictions]
 
     # run various algorithms for consolidating predictions
     # this selection is up to you, user
     combiners_list = [
         # combiners for probabilities
-        combiners.AvgProbaPredictionsCombiner(thr=0.25),
-        combiners.AvgProbaPredictionsCombiner(thr=0.5),
-        combiners.AvgProbaPredictionsCombiner(thr=0.75),
+        # combiners.AvgProbaPredictionsCombiner(thr=0.25),
+        # combiners.AvgProbaPredictionsCombiner(thr=0.5),
+        # combiners.AvgProbaPredictionsCombiner(thr=0.75),
 
         # combiners for distances
         # MedianPredictionsCombiner(),
-        # MinPredictionsCombiner(),
+        combiners.MinPredictionsCombiner(),
         # AvgPredictionsCombiner(),
         # TruncatedAvgPredictionsCombiner(),
         # CenterCropPredictionsCombiner(brd_thr=80, func=np.min, tag='crop__min'),
-        #combiners.CenterCropPredictionsCombiner(
-        #    brd_thr=80, 
-        #    func=combiners.TruncatedMean(0.6, func=np.min),
-        #    tag='crop__adv60__min'),
+        combiners.CenterCropPredictionsCombiner(
+           brd_thr=80,
+           func=combiners.TruncatedMean(0.6, func=np.min),
+           tag='adv60'),
         # MinsAvgPredictionsCombiner(signal_thr=0.9),
 
         # combiners + smoothers for distances
@@ -140,13 +142,14 @@ def main(options):
         #     combiner=CenterCropPredictionsCombiner(brd_thr=80, func=np.min),
         #     smoother=TotalVariationSmoother(regularizer_alpha=0.001)
         # ),
-       #combiners.SmoothingCombiner(
-       #    combiner=combiners.CenterCropPredictionsCombiner(brd_thr=80, func=np.min),
-       #    smoother=smoothers.RobustLocalLinearFit(
-       #        lm.HuberRegressor(epsilon=4., alpha=1.),
-       #        n_jobs=32
-       #    )
-       #),
+        combiners.SmoothingCombiner(
+            combiner=combiners.CenterCropPredictionsCombiner(
+                brd_thr=80,
+                func=combiners.TruncatedMean(0.6, func=np.min),
+                tag='adv60'),
+            smoother=smoothers.RobustLocalLinearFit(
+                lm.HuberRegressor(epsilon=4., alpha=1.),
+                n_jobs=options.n_jobs)),
     ]
 
     for combiner in combiners_list:
@@ -188,6 +191,8 @@ def parse_args():
                         help='if set, switch to compare-io and use this key.')
     parser.add_argument('-s', '--max_distance_to_feature', dest='max_distance_to_feature',
                         default=1.0, type=float, required=False, help='max distance to sharp feature to compute.')
+    parser.add_argument('-r', '--pred_distance_scale_ratio', dest='pred_distance_scale_ratio',
+                        default=1.0, type=float, required=False, help='factor by which to multiply the predicted distances.')
     return parser.parse_args()
 
 
