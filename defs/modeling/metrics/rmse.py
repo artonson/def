@@ -28,7 +28,6 @@ class MRMSE(Metric):
         self.total += preds.size(0)
 
     def compute(self):
-        print("TOTAL", self.total)
         return (self.rmse_sum / self.total).item()
 
 

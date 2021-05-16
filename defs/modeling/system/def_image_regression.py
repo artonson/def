@@ -13,6 +13,7 @@ from torch.utils.data import Dataset
 from defs.data import build_loaders, build_datasets
 from .. import logits_to_scalar, PixelRegressorHist
 from ..metrics.badpoints import MeanBadPoints
+from ..metrics.map import MAP
 from ..metrics.miou import MIOU
 from ..metrics.rmse import MRMSE, Q95RMSE
 from ...optim import get_params_for_optimizer
@@ -46,6 +47,7 @@ class DEFImageRegression(LightningModule):
         bp1r_close_sharp: Dict[str, nn.ModuleList] = {}
         bp4r_close_sharp: Dict[str, nn.ModuleList] = {}
         miou_sharp: Dict[str, nn.ModuleList] = {}
+        map_sharp: Dict[str, nn.ModuleList] = {}
         if self.compute_metrics and self.hparams.datasets.val is not None and len(self.hparams.datasets.val) > 0:
             mrmse_all['val'] = nn.ModuleList([MRMSE() for _ in range(len(self.hparams.datasets.val))])
             q95rmse_all['val'] = nn.ModuleList([Q95RMSE() for _ in range(len(self.hparams.datasets.val))])
@@ -54,6 +56,7 @@ class DEFImageRegression(LightningModule):
             bp4r_close_sharp['val'] = nn.ModuleList(
                 [MeanBadPoints(4.0 * cfg.datasets.resolution_q) for _ in range(len(self.hparams.datasets.val))])
             miou_sharp['val'] = nn.ModuleList([MIOU() for _ in range(len(self.hparams.datasets.val))])
+            map_sharp['val'] = nn.ModuleList([MAP() for _ in range(len(self.hparams.datasets.val))])
         if self.compute_metrics and self.hparams.datasets.test is not None and len(self.hparams.datasets.test) > 0:
             mrmse_all['test'] = nn.ModuleList([MRMSE() for _ in range(len(self.hparams.datasets.test))])
             q95rmse_all['test'] = nn.ModuleList([Q95RMSE() for _ in range(len(self.hparams.datasets.test))])
@@ -62,6 +65,7 @@ class DEFImageRegression(LightningModule):
             bp4r_close_sharp['test'] = nn.ModuleList(
                 [MeanBadPoints(4.0 * cfg.datasets.resolution_q) for _ in range(len(self.hparams.datasets.test))])
             miou_sharp['test'] = nn.ModuleList([MIOU() for _ in range(len(self.hparams.datasets.test))])
+            map_sharp['test'] = nn.ModuleList([MAP() for _ in range(len(self.hparams.datasets.test))])
 
         if len(miou_sharp) > 0:
             self.mrmse_all = nn.ModuleDict(mrmse_all)
@@ -69,6 +73,7 @@ class DEFImageRegression(LightningModule):
             self.bp1r_close_sharp = nn.ModuleDict(bp1r_close_sharp)
             self.bp4r_close_sharp = nn.ModuleDict(bp4r_close_sharp)
             self.miou_sharp = nn.ModuleDict(miou_sharp)
+            self.map_sharp = nn.ModuleDict(map_sharp)
 
     def forward(self, x, clamp=True):
         out: Dict[str, torch.Tensor] = {}
@@ -93,7 +98,6 @@ class DEFImageRegression(LightningModule):
                 out['distances'] = out['distances'].permute(0, 3, 1, 2)  # (B, 1, H, W)
                 if clamp:
                     out['distances'] = out['distances'].clamp(0.0, 1.0)
-                out['distances'] = out['distances'].squeeze(1)  # (B, 1, H, W) -> (B, H, W)
         else:
             if clamp:
                 out['distances'] = out['distances'].clamp(0.0, 1.0)
@@ -190,6 +194,9 @@ class DEFImageRegression(LightningModule):
                 self.miou_sharp[partition][dataloader_idx].update(
                     result['distances'][i][foreground_mask].view(1, -1) < resolution,
                     batch['distances'][i][foreground_mask].view(1, -1) < resolution)
+                self.map_sharp[partition][dataloader_idx].update(
+                    1.0 - result['distances'][i][foreground_mask].view(1, -1),
+                    (batch['distances'][i][foreground_mask].view(1, -1) < resolution).float())
 
             if not batch['is_flat'][i].item():
                 close_mask = batch['distances'][i] < 1.0
@@ -233,6 +240,12 @@ class DEFImageRegression(LightningModule):
             self.miou_sharp[partition][i].total = self.miou_sharp[partition][i].total.to(self.device)
             self.log(f'mIOU-Sharp/{dataset_name}',
                      self.miou_sharp[partition][i].compute(),
+                     prog_bar=True, logger=True)
+
+            self.map_sharp[partition][i].ap_sum = self.map_sharp[partition][i].ap_sum.to(self.device)
+            self.map_sharp[partition][i].total = self.map_sharp[partition][i].total.to(self.device)
+            self.log(f'mAP-Sharp/{dataset_name}',
+                     self.map_sharp[partition][i].compute(),
                      prog_bar=True, logger=True)
 
     def validation_step(self, batch, batch_idx: int, *args):

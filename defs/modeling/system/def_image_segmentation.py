@@ -11,6 +11,7 @@ from pytorch_lightning.core.lightning import LightningModule
 from torch.utils.data import Dataset
 
 from defs.data import build_loaders, build_datasets
+from ..metrics.map import MAP
 from ..metrics.miou import MIOU
 from ...optim import get_params_for_optimizer
 from ...utils.comm import is_main_process, synchronize
@@ -39,13 +40,17 @@ class DEFImageSegmentation(LightningModule):
 
         self.compute_metrics = self.hparams.datasets.compute_metrics
         miou_sharp: Dict[str, nn.ModuleList] = {}
+        map_sharp: Dict[str, nn.ModuleList] = {}
         if self.compute_metrics and self.hparams.datasets.val is not None and len(self.hparams.datasets.val) > 0:
             miou_sharp['val'] = nn.ModuleList([MIOU() for _ in range(len(self.hparams.datasets.val))])
+            map_sharp['val'] = nn.ModuleList([MAP() for _ in range(len(self.hparams.datasets.val))])
         if self.compute_metrics and self.hparams.datasets.test is not None and len(self.hparams.datasets.test) > 0:
             miou_sharp['test'] = nn.ModuleList([MIOU() for _ in range(len(self.hparams.datasets.test))])
+            map_sharp['test'] = nn.ModuleList([MAP() for _ in range(len(self.hparams.datasets.test))])
 
         if len(miou_sharp) > 0:
             self.miou_sharp = nn.ModuleDict(miou_sharp)
+            self.map_sharp = nn.ModuleDict(map_sharp)
 
     def forward(self, x, as_mask=True):
         out: Dict[str, torch.Tensor] = {}
@@ -61,6 +66,7 @@ class DEFImageSegmentation(LightningModule):
             out['preds_sharp_probs'] = out['preds_sharp'].sigmoid()
             out['preds_sharp'] = (out['preds_sharp'].sigmoid() > 0.5).long()
         out['preds_sharp'] = out['preds_sharp'].squeeze(1)  # (B, 1, H, W) -> (B, H, W)
+        out['preds_sharp_probs'] = out['preds_sharp_probs'].squeeze(1)  # (B, 1, H, W) -> (B, H, W)
 
         ##### post-process normals
         if 'normals' in out:
@@ -140,6 +146,9 @@ class DEFImageSegmentation(LightningModule):
                 self.miou_sharp[partition][dataloader_idx].update(
                     result['preds_sharp'][i][foreground_mask].view(1, -1).bool(),
                     batch['target_sharp'][i][foreground_mask].view(1, -1).bool())
+                self.map_sharp[partition][dataloader_idx].update(
+                    result['preds_sharp_probs'][i][foreground_mask].view(1, -1),
+                    batch['target_sharp'][i][foreground_mask].view(1, -1))
 
     def _shared_eval_epoch_end(self, outputs, partition: str):
         if not self.compute_metrics:
@@ -149,6 +158,12 @@ class DEFImageSegmentation(LightningModule):
             self.miou_sharp[partition][i].total = self.miou_sharp[partition][i].total.to(self.device)
             self.log(f'mIOU-Sharp/{dataset_name}',
                      self.miou_sharp[partition][i].compute(),
+                     prog_bar=True, logger=True)
+
+            self.map_sharp[partition][i].ap_sum = self.map_sharp[partition][i].ap_sum.to(self.device)
+            self.map_sharp[partition][i].total = self.map_sharp[partition][i].total.to(self.device)
+            self.log(f'mAP-Sharp/{dataset_name}',
+                     self.map_sharp[partition][i].compute(),
                      prog_bar=True, logger=True)
 
     def validation_step(self, batch, batch_idx: int, *args):
