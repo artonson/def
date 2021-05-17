@@ -11,7 +11,8 @@ from pytorch_lightning.core.lightning import LightningModule
 from torch.utils.data import Dataset
 
 from defs.data import build_loaders, build_datasets
-from ..metrics.mrecall import MeanRecall
+from ..metrics.mfpr import MFPR
+from ..metrics.mrecall import MRecall
 from ...optim import get_params_for_optimizer
 from ...utils.comm import is_main_process, synchronize
 from ...utils.hydra import instantiate, call
@@ -38,20 +39,18 @@ class DEFImageSegmentation(LightningModule):
             synchronize()
 
         self.compute_metrics = self.hparams.datasets.compute_metrics
-        mrecall_pos: Dict[str, nn.ModuleList] = {}
-        mrecall_neg: Dict[str, nn.ModuleList] = {}
+        mrecall: Dict[str, nn.ModuleList] = {}
+        mfpr: Dict[str, nn.ModuleList] = {}
         if self.compute_metrics and self.hparams.datasets.val is not None and len(self.hparams.datasets.val) > 0:
-            mrecall_pos['val'] = nn.ModuleList([MeanRecall(pos_label=1) for _ in range(len(self.hparams.datasets.val))])
-            mrecall_neg['val'] = nn.ModuleList([MeanRecall(pos_label=0) for _ in range(len(self.hparams.datasets.val))])
+            mrecall['val'] = nn.ModuleList([MRecall() for _ in range(len(self.hparams.datasets.val))])
+            mfpr['val'] = nn.ModuleList([MFPR() for _ in range(len(self.hparams.datasets.val))])
         if self.compute_metrics and self.hparams.datasets.test is not None and len(self.hparams.datasets.test) > 0:
-            mrecall_pos['test'] = nn.ModuleList(
-                [MeanRecall(pos_label=1) for _ in range(len(self.hparams.datasets.test))])
-            mrecall_neg['test'] = nn.ModuleList(
-                [MeanRecall(pos_label=0) for _ in range(len(self.hparams.datasets.test))])
+            mrecall['test'] = nn.ModuleList([MRecall() for _ in range(len(self.hparams.datasets.test))])
+            mfpr['test'] = nn.ModuleList([MFPR() for _ in range(len(self.hparams.datasets.test))])
 
-        if len(mrecall_pos) > 0:
-            self.mrecall_pos = nn.ModuleDict(mrecall_pos)
-            self.mrecall_neg = nn.ModuleDict(mrecall_neg)
+        if len(mrecall) > 0:
+            self.mrecall = nn.ModuleDict(mrecall)
+            self.mfpr = nn.ModuleDict(mfpr)
 
     def forward(self, x, as_mask=True):
         out: Dict[str, torch.Tensor] = {}
@@ -144,10 +143,10 @@ class DEFImageSegmentation(LightningModule):
                 foreground_mask = torch.ones(batch['distances'][i].shape, device=self.device, dtype=torch.bool)
 
             if torch.any(foreground_mask):
-                self.mrecall_pos[partition][dataloader_idx].update(
+                self.mrecall[partition][dataloader_idx].update(
                     result['preds_sharp'][i][foreground_mask].view(1, -1).bool(),
                     batch['target_sharp'][i][foreground_mask].view(1, -1).bool())
-                self.mrecall_neg[partition][dataloader_idx].update(
+                self.mfpr[partition][dataloader_idx].update(
                     result['preds_sharp'][i][foreground_mask].view(1, -1).bool(),
                     batch['target_sharp'][i][foreground_mask].view(1, -1).bool())
 
@@ -155,16 +154,16 @@ class DEFImageSegmentation(LightningModule):
         if not self.compute_metrics:
             return
         for i, (dataset_name, _) in enumerate(self.datasets[partition]):
-            self.mrecall_pos[partition][i].recall_sum = self.mrecall_pos[partition][i].recall_sum.to(self.device)
-            self.mrecall_pos[partition][i].total = self.mrecall_pos[partition][i].total.to(self.device)
-            self.log(f'mRecall-Pos/{dataset_name}',
-                     self.mrecall_pos[partition][i].compute(),
+            self.mrecall[partition][i].recall_sum = self.mrecall[partition][i].recall_sum.to(self.device)
+            self.mrecall[partition][i].total = self.mrecall[partition][i].total.to(self.device)
+            self.log(f'mRecall/{dataset_name}',
+                     self.mrecall[partition][i].compute(),
                      prog_bar=True, logger=True)
 
-            self.mrecall_neg[partition][i].recall_sum = self.mrecall_neg[partition][i].recall_sum.to(self.device)
-            self.mrecall_neg[partition][i].total = self.mrecall_neg[partition][i].total.to(self.device)
-            self.log(f'mRecall-Neg/{dataset_name}',
-                     self.mrecall_neg[partition][i].compute(),
+            self.mfpr[partition][i].fpr_sum = self.mfpr[partition][i].fpr_sum.to(self.device)
+            self.mfpr[partition][i].total = self.mfpr[partition][i].total.to(self.device)
+            self.log(f'mFPR/{dataset_name}',
+                     self.mfpr[partition][i].compute(),
                      prog_bar=True, logger=True)
 
     def validation_step(self, batch, batch_idx: int, *args):

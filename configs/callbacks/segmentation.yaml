@@ -3,14 +3,14 @@
 fit:
   - _target_: defs.utils.callbacks.FitDurationCallback
   - _target_: pytorch_lightning.callbacks.ModelCheckpoint
-    monitor: 'mRecall-Pos/val'
+    monitor: 'mRecall/val'
     verbose: false
     save_last: true
     save_top_k: 1
     mode: max
     period: 1
   - _target_: pytorch_lightning.callbacks.early_stopping.EarlyStopping
-    monitor: 'mRecall-Pos/val'
+    monitor: 'mRecall/val'
     min_delta: 0.001
     patience: 10
     verbose: false

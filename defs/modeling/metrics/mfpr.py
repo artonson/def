@@ -7,11 +7,11 @@ from typing import Union
 log = logging.getLogger(__name__)
 
 
-class MRecall(Metric):
+class MFPR(Metric):
 
     def __init__(self):
         super().__init__(dist_sync_on_step=False, compute_on_step=False)
-        self.add_state("recall_sum", default=torch.tensor(0.0), dist_reduce_fx="sum")
+        self.add_state("fpr_sum", default=torch.tensor(0.0), dist_reduce_fx="sum")
         self.add_state("total", default=torch.tensor(0.0), dist_reduce_fx="sum")
 
     def update(self, preds: torch.Tensor, target: torch.Tensor):
@@ -23,15 +23,15 @@ class MRecall(Metric):
         """
         preds = preds.float()
         target = target.float()
-        pos_label = 1
-        neg_label = 0
+        pos_label = 0
+        neg_label = 1
 
         # ----iterative version----
         # for i in range(preds.shape[0]):
         #     mask = (target[i] == pos_label)
         #     if torch.any(mask):
         #         recall = ((preds[i][mask] == pos_label).float().sum() / mask.float().sum()).detach().cpu()
-        #         self.recall_sum += recall.detach().cpu()
+        #         self.mfpr_sum += (1 - recall).detach().cpu()
         #         self.total += 1
         # -------------------------
 
@@ -44,9 +44,9 @@ class MRecall(Metric):
             ((preds.where(pos_mask, neg_label * preds.new_ones(preds.shape)) == pos_label).float().sum(dim=1) / denom),
             preds.new_zeros(preds.size(0))
         )
-        self.recall_sum += recall.sum().detach()
+        self.fpr_sum += (1 - recall).sum().detach()
         self.total += valid_mask.float().sum().detach().cpu()
         # -------------------------
 
     def compute(self):
-        return (self.recall_sum / self.total).item()
+        return (self.fpr_sum / self.total).item()

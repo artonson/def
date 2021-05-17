@@ -1,5 +1,5 @@
 from .loss import kl_div_loss, logits_to_scalar
-from .metrics import MeanRecall, MRMSE, Q95RMSE
+from .metrics import MFPR, MRecall, MRMSE, Q95RMSE
 from .model import (
     DGCNN, DGCNNHist, PixelRegressor, PixelRegressorHist,
     PixelSegmentator, Unet2D, PointRegressor, PointRegressorHist
