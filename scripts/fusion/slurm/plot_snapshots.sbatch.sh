@@ -10,6 +10,7 @@
 #SBATCH --ntasks=1
 #SBATCH --mem-per-cpu=4g
 #SBATCH --oversubscribe
+#SBATCH --reservation=SIGGRAPH
 
 __usage="
 Usage: $0 [-v] -m method -i input_filename
@@ -62,7 +63,7 @@ OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
 SNAPSHOT_SCRIPT="${CODE_PATH_CONTAINER}/scripts/plot_snapshots.py"
 
-POINT_SIZE=1.1
+MAX_DISTANCE_TO_FEATURE=1.1
 POINT_SHADER=flat
 # Read SLURM_ARRAY_TASK_ID num lines from standard input,
 # stopping at line whole number equals SLURM_ARRAY_TASK_ID
@@ -79,37 +80,40 @@ INPUT_BASE_DIR=/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr
 FUSION_BASE_DIR=/gpfs/gpfs0/3ddl/sharp_features/whole_fused/data_v2_cvpr
 output_path_global="${FUSION_BASE_DIR}/$( realpath --relative-to  ${INPUT_BASE_DIR} "${source_filename%.*}" )/${METHOD}"
 
-fused_gt="${output_path_global}/$( basename "${source_filename}" .hdf5)__ground_truth.hdf5"
+FUSION_WRAPPERS_PATH="${PROJECT_ROOT}/scripts/fusion/slurm"
+source ${FUSION_WRAPPERS_PATH}/suffix_proba.sh
 
-fused_pred_min="${output_path_global}/$( basename "${source_filename}" .hdf5)__min.hdf5"
-fused_pred_min_absdiff="${output_path_global}/$( basename "${source_filename}" .hdf5)__min__absdiff.hdf5"
+fused_gt="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_gt_suffix}.hdf5"
 
-fused_pred_adv60="${output_path_global}/$( basename "${source_filename}" .hdf5)__adv60__min.hdf5"
-fused_pred_adv60_absdiff="${output_path_global}/$( basename "${source_filename}" .hdf5)__adv60__absdiff.hdf5"
+fused_pred_v1="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v1_suffix}.hdf5"
+fused_pred_v1_absdiff="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v1_absdiff_suffix}.hdf5"
 
-fused_pred_linreg="${output_path_global}/$( basename "${source_filename}" .hdf5)__crop__linreg.hdf5"
-fused_pred_linreg_absdiff="${output_path_global}/$( basename "${source_filename}" .hdf5)__linreg__absdiff.hdf5"
+fused_pred_v2="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v2_suffix}.hdf5"
+fused_pred_v2_absdiff="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v3_absdiff_suffix}.hdf5"
+
+fused_pred_v3="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v2_suffix}.hdf5"
+fused_pred_v3_absdiff="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v3_absdiff_suffix}.hdf5"
 
 fused_snapshot="${output_path_global}/$( basename "${source_filename}" .hdf5).html"
 
 input_arg="-i ${fused_gt}"
 icm_arg="-icm plasma_r"
-if [[ -f ${fused_pred_min} ]]
+if [[ -f ${fused_pred_v1} ]]
 then
-  input_arg="${input_arg} -i ${fused_pred_min} -i ${fused_pred_min_absdiff}"
-  icm_arg="${icm_arg} -icm plasma_r -icm plasma"
+  input_arg="${input_arg} -i ${fused_pred_v1} -i ${fused_pred_v1_absdiff}"
+  icm_arg="${icm_arg} -icm ${fused_pred_v1_cmap} -icm plasma"
 fi
 
-if [[ -f ${fused_pred_adv60} ]]
+if [[ -f ${fused_pred_v1} ]]
 then
-  input_arg="${input_arg} -i ${fused_pred_adv60} -i ${fused_pred_adv60_absdiff}"
-  icm_arg="${icm_arg} -icm plasma_r -icm plasma"
+  input_arg="${input_arg} -i ${fused_pred_v2} -i ${fused_pred_v2_absdiff}"
+  icm_arg="${icm_arg} -icm ${fused_pred_v2_cmap} -icm plasma"
 fi
 
-if [[ -f ${fused_pred_linreg} ]]
+if [[ -f ${fused_pred_v3} ]]
 then
-  input_arg="${input_arg} -i ${fused_pred_linreg} -i ${fused_pred_linreg_absdiff}"
-  icm_arg="${icm_arg} -icm plasma_r -icm plasma"
+  input_arg="${input_arg} -i ${fused_pred_v3} -i ${fused_pred_v3_absdiff}"
+  icm_arg="${icm_arg} -icm ${fused_pred_v3_cmap} -icm plasma"
 fi
 
 singularity exec \
@@ -121,7 +125,7 @@ singularity exec \
       python3 ${SNAPSHOT_SCRIPT} \\
         ${input_arg} \\
         ${icm_arg} \\
-        -s ${POINT_SIZE} \\
+        -s ${MAX_DISTANCE_TO_FEATURE} \\
         -ps ${resolution_3d} \\
         -ph ${POINT_SHADER} \\
         --output ${fused_snapshot} \\

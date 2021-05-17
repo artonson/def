@@ -4,13 +4,13 @@ set -x
 
 DATASET_FILE_DIR="/gpfs/gpfs0/3ddl/sharp_features/whole_fused"
 
-DATASETS="images_whole__high_res_whole.json.txt"
-#DATASETS="images_whole__high_res_whole.json.txt
-#images_whole__med_res_whole.json.txt
-#images_whole__low_res_whole.json.txt
-#images_whole__high_res_whole_0.005.json.txt
-#images_whole__high_res_whole_0.02.json.txt
-#images_whole__high_res_whole_0.08.json.txt"
+#DATASETS="images_whole__high_res_whole.json.txt"
+DATASETS="images_whole__high_res_whole.json.txt
+images_whole__med_res_whole.json.txt
+images_whole__low_res_whole.json.txt
+images_whole__high_res_whole_0.005.json.txt
+images_whole__high_res_whole_0.02.json.txt
+images_whole__high_res_whole_0.08.json.txt"
 
 METHODS="def"
 #METHODS="def
@@ -78,7 +78,7 @@ run_slurm_jobs() {
 for dataset in ${DATASETS}; do
 
   for method in ${METHODS}; do
-    task_count=1
+    task_count=100
     run_slurm_jobs \
       "${DATASET_FILE_DIR}/${dataset}" \
       "${method}" \

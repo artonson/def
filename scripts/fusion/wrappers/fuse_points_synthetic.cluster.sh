@@ -4,13 +4,13 @@ set -x
 
 DATASET_FILE_DIR="/gpfs/gpfs0/3ddl/sharp_features/whole_fused"
 
-DATASETS="points_whole__high_res_whole.json.txt"
-#DATASETS="points_whole__high_res_whole.json.txt
-#points_whole__med_res_whole.json.txt
-#points_whole__low_res_whole.json.txt
-#points_whole__high_res_whole_0.005.json.txt
-#points_whole__high_res_whole_0.02.json.txt
-#points_whole__high_res_whole_0.08.json.txt"
+#DATASETS="points_whole__high_res_whole.json.txt"
+DATASETS="points_whole__high_res_whole.json.txt
+points_whole__med_res_whole.json.txt
+points_whole__low_res_whole.json.txt
+points_whole__high_res_whole_0.005.json.txt
+points_whole__high_res_whole_0.02.json.txt
+points_whole__high_res_whole_0.08.json.txt"
 
 METHODS="def"
 #METHODS="def
@@ -48,13 +48,13 @@ run_slurm_jobs() {
     --dependency afterany:"${WAIT_JOBS}" \
     sleep 1 >/dev/null 2>&1
 
-  # Compute metrics
-  sbatch \
-    --parsable \
-    --array=1-"${task_count}" \
-    "${COMPUTE_METRICS_SBATCH}" \
-      -m "${method_dirname}" \
-      -i "${dataset_file}"
+# # Compute metrics
+# sbatch \
+#   --parsable \
+#   --array=1-"${task_count}" \
+#   "${COMPUTE_METRICS_SBATCH}" \
+#     -m "${method_dirname}" \
+#     -i "${dataset_file}"
 
   # Draw HTMLs
   sbatch \
@@ -69,7 +69,7 @@ run_slurm_jobs() {
 for dataset in ${DATASETS}; do
 
   for method in ${METHODS}; do
-    task_count=1
+    task_count=100
     run_slurm_jobs \
       "${DATASET_FILE_DIR}/${dataset}" \
       "${method}" \

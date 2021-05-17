@@ -10,6 +10,7 @@
 #SBATCH --ntasks=1
 #SBATCH --mem-per-cpu=4g
 #SBATCH --oversubscribe
+#SBATCH --reservation=SIGGRAPH
 
 __usage="
 Usage: $0 [-v] -m method -i input_filename
@@ -77,20 +78,23 @@ INPUT_BASE_DIR=/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr
 FUSION_BASE_DIR=/gpfs/gpfs0/3ddl/sharp_features/whole_fused/data_v2_cvpr
 output_path_global="${FUSION_BASE_DIR}/$( realpath --relative-to  ${INPUT_BASE_DIR} "${source_filename%.*}" )/${METHOD}"
 
-fused_gt="${output_path_global}/$( basename "${source_filename}" .hdf5)__ground_truth.hdf5"
+FUSION_WRAPPERS_PATH="${PROJECT_ROOT}/scripts/fusion/slurm"
+source ${FUSION_WRAPPERS_PATH}/suffix_proba.sh
 
-fused_pred_min="${output_path_global}/$( basename "${source_filename}" .hdf5)__min.hdf5"
-fused_pred_min__metrics="${output_path_global}/$( basename "${source_filename}" .hdf5)__min__metrics.txt"
+fused_gt="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_gt_suffix}.hdf5"
 
-fused_pred_adv60="${output_path_global}/$( basename "${source_filename}" .hdf5)__adv60__min.hdf5"
-fused_pred_adv60__metrics="${output_path_global}/$( basename "${source_filename}" .hdf5)__adv60__metrics.txt"
+fused_pred_v1="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v1_suffix}.hdf5"
+fused_pred_v1__metrics="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v1_suffix}__metrics.hdf5"
 
-fused_pred_linreg="${output_path_global}/$( basename "${source_filename}" .hdf5)__adv60__min__linreg.hdf5"
-fused_pred_linreg__metrics="${output_path_global}/$( basename "${source_filename}" .hdf5)__linreg__metrics.txt"
+fused_pred_v2="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v2_suffix}.hdf5"
+fused_pred_v2__metrics="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v2_suffix}__metrics.hdf5"
 
-if [[ -f ${fused_pred_min} ]]
+fused_pred_v3="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v3_suffix}.hdf5"
+fused_pred_v3__metrics="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v3_suffix}__metrics.hdf5"
+
+if [[ -f ${fused_pred_v1} ]]
 then
-  echo ${fused_pred_min__metrics}
+  echo ${fused_pred_v1__metrics}
   singularity exec \
     --bind ${CODE_PATH_HOST}:${CODE_PATH_CONTAINER} \
     --bind "${PWD}":/run/user \
@@ -99,17 +103,17 @@ then
         bash -c 'export OMP_NUM_THREADS='"${OMP_NUM_THREADS}; \\
         python3 ${METRICS_SCRIPT} \\
           -t ${fused_gt} \\
-          -p ${fused_pred_min} \\
-          -o ${fused_pred_min__metrics} \\
+          -p ${fused_pred_v1} \\
+          -o ${fused_pred_v1__metrics} \\
           -r ${resolution_3d} \\
           ${VERBOSE_ARG} \\
              1> >(tee ${output_path_global}/${SLURM_ARRAY_TASK_ID}.out) \\
              2> >(tee ${output_path_global}/${SLURM_ARRAY_TASK_ID}.err)"
 fi
 
-if [[ -f ${fused_pred_adv60} ]]
+if [[ -f ${fused_pred_v2} ]]
 then
-  echo ${fused_pred_adv60__metrics}
+  echo ${fused_pred_v2__metrics}
   singularity exec \
     --bind ${CODE_PATH_HOST}:${CODE_PATH_CONTAINER} \
     --bind "${PWD}":/run/user \
@@ -118,17 +122,17 @@ then
         bash -c 'export OMP_NUM_THREADS='"${OMP_NUM_THREADS}; \\
         python3 ${METRICS_SCRIPT} \\
           -t ${fused_gt} \\
-          -p ${fused_pred_adv60} \\
-          -o ${fused_pred_adv60__metrics} \\
+          -p ${fused_pred_v2} \\
+          -o ${fused_pred_v2__metrics} \\
           -r ${resolution_3d} \\
           ${VERBOSE_ARG} \\
              1> >(tee ${output_path_global}/${SLURM_ARRAY_TASK_ID}.out) \\
              2> >(tee ${output_path_global}/${SLURM_ARRAY_TASK_ID}.err)"
 fi
 
-if [[ -f ${fused_pred_linreg} ]]
+if [[ -f ${fused_pred_v3} ]]
 then
-  echo ${fused_pred_linreg__metrics}
+  echo ${fused_pred_v3__metrics}
   singularity exec \
     --bind ${CODE_PATH_HOST}:${CODE_PATH_CONTAINER} \
     --bind "${PWD}":/run/user \
@@ -137,10 +141,11 @@ then
         bash -c 'export OMP_NUM_THREADS='"${OMP_NUM_THREADS}; \\
         python3 ${METRICS_SCRIPT} \\
           -t ${fused_gt} \\
-          -p ${fused_pred_linreg} \\
-          -o ${fused_pred_linreg__metrics} \\
+          -p ${fused_pred_v3} \\
+          -o ${fused_pred_v3__metrics} \\
           -r ${resolution_3d} \\
           ${VERBOSE_ARG} \\
              1> >(tee ${output_path_global}/${SLURM_ARRAY_TASK_ID}.out) \\
              2> >(tee ${output_path_global}/${SLURM_ARRAY_TASK_ID}.err)"
 fi
+

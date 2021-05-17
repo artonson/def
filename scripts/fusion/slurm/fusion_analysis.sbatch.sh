@@ -10,6 +10,7 @@
 #SBATCH --ntasks=1
 #SBATCH --mem-per-cpu=4g
 #SBATCH --oversubscribe
+#SBATCH --reservation=SIGGRAPH
 
 __usage="
 Usage: $0 [-v] -m method -i input_filename
@@ -76,20 +77,24 @@ INPUT_BASE_DIR=/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr
 FUSION_BASE_DIR=/gpfs/gpfs0/3ddl/sharp_features/whole_fused/data_v2_cvpr
 output_path_global="${FUSION_BASE_DIR}/$( realpath --relative-to  ${INPUT_BASE_DIR} "${source_filename%.*}" )/${METHOD}"
 
-fused_gt="${output_path_global}/$( basename "${source_filename}" .hdf5)__ground_truth.hdf5"
+FUSION_WRAPPERS_PATH="${PROJECT_ROOT}/scripts/fusion/slurm"
+source ${FUSION_WRAPPERS_PATH}/suffix_proba.sh
 
-fused_pred_min="${output_path_global}/$( basename "${source_filename}" .hdf5)__min.hdf5"
-fused_pred_min_absdiff="${output_path_global}/$( basename "${source_filename}" .hdf5)__min__absdiff.hdf5"
+fused_gt="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_gt_suffix}.hdf5"
 
-fused_pred_adv60="${output_path_global}/$( basename "${source_filename}" .hdf5)__adv60__min.hdf5"
-fused_pred_adv60_absdiff="${output_path_global}/$( basename "${source_filename}" .hdf5)__adv60__absdiff.hdf5"
+fused_pred_v1="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v1_suffix}.hdf5"
+fused_pred_v1_absdiff="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v1_absdiff_suffix}.hdf5"
 
-fused_pred_linreg="${output_path_global}/$( basename "${source_filename}" .hdf5)__crop__linreg.hdf5"
-fused_pred_linreg_absdiff="${output_path_global}/$( basename "${source_filename}" .hdf5)__linreg__absdiff.hdf5"
+fused_pred_v2="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v2_suffix}.hdf5"
+fused_pred_v2_absdiff="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v3_absdiff_suffix}.hdf5"
 
-if [[ -f ${fused_pred_min} ]]
+fused_pred_v3="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v2_suffix}.hdf5"
+fused_pred_v3_absdiff="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v3_absdiff_suffix}.hdf5"
+
+
+if [[ -f ${fused_pred_v1} ]]
 then
-  echo ${fused_pred_min_absdiff}
+  echo ${fused_pred_v1_absdiff}
   singularity exec \
     --bind ${CODE_PATH_HOST}:${CODE_PATH_CONTAINER} \
     --bind "${PWD}":/run/user \
@@ -98,15 +103,15 @@ then
         bash -c 'export OMP_NUM_THREADS='"${OMP_NUM_THREADS}; \\
         python3 ${FUSION_ANALYSIS_SCRIPT} \\
           -t ${fused_gt} \\
-          -p ${fused_pred_min} \\
-          -o ${fused_pred_min_absdiff} \\
+          -p ${fused_pred_v1} \\
+          -o ${fused_pred_v1_absdiff} \\
              1> >(tee ${output_path_global}/${SLURM_ARRAY_TASK_ID}.out) \\
              2> >(tee ${output_path_global}/${SLURM_ARRAY_TASK_ID}.err)"
 fi
 
-if [[ -f ${fused_pred_adv60} ]]
+if [[ -f ${fused_pred_v2} ]]
 then
-  echo ${fused_pred_adv60_absdiff}
+  echo ${fused_pred_v2_absdiff}
   singularity exec \
     --bind ${CODE_PATH_HOST}:${CODE_PATH_CONTAINER} \
     --bind "${PWD}":/run/user \
@@ -115,15 +120,15 @@ then
         bash -c 'export OMP_NUM_THREADS='"${OMP_NUM_THREADS}; \\
         python3 ${FUSION_ANALYSIS_SCRIPT} \\
           -t ${fused_gt} \\
-          -p ${fused_pred_adv60} \\
-          -o ${fused_pred_adv60_absdiff} \\
+          -p ${fused_pred_v2} \\
+          -o ${fused_pred_v2_absdiff} \\
              1> >(tee ${output_path_global}/${SLURM_ARRAY_TASK_ID}.out) \\
              2> >(tee ${output_path_global}/${SLURM_ARRAY_TASK_ID}.err)"
 fi
 
-if [[ -f ${fused_pred_linreg} ]]
+if [[ -f ${fused_pred_v3} ]]
 then
-  echo ${fused_pred_linreg_absdiff}
+  echo ${fused_pred_v3_absdiff}
   singularity exec \
     --bind ${CODE_PATH_HOST}:${CODE_PATH_CONTAINER} \
     --bind "${PWD}":/run/user \
@@ -132,8 +137,9 @@ then
         bash -c 'export OMP_NUM_THREADS='"${OMP_NUM_THREADS}; \\
         python3 ${FUSION_ANALYSIS_SCRIPT} \\
           -t ${fused_gt} \\
-          -p ${fused_pred_linreg} \\
-          -o ${fused_pred_linreg_absdiff} \\
+          -p ${fused_pred_v3} \\
+          -o ${fused_pred_v3_absdiff} \\
              1> >(tee ${output_path_global}/${SLURM_ARRAY_TASK_ID}.out) \\
              2> >(tee ${output_path_global}/${SLURM_ARRAY_TASK_ID}.err)"
 fi
+

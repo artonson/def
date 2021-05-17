@@ -10,6 +10,7 @@
 #SBATCH --ntasks=1
 #SBATCH --mem-per-cpu=4g
 #SBATCH --oversubscribe
+#SBATCH --reservation=SIGGRAPH
 
 __usage="
 Usage: $0 [-v] -m method -i input_filename
