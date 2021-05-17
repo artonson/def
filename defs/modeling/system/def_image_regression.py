@@ -1,20 +1,17 @@
 import logging
-import os
-from typing import Optional, Dict, List, Tuple
-
 import numpy as np
+import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from omegaconf import DictConfig, OmegaConf
 from pytorch_lightning.core.lightning import LightningModule
 from torch.utils.data import Dataset
+from typing import Optional, Dict, List, Tuple
 
 from defs.data import build_loaders, build_datasets
 from .. import logits_to_scalar, PixelRegressorHist
-from ..metrics.badpoints import MeanBadPoints
-from ..metrics.map import MAP
-from ..metrics.miou import MIOU
+from ..metrics.mrecall import MeanRecall
 from ..metrics.rmse import MRMSE, Q95RMSE
 from ...optim import get_params_for_optimizer
 from ...utils.comm import is_main_process, synchronize
@@ -44,36 +41,24 @@ class DEFImageRegression(LightningModule):
         self.compute_metrics = self.hparams.datasets.compute_metrics
         mrmse_all: Dict[str, nn.ModuleList] = {}
         q95rmse_all: Dict[str, nn.ModuleList] = {}
-        bp1r_close_sharp: Dict[str, nn.ModuleList] = {}
-        bp4r_close_sharp: Dict[str, nn.ModuleList] = {}
-        miou_sharp: Dict[str, nn.ModuleList] = {}
-        map_sharp: Dict[str, nn.ModuleList] = {}
+        mrecall_pos: Dict[str, nn.ModuleList] = {}
+        mrecall_neg: Dict[str, nn.ModuleList] = {}
         if self.compute_metrics and self.hparams.datasets.val is not None and len(self.hparams.datasets.val) > 0:
             mrmse_all['val'] = nn.ModuleList([MRMSE() for _ in range(len(self.hparams.datasets.val))])
             q95rmse_all['val'] = nn.ModuleList([Q95RMSE() for _ in range(len(self.hparams.datasets.val))])
-            bp1r_close_sharp['val'] = nn.ModuleList(
-                [MeanBadPoints(1.0 * cfg.datasets.resolution_q) for _ in range(len(self.hparams.datasets.val))])
-            bp4r_close_sharp['val'] = nn.ModuleList(
-                [MeanBadPoints(4.0 * cfg.datasets.resolution_q) for _ in range(len(self.hparams.datasets.val))])
-            miou_sharp['val'] = nn.ModuleList([MIOU() for _ in range(len(self.hparams.datasets.val))])
-            map_sharp['val'] = nn.ModuleList([MAP() for _ in range(len(self.hparams.datasets.val))])
+            mrecall_pos['val'] = nn.ModuleList([MeanRecall(pos_label=1) for _ in range(len(self.hparams.datasets.val))])
+            mrecall_neg['val'] = nn.ModuleList([MeanRecall(pos_label=0) for _ in range(len(self.hparams.datasets.val))])
         if self.compute_metrics and self.hparams.datasets.test is not None and len(self.hparams.datasets.test) > 0:
             mrmse_all['test'] = nn.ModuleList([MRMSE() for _ in range(len(self.hparams.datasets.test))])
             q95rmse_all['test'] = nn.ModuleList([Q95RMSE() for _ in range(len(self.hparams.datasets.test))])
-            bp1r_close_sharp['test'] = nn.ModuleList(
-                [MeanBadPoints(1.0 * cfg.datasets.resolution_q) for _ in range(len(self.hparams.datasets.test))])
-            bp4r_close_sharp['test'] = nn.ModuleList(
-                [MeanBadPoints(4.0 * cfg.datasets.resolution_q) for _ in range(len(self.hparams.datasets.test))])
-            miou_sharp['test'] = nn.ModuleList([MIOU() for _ in range(len(self.hparams.datasets.test))])
-            map_sharp['test'] = nn.ModuleList([MAP() for _ in range(len(self.hparams.datasets.test))])
+            mrecall_pos['test'] = nn.ModuleList([MeanRecall(pos_label=1) for _ in range(len(self.hparams.datasets.test))])
+            mrecall_neg['test'] = nn.ModuleList([MeanRecall(pos_label=0) for _ in range(len(self.hparams.datasets.test))])
 
-        if len(miou_sharp) > 0:
+        if len(mrecall_pos) > 0:
             self.mrmse_all = nn.ModuleDict(mrmse_all)
             self.q95rmse_all = nn.ModuleDict(q95rmse_all)
-            self.bp1r_close_sharp = nn.ModuleDict(bp1r_close_sharp)
-            self.bp4r_close_sharp = nn.ModuleDict(bp4r_close_sharp)
-            self.miou_sharp = nn.ModuleDict(miou_sharp)
-            self.map_sharp = nn.ModuleDict(map_sharp)
+            self.mrecall_pos = nn.ModuleDict(mrecall_pos)
+            self.mrecall_neg = nn.ModuleDict(mrecall_neg)
 
     def forward(self, x, clamp=True):
         out: Dict[str, torch.Tensor] = {}
@@ -189,25 +174,12 @@ class DEFImageRegression(LightningModule):
             self.q95rmse_all[partition][dataloader_idx].update(
                 result['distances'][i][foreground_mask].view(1, -1),
                 batch['distances'][i][foreground_mask].view(1, -1))
-
-            if torch.any(batch['distances'][i][foreground_mask] < resolution):
-                self.miou_sharp[partition][dataloader_idx].update(
-                    result['distances'][i][foreground_mask].view(1, -1) < resolution,
-                    batch['distances'][i][foreground_mask].view(1, -1) < resolution)
-                self.map_sharp[partition][dataloader_idx].update(
-                    1.0 - result['distances'][i][foreground_mask].view(1, -1),
-                    (batch['distances'][i][foreground_mask].view(1, -1) < resolution).float())
-
-            if not batch['is_flat'][i].item():
-                close_mask = batch['distances'][i] < 1.0
-                foreground_close_mask = (foreground_mask.float() * close_mask.float()).bool()
-                if torch.any(foreground_close_mask):
-                    self.bp1r_close_sharp[partition][dataloader_idx].update(
-                        result['distances'][i][foreground_close_mask].view(1, -1),
-                        batch['distances'][i][foreground_close_mask].view(1, -1))
-                    self.bp4r_close_sharp[partition][dataloader_idx].update(
-                        result['distances'][i][foreground_close_mask].view(1, -1),
-                        batch['distances'][i][foreground_close_mask].view(1, -1))
+            self.mrecall_pos[partition][dataloader_idx].update(
+                result['distances'][i][foreground_mask].view(1, -1) < 4 * resolution,
+                batch['distances'][i][foreground_mask].view(1, -1) < 4 * resolution)
+            self.mrecall_neg[partition][dataloader_idx].update(
+                result['distances'][i][foreground_mask].view(1, -1) < 4 * resolution,
+                batch['distances'][i][foreground_mask].view(1, -1) < 4 * resolution)
 
     def _shared_eval_epoch_end(self, outputs, partition: str):
         if not self.compute_metrics:
@@ -224,28 +196,16 @@ class DEFImageRegression(LightningModule):
                      self.q95rmse_all[partition][i].compute(),
                      prog_bar=True, logger=True)
 
-            self.bp1r_close_sharp[partition][i].bp_sum = self.bp1r_close_sharp[partition][i].bp_sum.to(self.device)
-            self.bp1r_close_sharp[partition][i].total = self.bp1r_close_sharp[partition][i].total.to(self.device)
-            self.log(f'mBadPoints-1r-Close-Sharp/{dataset_name}',
-                     self.bp1r_close_sharp[partition][i].compute(),
+            self.mrecall_pos[partition][i].recall_sum = self.mrecall_pos[partition][i].recall_sum.to(self.device)
+            self.mrecall_pos[partition][i].total = self.mrecall_pos[partition][i].total.to(self.device)
+            self.log(f'mRecall-Pos/{dataset_name}',
+                     self.mrecall_pos[partition][i].compute(),
                      prog_bar=True, logger=True)
 
-            self.bp4r_close_sharp[partition][i].bp_sum = self.bp4r_close_sharp[partition][i].bp_sum.to(self.device)
-            self.bp4r_close_sharp[partition][i].total = self.bp4r_close_sharp[partition][i].total.to(self.device)
-            self.log(f'mBadPoints-4r-Close-Sharp/{dataset_name}',
-                     self.bp4r_close_sharp[partition][i].compute(),
-                     prog_bar=True, logger=True)
-
-            self.miou_sharp[partition][i].iou_sum = self.miou_sharp[partition][i].iou_sum.to(self.device)
-            self.miou_sharp[partition][i].total = self.miou_sharp[partition][i].total.to(self.device)
-            self.log(f'mIOU-Sharp/{dataset_name}',
-                     self.miou_sharp[partition][i].compute(),
-                     prog_bar=True, logger=True)
-
-            self.map_sharp[partition][i].ap_sum = self.map_sharp[partition][i].ap_sum.to(self.device)
-            self.map_sharp[partition][i].total = self.map_sharp[partition][i].total.to(self.device)
-            self.log(f'mAP-Sharp/{dataset_name}',
-                     self.map_sharp[partition][i].compute(),
+            self.mrecall_neg[partition][i].recall_sum = self.mrecall_neg[partition][i].recall_sum.to(self.device)
+            self.mrecall_neg[partition][i].total = self.mrecall_neg[partition][i].total.to(self.device)
+            self.log(f'mRecall-Neg/{dataset_name}',
+                     self.mrecall_neg[partition][i].compute(),
                      prog_bar=True, logger=True)
 
     def validation_step(self, batch, batch_idx: int, *args):

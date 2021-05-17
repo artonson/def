@@ -11,8 +11,7 @@ from pytorch_lightning.core.lightning import LightningModule
 from torch.utils.data import Dataset
 
 from defs.data import build_loaders, build_datasets
-from ..metrics.map import MAP
-from ..metrics.miou import MIOU
+from ..metrics.mrecall import MeanRecall
 from ...optim import get_params_for_optimizer
 from ...utils.comm import is_main_process, synchronize
 from ...utils.hydra import instantiate, call
@@ -39,18 +38,20 @@ class DEFImageSegmentation(LightningModule):
             synchronize()
 
         self.compute_metrics = self.hparams.datasets.compute_metrics
-        miou_sharp: Dict[str, nn.ModuleList] = {}
-        map_sharp: Dict[str, nn.ModuleList] = {}
+        mrecall_pos: Dict[str, nn.ModuleList] = {}
+        mrecall_neg: Dict[str, nn.ModuleList] = {}
         if self.compute_metrics and self.hparams.datasets.val is not None and len(self.hparams.datasets.val) > 0:
-            miou_sharp['val'] = nn.ModuleList([MIOU() for _ in range(len(self.hparams.datasets.val))])
-            map_sharp['val'] = nn.ModuleList([MAP() for _ in range(len(self.hparams.datasets.val))])
+            mrecall_pos['val'] = nn.ModuleList([MeanRecall(pos_label=1) for _ in range(len(self.hparams.datasets.val))])
+            mrecall_neg['val'] = nn.ModuleList([MeanRecall(pos_label=0) for _ in range(len(self.hparams.datasets.val))])
         if self.compute_metrics and self.hparams.datasets.test is not None and len(self.hparams.datasets.test) > 0:
-            miou_sharp['test'] = nn.ModuleList([MIOU() for _ in range(len(self.hparams.datasets.test))])
-            map_sharp['test'] = nn.ModuleList([MAP() for _ in range(len(self.hparams.datasets.test))])
+            mrecall_pos['test'] = nn.ModuleList(
+                [MeanRecall(pos_label=1) for _ in range(len(self.hparams.datasets.test))])
+            mrecall_neg['test'] = nn.ModuleList(
+                [MeanRecall(pos_label=0) for _ in range(len(self.hparams.datasets.test))])
 
-        if len(miou_sharp) > 0:
-            self.miou_sharp = nn.ModuleDict(miou_sharp)
-            self.map_sharp = nn.ModuleDict(map_sharp)
+        if len(mrecall_pos) > 0:
+            self.mrecall_pos = nn.ModuleDict(mrecall_pos)
+            self.mrecall_neg = nn.ModuleDict(mrecall_neg)
 
     def forward(self, x, as_mask=True):
         out: Dict[str, torch.Tensor] = {}
@@ -142,28 +143,28 @@ class DEFImageSegmentation(LightningModule):
             else:
                 foreground_mask = torch.ones(batch['distances'][i].shape, device=self.device, dtype=torch.bool)
 
-            if torch.any(foreground_mask) and torch.any(batch['target_sharp'][i][foreground_mask].bool()):
-                self.miou_sharp[partition][dataloader_idx].update(
+            if torch.any(foreground_mask):
+                self.mrecall_pos[partition][dataloader_idx].update(
                     result['preds_sharp'][i][foreground_mask].view(1, -1).bool(),
                     batch['target_sharp'][i][foreground_mask].view(1, -1).bool())
-                self.map_sharp[partition][dataloader_idx].update(
-                    result['preds_sharp_probs'][i][foreground_mask].view(1, -1),
-                    batch['target_sharp'][i][foreground_mask].view(1, -1))
+                self.mrecall_neg[partition][dataloader_idx].update(
+                    result['preds_sharp'][i][foreground_mask].view(1, -1).bool(),
+                    batch['target_sharp'][i][foreground_mask].view(1, -1).bool())
 
     def _shared_eval_epoch_end(self, outputs, partition: str):
         if not self.compute_metrics:
             return
         for i, (dataset_name, _) in enumerate(self.datasets[partition]):
-            self.miou_sharp[partition][i].iou_sum = self.miou_sharp[partition][i].iou_sum.to(self.device)
-            self.miou_sharp[partition][i].total = self.miou_sharp[partition][i].total.to(self.device)
-            self.log(f'mIOU-Sharp/{dataset_name}',
-                     self.miou_sharp[partition][i].compute(),
+            self.mrecall_pos[partition][i].recall_sum = self.mrecall_pos[partition][i].recall_sum.to(self.device)
+            self.mrecall_pos[partition][i].total = self.mrecall_pos[partition][i].total.to(self.device)
+            self.log(f'mRecall-Pos/{dataset_name}',
+                     self.mrecall_pos[partition][i].compute(),
                      prog_bar=True, logger=True)
 
-            self.map_sharp[partition][i].ap_sum = self.map_sharp[partition][i].ap_sum.to(self.device)
-            self.map_sharp[partition][i].total = self.map_sharp[partition][i].total.to(self.device)
-            self.log(f'mAP-Sharp/{dataset_name}',
-                     self.map_sharp[partition][i].compute(),
+            self.mrecall_neg[partition][i].recall_sum = self.mrecall_neg[partition][i].recall_sum.to(self.device)
+            self.mrecall_neg[partition][i].total = self.mrecall_neg[partition][i].total.to(self.device)
+            self.log(f'mRecall-Neg/{dataset_name}',
+                     self.mrecall_neg[partition][i].compute(),
                      prog_bar=True, logger=True)
 
     def validation_step(self, batch, batch_idx: int, *args):

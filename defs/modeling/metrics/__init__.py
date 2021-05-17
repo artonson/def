@@ -1,4 +1,2 @@
-from .badpoints import MeanBadPoints
-from .map import MAP
-from .miou import MIOU
+from .mrecall import MeanRecall
 from .rmse import MRMSE, Q95RMSE
