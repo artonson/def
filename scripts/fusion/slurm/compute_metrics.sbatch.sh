@@ -63,14 +63,14 @@ echo "  "
 
 OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
-METRICS_SCRIPT="${CODE_PATH_CONTAINER}/scripts/compute_metrics.py"
+METRICS_SCRIPT="${CODE_PATH_CONTAINER}/scripts/compute_metrics_ruslan.py"
 INPUT_BASE_DIR=/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr
 FUSION_BASE_DIR=/gpfs/gpfs0/3ddl/sharp_features/whole_fused/data_v2_cvpr
 FUSION_WRAPPERS_PATH="${PROJECT_ROOT}/scripts/fusion/slurm"
 source ${FUSION_WRAPPERS_PATH}/suffix_proba.sh
 
 
-if [[ ${AGGREGATE} ]]
+if [[ ${AGGREGATE} = true ]]
 then
 
   true_arg_v1=""
@@ -89,7 +89,7 @@ then
 
     if [[ -f ${fused_pred_v1} ]]; then true_arg_v1="${true_arg_v1} -t ${fused_gt}"; pred_arg_v1="${pred_arg_v1} -p ${fused_pred_v1}"; fi
     if [[ -f ${fused_pred_v2} ]]; then true_arg_v2="${true_arg_v2} -t ${fused_gt}"; pred_arg_v2="${pred_arg_v2} -p ${fused_pred_v2}"; fi
-    if [[ -f ${fused_pred_v3} ]]; then true_arg_v1="${true_arg_v3} -t ${fused_gt}"; pred_arg_v3="${pred_arg_v3} -p ${fused_pred_v3}"; fi
+    if [[ -f ${fused_pred_v3} ]]; then true_arg_v3="${true_arg_v3} -t ${fused_gt}"; pred_arg_v3="${pred_arg_v3} -p ${fused_pred_v3}"; fi
 
   done <"${INPUT_FILENAME:-/dev/stdin}"
 
@@ -114,13 +114,13 @@ else
   fused_gt="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_gt_suffix}.hdf5"
 
   fused_pred_v1="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v1_suffix}.hdf5"
-  fused_pred_v1__metrics="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v1_suffix}__metrics.hdf5"
+  fused_pred_v1__metrics="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v1_suffix}__metrics.txt"
 
   fused_pred_v2="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v2_suffix}.hdf5"
-  fused_pred_v2__metrics="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v2_suffix}__metrics.hdf5"
+  fused_pred_v2__metrics="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v2_suffix}__metrics.txt"
 
   fused_pred_v3="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v3_suffix}.hdf5"
-  fused_pred_v3__metrics="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v3_suffix}__metrics.hdf5"
+  fused_pred_v3__metrics="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v3_suffix}__metrics.txt"
 
   true_arg_v1="-t ${fused_gt}"
   pred_arg_v1="-p ${fused_pred_v1}"
