@@ -84,10 +84,7 @@ def main(options):
     print(
         '{metrics_names}\n{items_values}'.format(
             metrics_names=','.join([str(metric) for metric in metrics]),
-            items_values='\n'.join([
-                ','.join([str(value) for value in item_values])
-                for item_values in values])
-        ),
+            items_values=','.join([str(value) for value in values])),
         file=fp)
     fp.close()
 
