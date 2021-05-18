@@ -65,13 +65,13 @@ def main(options):
         for metric in metrics:
             if isinstance(metric, MFPR) or isinstance(metric, MRecall):
                 metric.update(
-                    torch.tensor(true_item).reshape(1, -1) < thresh_4r, 
-                    torch.tensor(pred_item).reshape(1, -1) < thresh_4r
+                    torch.tensor(pred_item).reshape(1, -1) < thresh_4r,
+                    torch.tensor(true_item).reshape(1, -1) < thresh_4r 
                 )
             else:
                 metric.update(
-                    torch.tensor(true_item).reshape(1, -1), 
-                    torch.tensor(pred_item).reshape(1, -1)
+                    torch.tensor(pred_item).reshape(1, -1),
+                    torch.tensor(true_item).reshape(1, -1)          
                 )
             val = metric.compute()
             item_values.append(val)
