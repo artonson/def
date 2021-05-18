@@ -104,6 +104,23 @@ class DistanceLessThan(PointwiseMaskSelector):
         return masked_true_instance, masked_pred_label
 
 
+class DistanceGreaterThan(PointwiseMaskSelector):
+    def __init__(self, threshold, name):
+        super().__init__(name)
+        self._threshold = threshold
+
+    def __call__(self, true_instance, pred_label):
+        masked_true_instance = deepcopy(true_instance)
+        true_distances = masked_true_instance['distances']
+        selection_mask = true_distances > self._threshold
+        masked_true_instance['distances'] = true_distances[selection_mask]
+
+        masked_pred_label = deepcopy(pred_label)
+        pred_distances = masked_pred_label['distances']
+        masked_pred_label['distances'] = pred_distances[selection_mask]
+        return masked_true_instance, masked_pred_label
+
+
 class MaskedMetric(Metric):
     def __init__(self, masking, metric):
         self._metric = metric
@@ -114,7 +131,11 @@ class MaskedMetric(Metric):
 
     def __call__(self, true_instance, pred_label):
         true_instance, pred_label = self._masking(true_instance, pred_label)
-        return self._metric(true_instance, pred_label)
+        if len(true_instance['distances']) == 0:
+            print(str(self), 'nan')
+            return 'nan'
+        else:
+            return self._metric(true_instance, pred_label)
 
 
 class RescaledMetric(Metric):
@@ -130,20 +151,58 @@ class RescaledMetric(Metric):
         return value * self._scale_factor
 
 
-class IOU(Metric):
+class IntersectionOverUnion(Metric):
     """Intersection over union."""
-    def __init__(self, threshold):
-        self._threshold = threshold
+    def __init__(self, gt_threshold, pred_threshold):
+        self._gt_threshold = gt_threshold
+        self._pred_threshold = pred_threshold
 
     def __str__(self):
-        return 'IOU'
+        return 'IOU({0:.3g})'.format(self._pred_threshold)
 
     def __call__(self, true_instance, pred_label):
         from sklearn.metrics import jaccard_score
-        y_true = (true_instance['distances'] < self._threshold).astype(float)
-        y_pred = (pred_label['distances'] < self._threshold).astype(float)
+        y_true = (true_instance['distances'] < self._gt_threshold).astype(float)
+        y_pred = (pred_label['distances'] < self._pred_threshold).astype(float)
         iou = jaccard_score(y_true, y_pred)
         # intersection = y_pred * y_true
         # union = y_true + y_pred - intersection
         # iou = intersection.sum() / union.sum()
         return iou
+
+
+class AveragePrecision(Metric):
+    """Average precision."""
+    def __init__(self, threshold):
+        self._threshold = threshold
+
+    def __str__(self):
+        return 'AP'
+
+    def __call__(self, true_instance, pred_label):
+        from sklearn.metrics import average_precision_score
+        y_true = (true_instance['distances'] < self._threshold).astype(float)
+        y_pred = pred_label['distances']
+        ap = average_precision_score(y_true, y_pred, pos_label=1)
+        return ap
+
+
+class FalsePositivesRate(Metric):
+    """Average precision."""
+    def __init__(self, gt_threshold, pred_threshold):
+        self._gt_threshold = gt_threshold
+        self._pred_threshold = pred_threshold
+
+    def __str__(self):
+        return 'FPR({0:.3g})'.format(self._pred_threshold)
+
+    def __call__(self, true_instance, pred_label):
+        from sklearn.metrics import confusion_matrix
+        y_true = (true_instance['distances'] < self._gt_threshold).astype(float)
+        y_pred = (pred_label['distances'] < self._pred_threshold).astype(float)
+        cm = confusion_matrix(y_true, y_pred, labels=[0, 1])
+        fp = cm[0][1]
+        tn = cm[0][0]
+        tol = 1e-6
+        fpr = fp / (fp + tn + tol)
+        return fpr

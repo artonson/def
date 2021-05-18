@@ -3,6 +3,7 @@
 import argparse
 import os
 import sys
+import io
 
 import numpy as np
 
@@ -14,6 +15,7 @@ sys.path[1:1] = [__dir__]
 from sharpf.utils.abc_utils.hdf5.dataset import PreloadTypes, Hdf5File
 import sharpf.metrics.numpy_metrics as nm
 import sharpf.fusion.io as fusion_io
+import sharpf.data.datasets.sharpf_io as sharpf_io
 from sharpf.utils.convertor_utils import convertors_io
 
 
@@ -21,6 +23,9 @@ def main(options):
     if options.single_view:
         true_data_io = convertors_io.AnnotatedViewIO
         pred_data_io = fusion_io.ImagePredictionsIO
+    elif options.single_patch:
+        true_data_io = sharpf_io.WholePointCloudIO
+        pred_data_io = sharpf_io.WholePointCloudIO
     else:
         true_data_io = fusion_io.FusedPredictionsIO
         pred_data_io = fusion_io.FusedPredictionsIO
@@ -46,33 +51,53 @@ def main(options):
     bad_points_1r = nm.BadPoints(r1, normalize=True)
     r4 = options.resolution_3d * 4
     bad_points_4r = nm.BadPoints(r4, normalize=True)
-    iou = nm.IOU(r1)
+    iou_1r = nm.IntersectionOverUnion(r1, r1)
+    iou_4r = nm.IntersectionOverUnion(r1, r4)
+    ap = nm.AveragePrecision(r1)
+    fpr_1r = nm.FalsePositivesRate(r1, r1)
+    fpr_4r = nm.FalsePositivesRate(r1, r4)
 
-    max_distances_all = np.max([np.max(item['distances']) for item in true_distances]) + 1e-6
+    tol = 1e-6
+    max_distances_all = np.max([np.max(item['distances']) for item in true_distances]) + tol
     all_mask = nm.DistanceLessThan(max_distances_all, name='ALL')
     RMSE_ALL = nm.MaskedMetric(all_mask, rmse)
     q95RMSE_ALL = nm.MaskedMetric(all_mask, q95rmse)
 
-    closesharp_mask = nm.DistanceLessThan(options.max_distance_to_feature, name='Close-Sharp')
+    sharp_mask = nm.DistanceLessThan(options.max_distance_to_feature - tol, name='Sharp')
+    closesharp_mask = nm.DistanceLessThan(options.max_distance_to_feature - tol, name='Sharp')
+#    close_mask = nm.DistanceLessThan(options.max_distance_to_feature - tol, name='Close')
+#    closesharp_mask = nm.MaskedMetric(sharp_mask, close_mask)
     mBadPoints_1r_CloseSharp = nm.MaskedMetric(closesharp_mask, bad_points_1r)
     mBadPoints_4r_CloseSharp = nm.MaskedMetric(closesharp_mask, bad_points_4r)
 
     # for our whole models, we keep all points
-    sharp_mask = nm.DistanceLessThan(max_distances_all, name='Sharp')
-    IOU_Sharp = nm.MaskedMetric(sharp_mask, iou)
+    # sharp_mask = nm.DistanceLessThan(max_distances_all, name='Sharp')
+    IOU_1r_Sharp = nm.MaskedMetric(sharp_mask, iou_1r)
+    IOU_4r_Sharp = nm.MaskedMetric(sharp_mask, iou_4r)
+    AP_Sharp = nm.MaskedMetric(sharp_mask, ap)
+
+    far_all_mask = nm.DistanceGreaterThan(options.max_distance_to_feature - tol, name='Far-ALL')
+    FPR_1r_Sharp = nm.MaskedMetric(far_all_mask, fpr_1r)
+    FPR_4r_Sharp = nm.MaskedMetric(far_all_mask, fpr_4r)
 
     metrics = [
         RMSE_ALL,
         q95RMSE_ALL,
         mBadPoints_1r_CloseSharp,
         mBadPoints_4r_CloseSharp,
-        IOU_Sharp,
+        IOU_1r_Sharp,
+        IOU_4r_Sharp,
+        AP_Sharp,
+        FPR_1r_Sharp,
+        FPR_4r_Sharp,
     ]
     values = []
-    for true_item, pred_item in zip(true_distances, pred_distances):
+    for idx, (true_item, pred_item) in enumerate(zip(true_distances, pred_distances)):
+        print(idx)
         item_values = [metric(true_item, pred_item) for metric in metrics]
         values.append(item_values)
-
+    fp = options.out_filename
+    fp = open(fp, 'w') if not isinstance(fp, io.TextIOBase) else fp
     print(
         '{metrics_names}\n{items_values}'.format(
             metrics_names=','.join([str(metric) for metric in metrics]),
@@ -80,7 +105,8 @@ def main(options):
                 ','.join([str(value) for value in item_values])
                 for item_values in values])
         ),
-        file=options.out_filename)
+        file=fp)
+    fp.close()
 
 
 def parse_args():
@@ -111,6 +137,13 @@ def parse_args():
         default=False,
         action='store_true',
         help='if set, this .')
+    parser.add_argument(
+        '-sp', '--single_patch',
+        dest='single_patch',
+        default=False,
+        action='store_true',
+        help='if set, this .')
+
 
     parser.add_argument(
         '-r', '--resolution_3d',

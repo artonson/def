@@ -238,7 +238,7 @@ def parse_args():
                         help='Path to output (suffixes indicating various methods will be added).')
     parser.add_argument('-f', '--fusion-config', dest='fusion_config',
                         required=True, help='fusion configuration YAML file.')
-    parser.add_argument('-j', '--jobs', dest='n_jobs', default=4,
+    parser.add_argument('-j', '--jobs', dest='n_jobs', default=4, type=int,
                         required=False, help='number of jobs to use for fusion.')
     parser.add_argument('-u', '--unlabeled', dest='unlabeled', action='store_true', default=False,
                         help='set if input data is unlabeled.')

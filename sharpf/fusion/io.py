@@ -34,6 +34,7 @@ ComparisonsIO = io_struct.HDF5IO({
     'voronoi': io_struct.VarFloat64('voronoi'),
     'ecnet': io_struct.VarFloat64('ecnet'),
     'sharpness': io_struct.VarFloat64('sharpness'),
+    'sharpness_seg': io_struct.VarFloat64('sharpness_seg'),
 },
     len_label='points',
     compression='lzf')
@@ -51,14 +52,15 @@ ImagePredictionsIO = io_struct.HDF5IO({
     compression='lzf')
 
 
+def save_predictions(patches, filename, io):
+    collate_fn = partial(io_struct.collate_mapping_with_io, io=io)
+    patches = collate_fn(patches)
+    with h5py.File(filename, 'w') as f:
+        io.write(f, 'distances', patches['distances'])
+
+
 def convert_npylist_to_hdf5(input_dir, output_filename, io):
     assert 'distances' in io.datasets
-
-    def save_predictions(patches, filename):
-        collate_fn = partial(io_struct.collate_mapping_with_io, io=io)
-        patches = collate_fn(patches)
-        with h5py.File(filename, 'w') as f:
-            io.write(f, 'distances', patches['distances'])
 
     def get_num(basename):
         match = re.match('^test_(\d+)\.npy$', basename)
@@ -67,7 +69,7 @@ def convert_npylist_to_hdf5(input_dir, output_filename, io):
     datafiles = glob.glob(os.path.join(input_dir, '*.npy'))
     datafiles.sort(key=lambda name: get_num(os.path.basename(name)))
     patches = [{'distances': np.load(f)} for f in datafiles]
-    save_predictions(patches, output_filename)
+    save_predictions(patches, output_filename, io)
 
 
 FusedPredictionsIO = io_struct.HDF5IO(

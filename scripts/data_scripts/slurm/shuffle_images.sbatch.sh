@@ -5,9 +5,9 @@
 #SBATCH --error=/trinity/home/a.artemov/tmp/shuffle_images/%A.err
 #SBATCH --time=24:00:00
 #SBATCH --partition=htc
-#SBATCH --cpus-per-task=40
+#SBATCH --cpus-per-task=20
 #SBATCH --ntasks=1
-#SBATCH --mem-per-cpu=2g
+#SBATCH --mem-per-cpu=16g
 #SBATCH --oversubscribe
 
 #module load apps/singularity-3.2.0
@@ -103,12 +103,12 @@ singularity exec \
         --random-seed ${RANDOM_SEED} \\
         --max-loaded-files ${MAX_LOADED_FILES} \\
         ${VERBOSE_ARG} \\
-        -io images \\
-        -fk has_smell_coarse_surfaces_by_num_faces \\
-        -fk has_smell_coarse_surfaces_by_angles \\
-        -fk has_smell_sharpness_discontinuities \\
-        -fk has_smell_mesh_self_intersections \\
+        -io annotated_view_io \\
         "
+#       -fk has_smell_coarse_surfaces_by_num_faces \\
+#       -fk has_smell_coarse_surfaces_by_angles \\
+#       -fk has_smell_sharpness_discontinuities \\
+#       -fk has_smell_mesh_self_intersections \\
 
 #      -fk has_smell_mismatching_surface_annotation
 #      -fk has_smell_bad_face_sampling

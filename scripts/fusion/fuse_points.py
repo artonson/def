@@ -55,7 +55,7 @@ def load_ground_truth(true_filename, unlabeled=False):
     return n_points, list_distances, list_indexes_in_whole, list_points
 
 
-def load_predictions(pred_data, name, pred_key='distances'):
+def load_predictions(pred_data, name, pred_key='distances', pred_distance_scale_ratio=1.):
     if os.path.isdir(pred_data):
         predictions_filename = os.path.join(
             options.output_dir,
@@ -79,7 +79,12 @@ def load_predictions(pred_data, name, pred_key='distances'):
         io=data_io,
         preload=PreloadTypes.LAZY,
         labels=[pred_key])
-    list_predictions = [patch[pred_key] for patch in predictions_dataset]
+    list_predictions = [patch[pred_key] * pred_distance_scale_ratio for patch in predictions_dataset]
+
+    fusion_io.save_predictions(
+        [{'distances': distances} for distances in list_predictions],
+         predictions_filename,
+        fusion_io.PointPatchPredictionsIO)
 
     return list_predictions
 
@@ -109,26 +114,27 @@ def main(options):
     list_predictions = load_predictions(
         options.pred_data,
         name,
-        pred_key=options.pred_key or 'distances')
+        pred_key=options.pred_key or 'distances',
+        pred_distance_scale_ratio=options.pred_distance_scale_ratio)
 
     # run various algorithms for consolidating predictions
     # this selection is up to you, user
     combiners_list = [
         # combiners for probabilities
-        combiners.AvgProbaPredictionsCombiner(thr=0.25),
-        combiners.AvgProbaPredictionsCombiner(thr=0.5),
-        combiners.AvgProbaPredictionsCombiner(thr=0.75),
+        # combiners.AvgProbaPredictionsCombiner(thr=0.25),
+        # combiners.AvgProbaPredictionsCombiner(thr=0.5),
+        # combiners.AvgProbaPredictionsCombiner(thr=0.75),
 
         # combiners for distances
         # MedianPredictionsCombiner(),
-        # MinPredictionsCombiner(),
+        combiners.MinPredictionsCombiner(),
         # AvgPredictionsCombiner(),
         # TruncatedAvgPredictionsCombiner(),
         # CenterCropPredictionsCombiner(brd_thr=80, func=np.min, tag='crop__min'),
-        #combiners.CenterCropPredictionsCombiner(
-        #    brd_thr=80, 
-        #    func=combiners.TruncatedMean(0.6, func=np.min),
-        #    tag='crop__adv60__min'),
+        combiners.CenterCropPredictionsCombiner(
+           brd_thr=80,
+           func=combiners.TruncatedMean(0.6, func=np.min),
+           tag='adv60'),
         # MinsAvgPredictionsCombiner(signal_thr=0.9),
 
         # combiners + smoothers for distances
@@ -140,13 +146,14 @@ def main(options):
         #     combiner=CenterCropPredictionsCombiner(brd_thr=80, func=np.min),
         #     smoother=TotalVariationSmoother(regularizer_alpha=0.001)
         # ),
-       #combiners.SmoothingCombiner(
-       #    combiner=combiners.CenterCropPredictionsCombiner(brd_thr=80, func=np.min),
-       #    smoother=smoothers.RobustLocalLinearFit(
-       #        lm.HuberRegressor(epsilon=4., alpha=1.),
-       #        n_jobs=32
-       #    )
-       #),
+        combiners.SmoothingCombiner(
+            combiner=combiners.CenterCropPredictionsCombiner(
+                brd_thr=80,
+                func=combiners.TruncatedMean(0.6, func=np.min),
+                tag='adv60'),
+            smoother=smoothers.RobustLocalLinearFit(
+                lm.HuberRegressor(epsilon=4., alpha=1.),
+                n_jobs=options.n_jobs)),
     ]
 
     for combiner in combiners_list:
@@ -184,10 +191,14 @@ def parse_args():
                         help='Path to output (suffixes indicating various methods will be added).')
     parser.add_argument('-u', '--unlabeled', dest='unlabeled', action='store_true', default=False,
                         help='set if input data is unlabeled.')
+    parser.add_argument('-j', '--jobs', dest='n_jobs', default=4, type=int,
+                        required=False, help='number of jobs to use for fusion.')
     parser.add_argument('-k', '--key', dest='pred_key',
                         help='if set, switch to compare-io and use this key.')
     parser.add_argument('-s', '--max_distance_to_feature', dest='max_distance_to_feature',
                         default=1.0, type=float, required=False, help='max distance to sharp feature to compute.')
+    parser.add_argument('-r', '--pred_distance_scale_ratio', dest='pred_distance_scale_ratio',
+                        default=1.0, type=float, required=False, help='factor by which to multiply the predicted distances.')
     return parser.parse_args()
 
 
