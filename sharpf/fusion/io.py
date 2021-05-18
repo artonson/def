@@ -34,6 +34,7 @@ ComparisonsIO = io_struct.HDF5IO({
     'voronoi': io_struct.VarFloat64('voronoi'),
     'ecnet': io_struct.VarFloat64('ecnet'),
     'sharpness': io_struct.VarFloat64('sharpness'),
+    'sharpness_seg': io_struct.VarFloat64('sharpness_seg'),
 },
     len_label='points',
     compression='lzf')

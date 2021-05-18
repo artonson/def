@@ -129,6 +129,7 @@ import sharpf.utils.abc_utils.abc.feature_utils as def_feature_utils
 #         plot.display()
 #
 #     return plot
+from tqdm import tqdm
 
 
 def display_depth_sharpness(
@@ -143,7 +144,8 @@ def display_depth_sharpness(
         depth_bg_value=0.0,
         sharpness_bg_value=0.0,
         depth_cmap='viridis_r',
-        sharpness_cmap='plasma_r'):
+        sharpness_cmap='plasma_r',
+        layout_pad=0, layout_hpad=0.25, layout_wpad=0.25):
     import matplotlib.cm
     import matplotlib.pyplot as plt
 
@@ -238,7 +240,7 @@ def display_depth_sharpness(
                                     vmin=-tol, vmax=max_sharpness + tol)
                 sharpness_ax.axis('off')
 
-    plt.tight_layout(pad=0, h_pad=0.25, w_pad=0.25)
+    plt.tight_layout(pad=layout_pad, h_pad=layout_hpad, w_pad=layout_wpad)
 
 
 def get_random_color(hue=None):
