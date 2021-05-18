@@ -78,7 +78,7 @@ FUSION_BASE_DIR=/gpfs/gpfs0/3ddl/sharp_features/whole_fused/data_v2_cvpr
 output_path_global="${FUSION_BASE_DIR}/$( realpath --relative-to  ${INPUT_BASE_DIR} "${source_filename%.*}" )/${METHOD}"
 
 FUSION_WRAPPERS_PATH="${PROJECT_ROOT}/scripts/fusion/slurm"
-source ${FUSION_WRAPPERS_PATH}/suffix_proba.sh
+source ${FUSION_WRAPPERS_PATH}/suffix_images.sh
 
 fused_gt="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_gt_suffix}.hdf5"
 
@@ -86,9 +86,9 @@ fused_pred_v1="${output_path_global}/$( basename "${source_filename}" .hdf5)${fu
 fused_pred_v1_absdiff="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v1_absdiff_suffix}.hdf5"
 
 fused_pred_v2="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v2_suffix}.hdf5"
-fused_pred_v2_absdiff="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v3_absdiff_suffix}.hdf5"
+fused_pred_v2_absdiff="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v2_absdiff_suffix}.hdf5"
 
-fused_pred_v3="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v2_suffix}.hdf5"
+fused_pred_v3="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v3_suffix}.hdf5"
 fused_pred_v3_absdiff="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v3_absdiff_suffix}.hdf5"
 
 

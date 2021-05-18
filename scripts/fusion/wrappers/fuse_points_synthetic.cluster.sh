@@ -33,43 +33,44 @@ run_slurm_jobs() {
   method_dirname=$2
   task_count=$3
 
-  # Run fusion analysis to compute __absdiff stuff.
-  local WAIT_JOBS
-  WAIT_JOBS=$( sbatch \
-    --parsable \
-    --array=1-"${task_count}" \
-    "${FUSION_ANALYSIS_SBATCH}" \
-      -m "${method_dirname}" \
-      -i "${dataset_file}" )
-
-  # simply wait for the ${WAIT_JOBS} to complete, doing nothing
-  [[ -n "${WAIT_JOBS}" ]] && \
-  srun \
-    --dependency afterany:"${WAIT_JOBS}" \
-    sleep 1 >/dev/null 2>&1
-
-# # Compute metrics
-# sbatch \
+# # Run fusion analysis to compute __absdiff stuff.
+# local WAIT_JOBS
+# WAIT_JOBS=$( sbatch \
 #   --parsable \
 #   --array=1-"${task_count}" \
-#   "${COMPUTE_METRICS_SBATCH}" \
+#   "${FUSION_ANALYSIS_SBATCH}" \
 #     -m "${method_dirname}" \
-#     -i "${dataset_file}"
+#     -i "${dataset_file}" )
+#
+# # simply wait for the ${WAIT_JOBS} to complete, doing nothing
+# [[ -n "${WAIT_JOBS}" ]] && \
+# srun \
+#   --dependency afterany:"${WAIT_JOBS}" \
+#   sleep 1 >/dev/null 2>&1
 
-  # Draw HTMLs
+  # Compute metrics
   sbatch \
     --parsable \
     --array=1-"${task_count}" \
-    "${PLOT_SNAPSHOTS_SBATCH}" \
+    "${COMPUTE_METRICS_SBATCH}" \
       -m "${method_dirname}" \
-      -i "${dataset_file}"
+      -i "${dataset_file}" \
+      -a 
+
+#  # Draw HTMLs
+#  sbatch \
+#    --parsable \
+#    --array=1-"${task_count}" \
+#    "${PLOT_SNAPSHOTS_SBATCH}" \
+#      -m "${method_dirname}" \
+#      -i "${dataset_file}"
 
 }
 
 for dataset in ${DATASETS}; do
 
   for method in ${METHODS}; do
-    task_count=100
+    task_count=1
     run_slurm_jobs \
       "${DATASET_FILE_DIR}/${dataset}" \
       "${method}" \

@@ -79,8 +79,10 @@ then
   pred_arg_v2=""
   true_arg_v3=""
   pred_arg_v3=""
+  res_3d=""
   while IFS=' ' read -r source_filename resolution_3d; do
     output_path_global="${FUSION_BASE_DIR}/$( realpath --relative-to  ${INPUT_BASE_DIR} "${source_filename%.*}" )/${METHOD}"
+    res_3d=${resolution_3d}
 
     fused_gt="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_gt_suffix}.hdf5"
     fused_pred_v1="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v1_suffix}.hdf5"
@@ -93,16 +95,18 @@ then
 
   done <"${INPUT_FILENAME:-/dev/stdin}"
 
-  fused_pred_v1__metrics="$( basename "${INPUT_FILENAME}" .hdf5)${fused_pred_v1_suffix}__metrics.txt"
-  fused_pred_v2__metrics="$( basename "${INPUT_FILENAME}" .hdf5)${fused_pred_v2_suffix}__metrics.txt"
-  fused_pred_v3__metrics="$( basename "${INPUT_FILENAME}" .hdf5)${fused_pred_v3_suffix}__metrics.txt"
+  fused_pred_v1__metrics="$( dirname "${INPUT_FILENAME}" )/$( basename "${INPUT_FILENAME}" .hdf5)${fused_pred_v1_suffix}__${METHOD}__metrics.txt"
+  fused_pred_v2__metrics="$( dirname "${INPUT_FILENAME}" )/$( basename "${INPUT_FILENAME}" .hdf5)${fused_pred_v2_suffix}__${METHOD}__metrics.txt"
+  fused_pred_v3__metrics="$( dirname "${INPUT_FILENAME}" )/$( basename "${INPUT_FILENAME}" .hdf5)${fused_pred_v3_suffix}__${METHOD}__metrics.txt"
 
 else
 
   # Read SLURM_ARRAY_TASK_ID num lines from standard input,
   # stopping at line whose number equals SLURM_ARRAY_TASK_ID
+  res_3d=""
   count=0
   while IFS=' ' read -r source_filename resolution_3d; do
+    res_3d=${resolution_3d}
       (( count++ ))
       if (( count == SLURM_ARRAY_TASK_ID )); then
           break
@@ -144,13 +148,13 @@ then
           ${true_arg_v1} \\
           ${pred_arg_v1} \\
           -o ${fused_pred_v1__metrics} \\
-          -r ${resolution_3d} \\
+          -r ${res_3d} \\
           ${VERBOSE_ARG} \\
              1> >(tee ${output_path_global}/${SLURM_ARRAY_TASK_ID}.out) \\
              2> >(tee ${output_path_global}/${SLURM_ARRAY_TASK_ID}.err)"
 fi
 
-if [[ -f ${pred_arg_v2} ]]
+if [[ -n ${pred_arg_v2} ]]
 then
   echo ${fused_pred_v2__metrics}
   singularity exec \
@@ -163,13 +167,13 @@ then
           ${true_arg_v2} \\
           ${pred_arg_v2} \\
           -o ${fused_pred_v2__metrics} \\
-          -r ${resolution_3d} \\
+          -r ${res_3d} \\
           ${VERBOSE_ARG} \\
              1> >(tee ${output_path_global}/${SLURM_ARRAY_TASK_ID}.out) \\
              2> >(tee ${output_path_global}/${SLURM_ARRAY_TASK_ID}.err)"
 fi
 
-if [[ -f ${pred_arg_v3} ]]
+if [[ -n ${pred_arg_v3} ]]
 then
   echo ${fused_pred_v3__metrics}
   singularity exec \
@@ -182,7 +186,7 @@ then
           ${true_arg_v3} \\
           ${pred_arg_v3} \\
           -o ${fused_pred_v3__metrics} \\
-          -r ${resolution_3d} \\
+          -r ${res_3d} \\
           ${VERBOSE_ARG} \\
              1> >(tee ${output_path_global}/${SLURM_ARRAY_TASK_ID}.out) \\
              2> >(tee ${output_path_global}/${SLURM_ARRAY_TASK_ID}.err)"
