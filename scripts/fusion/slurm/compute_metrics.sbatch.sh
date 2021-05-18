@@ -13,7 +13,7 @@
 #SBATCH --reservation=SIGGRAPH
 
 __usage="
-Usage: $0 [-v] -m method -i input_filename
+Usage: $0 [-v] -m method -i input_filename -a
 
   -v:   if set, verbose mode is activated (more output from the script generally)
   -m:   method which is used as sub-dir where to read predictions and store output
@@ -27,10 +27,12 @@ usage() { echo "$__usage" >&2; }
 
 # Get all the required options and set the necessary variables
 VERBOSE=false
-while getopts "vi:m:" opt
+AGGREGATE=false
+while getopts "vi:m:a" opt
 do
     case ${opt} in
         v) VERBOSE=true;;
+        a) AGGREGATE=true;;
         i) INPUT_FILENAME=$OPTARG;;
         m) METHOD=$OPTARG;;
         *) usage; exit 1 ;;
@@ -62,37 +64,74 @@ echo "  "
 OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK}
 
 METRICS_SCRIPT="${CODE_PATH_CONTAINER}/scripts/compute_metrics.py"
-
-# Read SLURM_ARRAY_TASK_ID num lines from standard input,
-# stopping at line whose number equals SLURM_ARRAY_TASK_ID
-count=0
-while IFS=' ' read -r source_filename resolution_3d; do
-    (( count++ ))
-    if (( count == SLURM_ARRAY_TASK_ID )); then
-        break
-    fi
-done <"${INPUT_FILENAME:-/dev/stdin}"
-
-
 INPUT_BASE_DIR=/gpfs/gpfs0/3ddl/sharp_features/data_v2_cvpr
 FUSION_BASE_DIR=/gpfs/gpfs0/3ddl/sharp_features/whole_fused/data_v2_cvpr
-output_path_global="${FUSION_BASE_DIR}/$( realpath --relative-to  ${INPUT_BASE_DIR} "${source_filename%.*}" )/${METHOD}"
-
 FUSION_WRAPPERS_PATH="${PROJECT_ROOT}/scripts/fusion/slurm"
 source ${FUSION_WRAPPERS_PATH}/suffix_proba.sh
 
-fused_gt="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_gt_suffix}.hdf5"
 
-fused_pred_v1="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v1_suffix}.hdf5"
-fused_pred_v1__metrics="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v1_suffix}__metrics.hdf5"
+if [[ ${AGGREGATE} ]]
+then
 
-fused_pred_v2="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v2_suffix}.hdf5"
-fused_pred_v2__metrics="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v2_suffix}__metrics.hdf5"
+  true_arg_v1=""
+  pred_arg_v1=""
+  true_arg_v2=""
+  pred_arg_v2=""
+  true_arg_v3=""
+  pred_arg_v3=""
+  while IFS=' ' read -r source_filename resolution_3d; do
+    output_path_global="${FUSION_BASE_DIR}/$( realpath --relative-to  ${INPUT_BASE_DIR} "${source_filename%.*}" )/${METHOD}"
 
-fused_pred_v3="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v3_suffix}.hdf5"
-fused_pred_v3__metrics="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v3_suffix}__metrics.hdf5"
+    fused_gt="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_gt_suffix}.hdf5"
+    fused_pred_v1="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v1_suffix}.hdf5"
+    fused_pred_v2="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v2_suffix}.hdf5"
+    fused_pred_v3="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v3_suffix}.hdf5"
 
-if [[ -f ${fused_pred_v1} ]]
+    if [[ -f ${fused_pred_v1} ]]; then true_arg_v1="${true_arg_v1} -t ${fused_gt}"; pred_arg_v1="${pred_arg_v1} -p ${fused_pred_v1}"; fi
+    if [[ -f ${fused_pred_v2} ]]; then true_arg_v2="${true_arg_v2} -t ${fused_gt}"; pred_arg_v2="${pred_arg_v2} -p ${fused_pred_v2}"; fi
+    if [[ -f ${fused_pred_v3} ]]; then true_arg_v1="${true_arg_v3} -t ${fused_gt}"; pred_arg_v3="${pred_arg_v3} -p ${fused_pred_v3}"; fi
+
+  done <"${INPUT_FILENAME:-/dev/stdin}"
+
+  fused_pred_v1__metrics="$( basename "${INPUT_FILENAME}" .hdf5)${fused_pred_v1_suffix}__metrics.txt"
+  fused_pred_v2__metrics="$( basename "${INPUT_FILENAME}" .hdf5)${fused_pred_v2_suffix}__metrics.txt"
+  fused_pred_v3__metrics="$( basename "${INPUT_FILENAME}" .hdf5)${fused_pred_v3_suffix}__metrics.txt"
+
+else
+
+  # Read SLURM_ARRAY_TASK_ID num lines from standard input,
+  # stopping at line whose number equals SLURM_ARRAY_TASK_ID
+  count=0
+  while IFS=' ' read -r source_filename resolution_3d; do
+      (( count++ ))
+      if (( count == SLURM_ARRAY_TASK_ID )); then
+          break
+      fi
+  done <"${INPUT_FILENAME:-/dev/stdin}"
+
+  output_path_global="${FUSION_BASE_DIR}/$( realpath --relative-to  ${INPUT_BASE_DIR} "${source_filename%.*}" )/${METHOD}"
+
+  fused_gt="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_gt_suffix}.hdf5"
+
+  fused_pred_v1="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v1_suffix}.hdf5"
+  fused_pred_v1__metrics="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v1_suffix}__metrics.hdf5"
+
+  fused_pred_v2="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v2_suffix}.hdf5"
+  fused_pred_v2__metrics="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v2_suffix}__metrics.hdf5"
+
+  fused_pred_v3="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v3_suffix}.hdf5"
+  fused_pred_v3__metrics="${output_path_global}/$( basename "${source_filename}" .hdf5)${fused_pred_v3_suffix}__metrics.hdf5"
+
+  true_arg_v1="-t ${fused_gt}"
+  pred_arg_v1="-p ${fused_pred_v1}"
+  true_arg_v2="-t ${fused_gt}"
+  pred_arg_v2="-p ${fused_pred_v2}"
+  true_arg_v3="-t ${fused_gt}"
+  pred_arg_v3="-p ${fused_pred_v3}"
+
+fi
+
+if [[ -n ${pred_arg_v1} ]]
 then
   echo ${fused_pred_v1__metrics}
   singularity exec \
@@ -102,8 +141,8 @@ then
     "${SIMAGE_FILENAME}" \
         bash -c 'export OMP_NUM_THREADS='"${OMP_NUM_THREADS}; \\
         python3 ${METRICS_SCRIPT} \\
-          -t ${fused_gt} \\
-          -p ${fused_pred_v1} \\
+          ${true_arg_v1} \\
+          ${pred_arg_v1} \\
           -o ${fused_pred_v1__metrics} \\
           -r ${resolution_3d} \\
           ${VERBOSE_ARG} \\
@@ -111,7 +150,7 @@ then
              2> >(tee ${output_path_global}/${SLURM_ARRAY_TASK_ID}.err)"
 fi
 
-if [[ -f ${fused_pred_v2} ]]
+if [[ -f ${pred_arg_v2} ]]
 then
   echo ${fused_pred_v2__metrics}
   singularity exec \
@@ -121,8 +160,8 @@ then
     "${SIMAGE_FILENAME}" \
         bash -c 'export OMP_NUM_THREADS='"${OMP_NUM_THREADS}; \\
         python3 ${METRICS_SCRIPT} \\
-          -t ${fused_gt} \\
-          -p ${fused_pred_v2} \\
+          ${true_arg_v2} \\
+          ${pred_arg_v2} \\
           -o ${fused_pred_v2__metrics} \\
           -r ${resolution_3d} \\
           ${VERBOSE_ARG} \\
@@ -130,7 +169,7 @@ then
              2> >(tee ${output_path_global}/${SLURM_ARRAY_TASK_ID}.err)"
 fi
 
-if [[ -f ${fused_pred_v3} ]]
+if [[ -f ${pred_arg_v3} ]]
 then
   echo ${fused_pred_v3__metrics}
   singularity exec \
@@ -140,12 +179,11 @@ then
     "${SIMAGE_FILENAME}" \
         bash -c 'export OMP_NUM_THREADS='"${OMP_NUM_THREADS}; \\
         python3 ${METRICS_SCRIPT} \\
-          -t ${fused_gt} \\
-          -p ${fused_pred_v3} \\
+          ${true_arg_v3} \\
+          ${pred_arg_v3} \\
           -o ${fused_pred_v3__metrics} \\
           -r ${resolution_3d} \\
           ${VERBOSE_ARG} \\
              1> >(tee ${output_path_global}/${SLURM_ARRAY_TASK_ID}.out) \\
              2> >(tee ${output_path_global}/${SLURM_ARRAY_TASK_ID}.err)"
 fi
-
