@@ -32,19 +32,25 @@ def main(options):
         true_data_io = fusion_io.FusedPredictionsIO
         pred_data_io = fusion_io.FusedPredictionsIO
 
-    true_dataset = Hdf5File(
-        options.true_filename,
-        io=true_data_io,
-        preload=PreloadTypes.LAZY,
-        labels=['distances'])
-    sharpness_masks = [item['distances'] != options.sharpness_bg_value for item in true_dataset]
-    true_distances = [item['distances'][mask] for item, mask in zip(true_dataset, sharpness_masks)]
-    pred_dataset = Hdf5File(
-        options.pred_filename,
-        io=pred_data_io,
-        preload=PreloadTypes.LAZY,
-        labels=['distances'])
-    pred_distances = [item['distances'][mask] for item, mask in zip(pred_dataset, sharpness_masks)]
+    assert len(options.true_filenames) == len(options.pred_filenames), '-t and -p must be added the same number of times'
+
+    true_distances, pred_distances = [], []
+    for true_filename, pred_filename in zip(options.true_filenames, options.pred_filenames):
+        true_dataset = Hdf5File(
+            true_filename,
+            io=true_data_io,
+            preload=PreloadTypes.LAZY,
+            labels=['distances'])
+        pred_dataset = Hdf5File(
+            pred_filename,
+            io=pred_data_io,
+            preload=PreloadTypes.LAZY,
+            labels=['distances'])
+        assert len(true_dataset) == len(pred_dataset), 'lengths of files: {} and {} are not equal'.format(true_filename, pred_filename)
+
+        sharpness_masks = [item['distances'] != options.sharpness_bg_value for item in true_dataset]
+        true_distances.extend([item['distances'][mask] for item, mask in zip(true_dataset, sharpness_masks)])
+        pred_distances.extend([item['distances'][mask] for item, mask in zip(pred_dataset, sharpness_masks)])
 
     mfpr = MFPR()
     mrec = MRecall()
@@ -57,26 +63,22 @@ def main(options):
         mrmse,
         q95rmse,
     ]
-    values = []
     thresh_4r = options.resolution_3d * 4
     for idx, (true_item, pred_item) in enumerate(zip(true_distances, pred_distances)):
         print(idx)
-        item_values = []
         for metric in metrics:
             if isinstance(metric, MFPR) or isinstance(metric, MRecall):
                 metric.update(
-                    torch.tensor(pred_item).reshape(1, -1) < thresh_4r,
-                    torch.tensor(true_item).reshape(1, -1) < thresh_4r 
+                    torch.tensor(pred_item, dtype=torch.float32).reshape(1, -1) < thresh_4r,
+                    torch.tensor(true_item, dtype=torch.float32).reshape(1, -1) < thresh_4r
                 )
             else:
                 metric.update(
-                    torch.tensor(pred_item).reshape(1, -1),
-                    torch.tensor(true_item).reshape(1, -1)          
+                    torch.tensor(pred_item, dtype=torch.float32).reshape(1, -1),
+                    torch.tensor(true_item, dtype=torch.float32).reshape(1, -1)
                 )
-            val = metric.compute()
-            item_values.append(val)
-            metric.set_defaults()
-        values.append(item_values)
+
+    values = [metric.compute() for metric in metrics]
     fp = options.out_filename
     fp = open(fp, 'w') if not isinstance(fp, io.TextIOBase) else fp
     print(
@@ -98,13 +100,15 @@ def parse_args():
 
     parser.add_argument(
         '-t', '--true-filename',
-        dest='true_filename',
+        dest='true_filenames',
         required=True,
+        action='append',
         help='path to GT file with fused points and distances.')
     parser.add_argument(
         '-p', '--pred-filename',
-        dest='pred_filename',
+        dest='pred_filenames',
         required=True,
+        action='append',
         help='path to PRED file with fused points and distances.')
     parser.add_argument(
         '-o', '--out-filename',
