@@ -6,6 +6,7 @@ import sys
 import io
 
 import numpy as np
+import torch
 from scipy.special import softmax
 import scipy.io as sio
 
@@ -19,29 +20,18 @@ import sharpf.metrics.numpy_metrics as nm
 import sharpf.fusion.io as fusion_io
 from sharpf.utils.convertor_utils import convertors_io
 
+from metrics import MRMSE, Q95RMSE, MRecall, MFPR
 
 def main(options):
-    # if options.single_view:
-    #     true_data_io = convertors_io.AnnotatedViewIO
-    #     pred_data_io = fusion_io.ImagePredictionsIO
-    # else:
-    #     true_data_io = fusion_io.FusedPredictionsIO
-    #     pred_data_io = fusion_io.FusedPredictionsIO
+    labels_gt = sio.loadmat(str(options.true_filename))['distances']
 
-    # true_dataset = Hdf5File(
-    #     options.true_filename,
-    #     io=true_data_io,
-    #     preload=PreloadTypes.LAZY,
-    #     labels=['distances'])
-    # sharpness_masks = [item['distances'] != options.sharpness_bg_value for item in true_dataset]
-    
     pred_data = sio.loadmat(str(options.pred_filename))
     # "prob_edge" <= 0.7 that means point has distance of 1., otherwise it has 0. distance
     # pred_labels = (softmax(pred_data['pred_labels_key_p_val'], axis=2)[:, :, 1] <= 0.7).astype(float) * 2.
-    pred_labels = 1. - (softmax(pred_data['pred_labels_key_p_val'], axis=2)[:, :, 1]).astype(float)
+    pred_labels = (softmax(pred_data['pred_labels_key_p_val'], axis=2)[:, :, 1] >= 0.7).astype(float)
     
     points_gt = pred_data['input_point_cloud']
-    labels_gt = 1. - pred_data['input_labels_key_p']
+    
     brd_thr = 90
     points_radii = np.linalg.norm(points_gt - points_gt.mean(axis=1).reshape(-1,1,3), axis=2)
     true_distances = []
@@ -50,64 +40,36 @@ def main(options):
     for idx, thresh_radii in enumerate(np.percentile(points_radii, brd_thr, axis=1)):
         center_mask = points_radii[idx] < thresh_radii
         mask = center_mask
-        true_distances.append({'distances': labels_gt[idx][mask]})
-        pred_distances.append({'distances': pred_labels[idx][mask]})
-        
-    rmse = nm.RMSE()
-    q95rmse = nm.RMSEQuantile(0.95)
-    r1 = options.resolution_3d
-    bad_points_1r = nm.BadPoints(r1, normalize=True)
-    r4 = options.resolution_3d * 4
-    bad_points_4r = nm.BadPoints(r4, normalize=True)
-    iou_1r = nm.IntersectionOverUnion(r1, r1)
-    iou_4r = nm.IntersectionOverUnion(r1, r4)
-    ap = nm.AveragePrecision(r1)
-    fpr_1r = nm.FalsePositivesRate(r1, r1)
-    fpr_4r = nm.FalsePositivesRate(r1, r4)
+        true_distances.append(labels_gt[idx][mask])
+        pred_distances.append(pred_labels[idx][mask])
 
-    tol = 1e-6
-    max_distances_all = np.max([np.max(item['distances']) for item in true_distances]) + tol
-    all_mask = nm.DistanceLessThan(max_distances_all, name='ALL')
-    RMSE_ALL = nm.MaskedMetric(all_mask, rmse)
-    q95RMSE_ALL = nm.MaskedMetric(all_mask, q95rmse)
-
-    sharp_mask = nm.DistanceLessThan(options.max_distance_to_feature - tol, name='Sharp')
-    closesharp_mask = nm.DistanceLessThan(options.max_distance_to_feature - tol, name='Sharp')
-#    close_mask = nm.DistanceLessThan(options.max_distance_to_feature - tol, name='Close')
-#    closesharp_mask = nm.MaskedMetric(sharp_mask, close_mask)
-    mBadPoints_1r_CloseSharp = nm.MaskedMetric(closesharp_mask, bad_points_1r)
-    mBadPoints_4r_CloseSharp = nm.MaskedMetric(closesharp_mask, bad_points_4r)
-
-    # for our whole models, we keep all points
-    sharp_mask = nm.DistanceLessThan(max_distances_all, name='Sharp')
-    IOU_1r_Sharp = nm.MaskedMetric(sharp_mask, iou_1r)
-    IOU_4r_Sharp = nm.MaskedMetric(sharp_mask, iou_4r)
-    AP_Sharp = nm.MaskedMetric(sharp_mask, ap)
-
-    # IOU_1r_Sharp = iou_1r
-    # IOU_4r_Sharp = iou_4r
-    # AP_Sharp = ap
-
-    far_all_mask = nm.DistanceGreaterThan(options.max_distance_to_feature - tol, name='Far-ALL')
-    FPR_1r_Sharp = nm.MaskedMetric(far_all_mask, fpr_1r)
-    FPR_4r_Sharp = nm.MaskedMetric(far_all_mask, fpr_4r)
+    mfpr = MFPR()
+    mrec = MRecall()
+    mrmse = MRMSE()
+    q95rmse = Q95RMSE()
 
     metrics = [
-        # RMSE_ALL,
-        # q95RMSE_ALL,
-        # mBadPoints_1r_CloseSharp,
-        # mBadPoints_4r_CloseSharp,
-        IOU_1r_Sharp,
-        # IOU_4r_Sharp,
-        AP_Sharp,
-        FPR_1r_Sharp,
-        # FPR_4r_Sharp,
+        mfpr,
+        mrec,
+        # mrmse,
+        # q95rmse,
     ]
     values = []
+    thresh_4r = options.resolution_3d * 4
     for idx, (true_item, pred_item) in enumerate(zip(true_distances, pred_distances)):
-        print(idx)
-        item_values = [metric(true_item, pred_item) for metric in metrics]
-        values.append(item_values)
+        item_values = []
+        for metric in metrics:
+            if isinstance(metric, MFPR) or isinstance(metric, MRecall):
+                metric.update(
+                    torch.tensor(pred_item).reshape(1, -1),
+                    torch.tensor(true_item).reshape(1, -1) < thresh_4r
+                )
+            else:
+                metric.update(
+                    torch.tensor(pred_item).reshape(1, -1),
+                    torch.tensor(true_item).reshape(1, -1)
+                )
+    values.append([metric.compute() for metric in metrics])
     fp = options.out_filename
     fp = open(fp, 'w') if not isinstance(fp, io.TextIOBase) else fp
     print(
@@ -130,12 +92,12 @@ def parse_args():
     parser.add_argument(
         '-t', '--true-filename',
         dest='true_filename',
-        required=True,
+        required=False,
         help='path to GT file with fused points and distances.')
     parser.add_argument(
         '-p', '--pred-filename',
         dest='pred_filename',
-        required=True,
+        required=False,
         help='path to PRED file with fused points and distances.')
     parser.add_argument(
         '-o', '--out-filename',
@@ -179,5 +141,14 @@ def parse_args():
 
 
 if __name__ == '__main__':
+    from tqdm import tqdm
     options = parse_args()
-    main(options)
+    ARGS_PATH = "/home/appuser/ssd/ebogomolov/patches/args_list.txt"
+    with open(ARGS_PATH, "r") as f:
+        for line in tqdm(f.readlines()):
+            line = line.strip().split(" ")
+            options.true_filename = line[0]
+            options.pred_filename = line[1]
+            options.resolution_3d = float(line[2])
+            options.out_filename = line[3]
+            main(options)
