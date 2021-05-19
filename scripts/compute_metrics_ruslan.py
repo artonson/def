@@ -57,19 +57,28 @@ def main(options):
     mrmse = MRMSE()
     q95rmse = Q95RMSE()
 
-    metrics = [
-        mfpr,
-        mrec,
-        mrmse,
-        q95rmse,
-    ]
+    if options.is_binary:
+        metrics = [
+            mfpr,
+            mrec,
+        ]
+    else:
+        metrics = [
+            mfpr,
+            mrec,
+            mrmse,
+            q95rmse,
+        ]
     thresh_4r = options.resolution_3d * 4
     for idx, (true_item, pred_item) in enumerate(zip(true_distances, pred_distances)):
         print(idx)
         for metric in metrics:
             if isinstance(metric, MFPR) or isinstance(metric, MRecall):
+                pred_tensor = torch.tensor(pred_item, dtype=torch.float32).reshape(1, -1)
+                if not options.is_binary:
+                    pred_tensor = pred_tensor < thresh_4r
                 metric.update(
-                    torch.tensor(pred_item, dtype=torch.float32).reshape(1, -1) < thresh_4r,
+                    pred_tensor,
                     torch.tensor(true_item, dtype=torch.float32).reshape(1, -1) < thresh_4r
                 )
             else:
@@ -112,6 +121,13 @@ def parse_args():
         dest='out_filename',
         default=sys.stdout,
         help='path to OUTPUT file with metrics (if None, print metrics to stdout).')
+    
+    parser.add_argument(
+        '-bin', '--is_binary',
+        dest='is_binary',
+        default=False,
+        action='store_true',
+        help='whether predict is a binary vector, where 1 means sharp, 0 - not sharp')
 
     parser.add_argument(
         '-sv', '--single_view',
