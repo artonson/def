@@ -15,7 +15,7 @@ class MRecall():
         return "MRecall"
 
     def set_defaults(self):
-        self.recall_sum = efault=torch.tensor(0.0)
+        self.recall_sum = torch.tensor(0.0)
         self.total = torch.tensor(0.0)
 
     def update(self, preds: torch.Tensor, target: torch.Tensor):

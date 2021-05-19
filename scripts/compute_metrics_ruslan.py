@@ -5,7 +5,6 @@ import os
 import sys
 import io
 
-import numpy as np
 import torch
 
 __dir__ = os.path.normpath(
@@ -14,12 +13,11 @@ __dir__ = os.path.normpath(
 sys.path[1:1] = [__dir__]
 
 from sharpf.utils.abc_utils.hdf5.dataset import PreloadTypes, Hdf5File
-import sharpf.metrics.numpy_metrics as nm
 import sharpf.fusion.io as fusion_io
 import sharpf.data.datasets.sharpf_io as sharpf_io
 from sharpf.utils.convertor_utils import convertors_io
+from sharpf.metrics.torch_metrics import MRMSE, Q95RMSE, MRecall, MFPR
 
-from metrics import MRMSE, Q95RMSE, MRecall, MFPR
 
 def main(options):
     if options.single_view:
@@ -40,17 +38,17 @@ def main(options):
             true_filename,
             io=true_data_io,
             preload=PreloadTypes.LAZY,
-            labels=['distances'])
+            labels=[options.true_key])
         pred_dataset = Hdf5File(
             pred_filename,
             io=pred_data_io,
             preload=PreloadTypes.LAZY,
-            labels=['distances'])
+            labels=[options.pred_key])
         assert len(true_dataset) == len(pred_dataset), 'lengths of files: {} and {} are not equal'.format(true_filename, pred_filename)
 
-        sharpness_masks = [item['distances'] != options.sharpness_bg_value for item in true_dataset]
-        true_distances.extend([item['distances'][mask] for item, mask in zip(true_dataset, sharpness_masks)])
-        pred_distances.extend([item['distances'][mask] for item, mask in zip(pred_dataset, sharpness_masks)])
+        sharpness_masks = [item[options.true_key] != options.sharpness_bg_value for item in true_dataset]
+        true_distances.extend([item[options.true_key][mask] for item, mask in zip(true_dataset, sharpness_masks)])
+        pred_distances.extend([item[options.pred_key][mask] for item, mask in zip(pred_dataset, sharpness_masks)])
 
     mfpr = MFPR()
     mrec = MRecall()
@@ -161,6 +159,20 @@ def parse_args():
         default=0.0,
         type=float,
         help='if set, specifies sharpness value to be treated as background.')
+
+    parser.add_argument(
+        '-tk', '--true_key',
+        dest='true_key',
+        default='distances',
+        type=str,
+        help='key to use as ground truth.')
+    parser.add_argument(
+        '-pk', '--pred_key',
+        dest='pred_key',
+        default='distances',
+        type=str,
+        help='key to use as predictions.')
+
     return parser.parse_args()
 
 

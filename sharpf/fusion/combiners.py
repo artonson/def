@@ -151,6 +151,7 @@ class CenterCropPredictionsCombiner(PointwisePredictionsCombiner):
             # here comes difference from the previous variant
             points_radii = np.linalg.norm(points_gt - points_gt.mean(axis=0), axis=1)
             center_indexes = np.where(points_radii < np.percentile(points_radii, self._brd_thr))[0]
+            points_gt[center_indexes]
             for i, idx in enumerate(center_indexes):
                 predictions_variants[indexes_gt[idx]].append(distances[center_indexes[i]])
 
