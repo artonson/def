@@ -11,6 +11,9 @@ import yaml
 __dir__ = os.path.normpath(
     os.path.join(
         os.path.dirname(os.path.realpath(__file__)), '..', '..'))
+
+from sharpf.utils.py_utils.os import change_ext
+
 sys.path[1:1] = [__dir__]
 
 from sharpf.utils.abc_utils.abc.abc_data import ABCModality, ABCChunk, ABC_7Z_FILEMASK
@@ -79,6 +82,7 @@ def get_edges(abc_item, config):
         base_resolution_3d,
         short_curve_quantile=short_curve_quantile,
         n_points_per_curve=base_n_points_per_short_curve)
+    mesh = mesh.apply_translation(-mesh.vertices.mean(axis=0))
 
     curve_segments = []
     for curve_id, curve in enumerate(features['curves']):
@@ -124,6 +128,24 @@ def make_patches(options):
                 )
                 for curve_id, curve_type, xyz_xyz in curve_segments
             ]))
+
+        with open(change_ext(options.output_filename, '.obj'), 'w') as fobj:
+            vertices = ''
+            indices = ''
+            max_vi = 1
+            for curve_id, curve_type, xyz_xyz in curve_segments:
+                for v1, v2 in xyz_xyz:
+                    vertices += 'v {v1}\nv {v2}\n'.format(
+                        v1=' '.join([str(coord) for coord in v1]),
+                        v2=' '.join([str(coord) for coord in v2])
+                    )
+                for edge_idx, edge in enumerate(xyz_xyz):
+                    indices += 'l {i1} {i2}\n'.format(
+                        i1=str(max_vi + edge_idx * 2),
+                        i2=str(max_vi + edge_idx * 2 + 1),
+                    )
+                max_vi += 2 * len(xyz_xyz)
+                fobj.write(vertices + '\n' + indices)
 
 
 def parse_args():
