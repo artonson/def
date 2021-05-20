@@ -134,6 +134,7 @@ def make_patches(options):
             indices = ''
             max_vi = 1
             for curve_id, curve_type, xyz_xyz in curve_segments:
+                xyz_xyz = xyz_xyz.reshape((-1, 2, 3))
                 for v1, v2 in xyz_xyz:
                     vertices += 'v {v1}\nv {v2}\n'.format(
                         v1=' '.join([str(coord) for coord in v1]),
