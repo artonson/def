@@ -157,14 +157,6 @@ def process_fused_pc(
     n_patches = int(len(point_cloud) * 10 / DEFAULT_PATCH_SIZE)
     print('n_patches = ', n_patches)
 
-    # Prepare annotation stuff
-    annotation_config = {
-        "type": "surface_based_aabb",
-        "distance_upper_bound": max_distance_to_feature,
-        "always_check_adjacent_surfaces": True,
-        "distance_computation_method": 'geom',
-    }
-    annotator = load_func_from_config(ANNOTATOR_BY_TYPE, annotation_config)
     smell_sharpness_discontinuities = smells.SmellSharpnessDiscontinuities.from_config({})
 
     point_patches = []
