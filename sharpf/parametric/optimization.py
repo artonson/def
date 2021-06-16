@@ -3,7 +3,8 @@ import networkx as nx
 import torch
 from torch import optim
 from tqdm import tqdm, trange
-from utils import *
+
+import sharpf.parametric.utils as utils
 
 
 def subdivide_wireframe(corner_positions, corner_pairs, curve_data, curve_distances, split_threshold):

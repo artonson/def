@@ -146,7 +146,7 @@ def make_patches(options):
                         i2=str(max_vi + edge_idx * 2 + 1),
                     )
                 max_vi += 2 * len(xyz_xyz)
-                fobj.write(vertices + '\n' + indices)
+            fobj.write(vertices + '\n' + indices)
 
 
 def parse_args():

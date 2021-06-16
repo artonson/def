@@ -4,16 +4,21 @@ from scipy.spatial import cKDTree
 from sklearn.decomposition import PCA
 from sklearn.mixture import GaussianMixture
 from tqdm import tqdm
-from optimization import subdivide_wireframe
+from sharpf.parametric.optimization import subdivide_wireframe
 from utils import *
 
 
-def separate_graph_connected_components(points_to_tree, radius, compute_barycenters=False, 
-                                        filtering_mode=False, filtering_factor=10):
+def separate_graph_connected_components(
+        points_to_tree: np.ndarray,
+        radius,
+        compute_barycenters=False,
+        filtering_mode=False,
+        filtering_factor=10
+):
     """
     Create knn graph and separate graph nodes into connected components.
     Args:
-        points_to_tree (np.array): 3D coordinates of points to create graph on
+        points_to_tree (np.ndarray): 3D coordinates of points to create graph on
         radius (float): radius to connect points into knn
         compute_barycenters (bool): whether to compute connected component barycenters
         filtering_mode (bool): whether to use filetring mode

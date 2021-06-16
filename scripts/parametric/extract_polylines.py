@@ -2,16 +2,26 @@ import argparse
 import numpy as np
 import h5py
 
-from utils import *
-from optimization import *
-from topological_graph import *
+import sharpf.parametric.optimization as opt
+import sharpf.parametric.topological_graph as tg
+import sharpf.parametric.utils as utils
 
-# ~~~~~~~~~~~~~~~~~~~~~~~~
 
 def parse_args():
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--points', required=True, 
-                        help='path to points')
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument(
+        '--verbose',
+        dest='verbose',
+        action='store_true',
+        default=False,
+        help='be verbose')
+
+    parser.add_argument(
+        '-i', '--input',
+        dest='points',
+        required=True,
+        help='path to points')
 #     parser.add_argument('--preds', required=True, 
 #                         help='path to predictions')
     parser.add_argument('--save_folder', required=True, 
@@ -73,53 +83,50 @@ def parse_args():
 
     return parser.parse_args()
 
-# ~~~~~~~~~~~~~~~~~~~~~~~~
 
-if __name__ == '__main__':
-    options = parse_args()
-    
+def main(options):
     path_to_points = options.points
-#     path_to_preds = options.preds
+    #     path_to_preds = options.preds
     path_to_save = options.save_folder
-    
+
     RES = options.res
     sharpness_threshold = RES * options.sharp
-    
-    filtering_radius = RES * options.knn_radius # max distance to connect a pair in knn filtering
-    corner_connected_components_radius = RES * options.knn_radius # max distance to connect a pair in knn corner separation
-    curve_connected_components_radius = RES * options.knn_radius # max distance to connect a pair in knn curve separation
-    
+
+    filtering_radius = RES * options.knn_radius  # max distance to connect a pair in knn filtering
+    corner_connected_components_radius = RES * options.knn_radius  # max distance to connect a pair in knn corner separation
+    curve_connected_components_radius = RES * options.knn_radius  # max distance to connect a pair in knn curve separation
+
     subsample_rate = options.subsample
     filtering_factor = options.filt_factor
     filtering_mode = options.filt_mode
     fps_factor = options.fps_factor
-    
+
     corner_detector_radius = RES * options.corner_R
-#     corner_extractor_radius = RES * options.corner_r
+    #     corner_extractor_radius = RES * options.corner_r
     upper_variance_threshold = options.corner_up_thr
     lower_variance_threshold = options.corner_low_thr
     cornerness_threshold = options.cornerness
     box_margin = RES * options.box_margin
     quantile = options.quantile
-    
+
     endpoint_detector_radius = RES * options.endpoint_R
     endpoint_threshold = options.endpoint_thr
-    
+
     corner_connector_radius = RES * options.connect_R
-    
-    initial_split_threshold = RES * options.init_thr 
+
+    initial_split_threshold = RES * options.init_thr
     optimization_split_threshold = RES * options.opt_thr
-#     alpha_fid = options.alpha_fid
-#     alpha_fit = options.alpha_fit
+    #     alpha_fid = options.alpha_fid
+    #     alpha_fit = options.alpha_fit
     alpha_ang = options.alpha_ang
-    
+
     draw_result = options.draw
-    
+
     # ~~~~~~~~~~~~~~~~~~~~~~~~
 
     print('loading data from {path_to_points}'.format(path_to_points=path_to_points))
-#     whole_model_points = np.load(path_to_points)
-#     whole_model_distances = np.load(path_to_preds)
+    #     whole_model_points = np.load(path_to_points)
+    #     whole_model_distances = np.load(path_to_preds)
     with h5py.File(path_to_points, 'r') as f:
         whole_model_points = f['points'][:]
         whole_model_distances = f['distances'][:]
@@ -129,8 +136,11 @@ if __name__ == '__main__':
 
     if filtering_mode:
         print('filtering')
-        filtered_clusters = separate_graph_connected_components(points, radius=filtering_radius, filtering_mode=True, 
-                                                                filtering_factor=filtering_factor)
+        filtered_clusters = tg.separate_graph_connected_components(
+            points,
+            radius=filtering_radius,
+            filtering_mode=True,
+            filtering_factor=filtering_factor)
         points = points[np.unique(np.concatenate(filtered_clusters))]
         distances = distances[np.unique(np.concatenate(filtered_clusters))]
 
@@ -142,47 +152,67 @@ if __name__ == '__main__':
     fps = farthest_point_sampling(points, points.shape[0] // fps_factor)
 
     print('identifying corners')
-    corners, corner_clusters, corner_centers, init_connections = identify_corners(points, distances, fps[0][0], 
-                                                                                  corner_detector_radius, 
-                                                                                  upper_variance_threshold, 
-                                                                                  lower_variance_threshold,
-                                                                                  cornerness_threshold, 
-                                                                                  corner_connected_components_radius, 
-                                                                                  box_margin, quantile)
-                                                                                  
+    corners, corner_clusters, corner_centers, init_connections = tg.identify_corners(
+        points,
+        distances,
+        fps[0][0],
+        corner_detector_radius,
+        upper_variance_threshold,
+        lower_variance_threshold,
+        cornerness_threshold,
+        corner_connected_components_radius,
+        box_margin,
+        quantile)
+
     not_corners = np.setdiff1d(np.arange(len(points)), corners)
 
     print('separating curves')
-    curves = separate_graph_connected_components(points[not_corners], radius=curve_connected_components_radius)
+    curves = tg.separate_graph_connected_components(
+        points[not_corners],
+        radius=curve_connected_components_radius)
 
     print('initializing topological graph')
-    corner_positions, corner_pairs = initialize_topological_graph(points, distances, 
-                                                                  not_corners, curves, 
-                                                                  corners, corner_centers,
-                                                                  init_connections,
-                                                                  endpoint_detector_radius, endpoint_threshold, 
-                                                                  initial_split_threshold, corner_connector_radius)
+    corner_positions, corner_pairs = tg.initialize_topological_graph(
+        points,
+        distances,
+        not_corners,
+        curves,
+        corners,
+        corner_centers,
+        init_connections,
+        endpoint_detector_radius,
+        endpoint_threshold,
+        initial_split_threshold,
+        corner_connector_radius)
 
     filename = path_to_save.split('/')[-2]
-#     np.save('{path_to_save}/{filename}__corner_positions_unopt.npy'.format(path_to_save=path_to_save, filename=filename), corner_positions)
-#     np.save('{path_to_save}/{filename}__corner_pairs_unopt.npy'.format(path_to_save=path_to_save, filename=filename), corner_pairs)
+    #     np.save('{path_to_save}/{filename}__corner_positions_unopt.npy'.format(path_to_save=path_to_save, filename=filename), corner_positions)
+    #     np.save('{path_to_save}/{filename}__corner_pairs_unopt.npy'.format(path_to_save=path_to_save, filename=filename), corner_pairs)
     np.save('{path_to_save}/{filename}__sharp_points.npy'.format(path_to_save=path_to_save, filename=filename), points)
-    np.save('{path_to_save}/{filename}__sharp_distances.npy'.format(path_to_save=path_to_save, filename=filename), distances)
+    np.save('{path_to_save}/{filename}__sharp_distances.npy'.format(path_to_save=path_to_save, filename=filename),
+            distances)
     print('optimizing topological graph')
-#     corner_positions, corner_pairs = optimize_topological_graph(corner_positions, corner_pairs, 
-#                                                                 points, distances, 
-#                                                                 optimization_split_threshold, alpha_ang)
+    #     corner_positions, corner_pairs = optimize_topological_graph(corner_positions, corner_pairs,
+    #                                                                 points, distances,
+    #                                                                 optimization_split_threshold, alpha_ang)
 
-    corners, _, _, _, _ = get_paths_and_corners(corner_pairs, corner_positions)
+    corners, _, _, _, _ = opt.get_paths_and_corners(corner_pairs, corner_positions)
     print('saving result')
     filename = path_to_save.split('/')[-2]
-    np.save('{path_to_save}/{filename}__corner_positions.npy'.format(path_to_save=path_to_save, filename=filename), corner_positions)
-    np.save('{path_to_save}/{filename}__corner_pairs.npy'.format(path_to_save=path_to_save, filename=filename), corner_pairs)
+    np.save('{path_to_save}/{filename}__corner_positions.npy'.format(path_to_save=path_to_save, filename=filename),
+            corner_positions)
+    np.save('{path_to_save}/{filename}__corner_pairs.npy'.format(path_to_save=path_to_save, filename=filename),
+            corner_pairs)
     np.save('{path_to_save}/{filename}__corners.npy'.format(path_to_save=path_to_save, filename=filename), corners)
 
     if draw_result:
         print('drawing')
         DISPLAY_RES = RES * 1.5
-        draw(points, corner_positions, corner_pairs, path_to_save, filename, DISPLAY_RES)
-        
+        utils.draw(points, corner_positions, corner_pairs, path_to_save, filename, DISPLAY_RES)
+
     print('done!')
+
+
+if __name__ == '__main__':
+    options = parse_args()
+    main(options)
