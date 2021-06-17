@@ -25,9 +25,11 @@ class Logger(logging.Logger):
 
 
 def create_logger(options):
-    loglevel = logging.DEBUG if options.verbose else logging.INFO
+    loglevel = logging.INFO
+    if hasattr(options, 'verbose') and True is options.verbose:
+        loglevel = logging.DEBUG
     logging.setLoggerClass(Logger)
-    logger = logging.getLogger('train')
+    logger = logging.getLogger('default')
     logger.setLevel(loglevel)
 
     formatter = logging.Formatter(
@@ -38,7 +40,7 @@ def create_logger(options):
     stream_handler.setFormatter(formatter)
     logger.addHandler(stream_handler)
 
-    if options.logging_filename:
+    if hasattr(options, 'logging_filename') and None is not options.logging_filename:
         file_handler = logging.FileHandler(options.logging_filename)
         file_handler.setLevel(loglevel)
         file_handler.setFormatter(formatter)
