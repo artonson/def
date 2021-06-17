@@ -18,6 +18,7 @@ def main(options):
             else:
                 sht = 0.125
             plib_path = pathlib.Path(file_path)
+            inp_file_dir = plib_path.parents[0]
             rel_path = plib_path.parents[1].relative_to(options.input_rel_path)
             patches_location = (out_path / rel_path)
             try:
@@ -25,7 +26,7 @@ def main(options):
             except FileExistsError:
                 pass
             patches_filepath = f'{patches_location}/patches.hdf5'
-            f.write(f'{file_path} {patches_filepath} {sht}\n')
+            f.write(f'{inp_file_dir} {patches_filepath} {sht}\n')
 
 def parse_args():
     parser = argparse.ArgumentParser()

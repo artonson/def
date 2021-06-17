@@ -162,29 +162,28 @@ def process_fused_pc(
     point_patches = []
     iterable = patches_from_point_cloud(point_cloud, n_patches)
     for patch_point_indexes in tqdm(iterable, desc='Cropping annotated patches'):
-        if len(patch_point_indexes) == DEFAULT_PATCH_SIZE:
-            points = point_cloud[patch_point_indexes]
-            distances = all_distances[patch_point_indexes]
-            has_smell_sharpness_discontinuities = smell_sharpness_discontinuities.run(points, distances)
-            point_patches.append({
-                'points': np.ravel(points),
-                'normals': np.ravel(np.zeros_like(points)),
-                'distances': np.ravel(distances),
-                'directions': np.ravel(np.zeros_like(distances)),
-                'has_sharp': any(distances < sharpness_thresh),
-                'orig_vert_indices': np.ravel(np.zeros_like(patch_point_indexes)),
-                'orig_face_indexes': np.ravel(np.zeros_like(patch_point_indexes)),
-                'indexes_in_whole': patch_point_indexes,
-                'item_id': item_id,
-                'num_sharp_curves': -1,
-                'num_surfaces': -1,
-                'has_smell_coarse_surfaces_by_num_faces': False,
-                'has_smell_coarse_surfaces_by_angles': False,
-                'has_smell_deviating_resolution': False,
-                'has_smell_sharpness_discontinuities': has_smell_sharpness_discontinuities,
-                'has_smell_bad_face_sampling': False,
-                'has_smell_mismatching_surface_annotation': False,
-            })
+        points = point_cloud[patch_point_indexes]
+        distances = all_distances[patch_point_indexes]
+        has_smell_sharpness_discontinuities = smell_sharpness_discontinuities.run(points, distances)
+        point_patches.append({
+            'points': np.ravel(points),
+            'normals': np.ravel(np.zeros_like(points)),
+            'distances': np.ravel(distances),
+            'directions': np.ravel(np.zeros_like(distances)),
+            'has_sharp': any(distances < sharpness_thresh),
+            'orig_vert_indices': np.ravel(np.zeros_like(patch_point_indexes)),
+            'orig_face_indexes': np.ravel(np.zeros_like(patch_point_indexes)),
+            'indexes_in_whole': patch_point_indexes,
+            'item_id': item_id,
+            'num_sharp_curves': -1,
+            'num_surfaces': -1,
+            'has_smell_coarse_surfaces_by_num_faces': False,
+            'has_smell_coarse_surfaces_by_angles': False,
+            'has_smell_deviating_resolution': False,
+            'has_smell_sharpness_discontinuities': has_smell_sharpness_discontinuities,
+            'has_smell_bad_face_sampling': False,
+            'has_smell_mismatching_surface_annotation': False,
+        })
 
     print('Total {} patches'.format(len(point_patches)))
 
