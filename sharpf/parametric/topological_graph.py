@@ -4,15 +4,18 @@ from scipy.spatial import cKDTree
 from sklearn.decomposition import PCA
 from sklearn.mixture import GaussianMixture
 from tqdm import tqdm
+
 from sharpf.parametric.optimization import subdivide_wireframe
-from utils import *
+import sharpf.parametric.utils as utils
+from sharpf.data.patch_cropping import farthest_point_sampling
+from sharpf.utils.geometry_utils.aabb import create_aabboxes
 
 
 def separate_graph_connected_components(
         points_to_tree: np.ndarray,
-        radius,
-        compute_barycenters=False,
-        filtering_mode=False,
+        radius: float,
+        compute_barycenters: bool = False,
+        filtering_mode: bool = False,
         filtering_factor=10
 ):
     """
@@ -336,7 +339,7 @@ def initialize_topological_graph(points, distances,
                 previous_len = len(endpoint_positions)
                 aabboxes = create_aabboxes(np.array(endpoint_positions)[np.array(endpoint_pairs)])
                 matching = parallel_nearest_point(aabboxes, np.array(endpoint_positions)[np.array(endpoint_pairs)], points_ref)
-                curve_data, curve_distances = recalculate(points_ref, distances_ref, matching, endpoint_pairs)
+                curve_data, curve_distances = utils.recalculate(points_ref, distances_ref, matching, endpoint_pairs)
 
                 endpoint_positions, endpoint_pairs = subdivide_wireframe(endpoint_positions, endpoint_pairs, 
                                                                          curve_data, curve_distances, 
@@ -378,7 +381,7 @@ def initialize_topological_graph(points, distances,
                 previous_len = len(endpoint_positions)
                 aabboxes = create_aabboxes(np.array(endpoint_positions)[np.array(endpoint_pairs)])
                 matching = parallel_nearest_point(aabboxes, np.array(endpoint_positions)[np.array(endpoint_pairs)], points_ref)
-                curve_data, curve_distances = recalculate(points_ref, distances_ref, matching, endpoint_pairs)
+                curve_data, curve_distances = utils.recalculate(points_ref, distances_ref, matching, endpoint_pairs)
 
                 endpoint_positions, endpoint_pairs = subdivide_wireframe(endpoint_positions, endpoint_pairs, 
                                                                          curve_data, curve_distances, 
