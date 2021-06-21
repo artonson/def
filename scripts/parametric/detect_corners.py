@@ -166,72 +166,42 @@ def main(options):
         exit(1)
     logger.debug('Loaded {} points'.format(len(points)))
 
-    fps_indexes, _ = farthest_point_sampling(points, points.shape[0] // fps_factor)
+    try:
+        num_seeds = np.ceil(len(points) * options.seeds_rate).astype(np.int)
+        logger.debug('Creating {} seeds for corner detection'.format(num_seeds))
+        fps_indexes, _ = farthest_point_sampling(points, num_seeds)
+    except Exception:
+        logger.error('Cannot create seeds; stopping')
+        exit(1)
 
     try:
-        logger.debug('Loading data from {}'.format(options.input_filename))
-        corners, corner_clusters, corner_centers, init_connections = tg.identify_corners(
-            points,
-            distances,
-            fps_indexes[0],
+        corner_detector_params = {
             corner_detector_radius,
             upper_variance_threshold,
             lower_variance_threshold,
             cornerness_threshold,
             corner_connected_components_radius,
             box_margin,
-            quantile)
+            quantile
+        }
+        logger.debug('Running a corner detector')
+        corners, _, corner_centers, init_connections = tg.identify_corners(
+            points,
+            distances,
+            points_indexes=fps_indexes[0],
+            **corner_detector_params)
     except Exception as e:
         logger.error('Cannot load {}: {}; stopping'.format(options.input_filename, str(e)))
         exit(1)
 
     not_corners = np.setdiff1d(np.arange(len(points)), corners)
 
-    print('separating curves')
-    curves = tg.separate_graph_connected_components(
-        points[not_corners],
-        radius=curve_connected_components_radius)
-
-    print('initializing topological graph')
-    corner_positions, corner_pairs = tg.initialize_topological_graph(
-        points,
-        distances,
-        not_corners,
-        curves,
-        corners,
-        corner_centers,
-        init_connections,
-        endpoint_detector_radius,
-        endpoint_threshold,
-        initial_split_threshold,
-        corner_connector_radius)
-
-    filename = path_to_save.split('/')[-2]
-    #     np.save('{path_to_save}/{filename}__corner_positions_unopt.npy'.format(path_to_save=path_to_save, filename=filename), corner_positions)
-    #     np.save('{path_to_save}/{filename}__corner_pairs_unopt.npy'.format(path_to_save=path_to_save, filename=filename), corner_pairs)
-    np.save('{path_to_save}/{filename}__sharp_points.npy'.format(path_to_save=path_to_save, filename=filename), points)
-    np.save('{path_to_save}/{filename}__sharp_distances.npy'.format(path_to_save=path_to_save, filename=filename),
-            distances)
-    print('optimizing topological graph')
-    #     corner_positions, corner_pairs = optimize_topological_graph(corner_positions, corner_pairs,
-    #                                                                 points, distances,
-    #                                                                 optimization_split_threshold, alpha_ang)
-
-    corners, _, _, _, _ = opt.get_paths_and_corners(corner_pairs, corner_positions)
-    print('saving result')
-    filename = path_to_save.split('/')[-2]
-    np.save('{path_to_save}/{filename}__corner_positions.npy'.format(path_to_save=path_to_save, filename=filename),
-            corner_positions)
-    np.save('{path_to_save}/{filename}__corner_pairs.npy'.format(path_to_save=path_to_save, filename=filename),
-            corner_pairs)
-    np.save('{path_to_save}/{filename}__corners.npy'.format(path_to_save=path_to_save, filename=filename), corners)
-
-    if draw_result:
-        print('drawing')
-        DISPLAY_RES = RES * 1.5
-        utils.draw(points, corner_positions, corner_pairs, path_to_save, filename, DISPLAY_RES)
-
-    print('done!')
+    detected_corners = {
+        'corners': corners,
+        'not_corners': not_corners,
+        'corner_centers': corner_centers,
+        'init_connections': init_connections,
+    }
 
 
 if __name__ == '__main__':

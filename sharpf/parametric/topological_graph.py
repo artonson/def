@@ -103,12 +103,24 @@ def separate_graph_connected_components(
 #     return corner_neighbours, corner_clusters, corner_centers
 
 
-def identify_corners(points, distances, fps, corner_detector_radius, upper_variance_threshold, lower_variance_threshold, cornerness_threshold, connected_components_radius, box_margin, quantile):
+def identify_corners(
+        points: np.ndarray,
+        distances: np.ndarray,
+        points_indexes: np.ndarray,
+        corner_detector_radius,
+        upper_variance_threshold,
+        lower_variance_threshold,
+        cornerness_threshold,
+        connected_components_radius,
+        box_margin,
+        quantile
+):
     """
     Detect corners and extract them into separate clusters
     Args:
         points (np.array): 3D coordinates of points
-        fps (list): indices of farthest sampled points
+        distances (np.array): 1D array of distance-to-feature values
+        points_indexes (list): indices of farthest sampled points
         corner_detector_radius (float): radius of neighbourhood to detect corners
         corner_extractor_radius (float): radius of neighbourhood to extract corners
         variance_threshold (float): threshold to decide whether a neighbourhood contains corner
@@ -120,7 +132,7 @@ def identify_corners(points, distances, fps, corner_detector_radius, upper_varia
         corner_centers (list): indices from each cluster that indicate a barycenter
     """
     tree = cKDTree(points)
-    neighbours = tree.query_ball_point(points[fps], r=corner_detector_radius)
+    neighbours = tree.query_ball_point(points[points_indexes], r=corner_detector_radius)
     variances = []
     for n in tqdm(neighbours):
         pca = PCA(3)
