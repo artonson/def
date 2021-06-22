@@ -5,6 +5,7 @@ import os
 import sys
 
 import numpy as np
+import yaml
 
 __dir__ = os.path.normpath(
     os.path.join(
@@ -54,40 +55,16 @@ def parse_args():
         help='path to save the filtered results (in the same format as input)')
 
     parser.add_argument(
-        '-r', '--resolution_3d',
-        type=float,
-        default=0.02,
-        help='point cloud resolution (mean point-to-point distance).')
-    parser.add_argument(
-        '-dnf', '--distances_near_thr_factor',
-        type=float,
-        default=1.5,
-        help='points with distances less than the specified value will be '
-             'selected as sharp (in units of resolution_3d).')
-    parser.add_argument(
-        '-kf', '--knn_radius_factor',
-        type=float,
-        default=3,
-        help='max distance to connect a pair of points '
-             'in knn graph (in units of resolution_3d).')
-    parser.add_argument(
-        '-c', '--min_cc_points_to_keep',
-        type=int,
-        default=30,
-        help='min number of points in connected component to get '
-             'through the filtering (set to -1 to skip filtering).')
-    parser.add_argument(
-        '-sr', '--subsample_rate',
-        type=float,
-        default=0,
-        help='if this is specified and es greater than 0,'
-             'subsample the input point cloud by keeping '
-             'at most ceil(n_points * subsample_rate) points')
+        '-c', '--config',
+        dest='config',
+        required=True,
+        help='path to file with configuration.')
 
     return parser.parse_args()
 
 
 def main(options):
+    config = yaml.load(options.config)
     logger = create_logger(options)
 
     try:
@@ -117,7 +94,7 @@ def main(options):
 
     logger.debug('Loaded {} points'.format(len(points)))
 
-    distances_near_threshold = options.resolution_3d * options.distances_near_thr_factor
+    distances_near_threshold = config['resolution_3d'] * config['distances_near_thr_factor']
     logger.debug(
         'Filtering input fused points/distances by selecting points '
         'closer than {} to sharp feature curves'.format(distances_near_threshold))
@@ -125,18 +102,18 @@ def main(options):
     points, distances = points[indexes_to_keep_mask], distances[indexes_to_keep_mask]
     logger.debug('Selected a subset of close points containing {} points'.format(len(points)))
 
-    if options.min_cc_points_to_keep > 0:
-        knn_absolute_radius = options.resolution_3d * options.knn_radius_factor
+    if config['min_cc_points_to_keep'] > 0:
+        knn_absolute_radius = config['resolution_3d'] * config['knn_radius_factor']
         logger.debug(
             'Filtering input fused points/distances by removing clusters of points '
             'with pairwise distances less than {} and number of nodes less than {}'.format(
-                knn_absolute_radius, options.min_cc_points_to_keep))
+                knn_absolute_radius, config['min_cc_points_to_keep']))
         try:
-            filtered_clusters = tg.separate_graph_connected_components(
+            filtered_clusters = tg.separate_points_to_subsets(
                 points,
-                radius=knn_absolute_radius,
+                knn_radius=knn_absolute_radius,
                 filtering_mode=True,
-                filtering_factor=options.min_cc_points_to_keep)
+                min_cluster_size_to_return=config['min_cc_points_to_keep'])
         except Exception:
             logger.error('Cannot run separate_graph_connected_components; skipping this step')
         else:
@@ -144,8 +121,8 @@ def main(options):
             points, distances = points[indexes_to_keep], distances[indexes_to_keep]
             logger.debug('Selected a subset of close points containing {} points'.format(len(points)))
 
-    if options.subsample_rate > 0:
-        points_to_sample = np.ceil(len(points) * options.subsample_rate).astype(np.int)
+    if config['subsample_rate'] > 0:
+        points_to_sample = np.ceil(len(points) * config['subsample_rate']).astype(np.int)
         logger.debug(
             'Subsampling input fused points/distances '
             'by randomly choosing {} points out of {}'.format(points_to_sample, len(points)))

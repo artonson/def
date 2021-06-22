@@ -59,3 +59,9 @@ python ${FILTER_SAMPLE_SCRIPT} \
   --knn_radius_factor ${} \
   --min_cc_points_to_keep ${} \
   --subsample_rate ${}
+
+python ${DETECT_CORNERS_SCRIPT} \
+  --verbose \
+  --input ${} \
+  --output ${} \
+  --config ${}

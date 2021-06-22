@@ -170,7 +170,7 @@ def main(options):
 
     try:
         logger.debug('Loading data from {}'.format(options.input_filename))
-        corners, corner_clusters, corner_centers, init_connections = tg.identify_corners(
+        corners, corner_clusters, corner_centers, init_connections = tg.detect_corners(
             points,
             distances,
             fps_indexes[0],
@@ -188,9 +188,9 @@ def main(options):
     not_corners = np.setdiff1d(np.arange(len(points)), corners)
 
     print('separating curves')
-    curves = tg.separate_graph_connected_components(
+    curves = tg.separate_points_to_subsets(
         points[not_corners],
-        radius=curve_connected_components_radius)
+        knn_radius=curve_connected_components_radius)
 
     print('initializing topological graph')
     corner_positions, corner_pairs = tg.initialize_topological_graph(

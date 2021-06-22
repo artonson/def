@@ -9,189 +9,172 @@ from sharpf.parametric.optimization import subdivide_wireframe
 import sharpf.parametric.utils as utils
 from sharpf.data.patch_cropping import farthest_point_sampling
 from sharpf.utils.geometry_utils.aabb import create_aabboxes
+from sharpf.utils.py_utils.parallel import loky_parallel
 
 
-def separate_graph_connected_components(
-        points_to_tree: np.ndarray,
-        radius: float,
-        compute_barycenters: bool = False,
-        filtering_mode: bool = False,
-        filtering_factor=10
+def separate_points_to_subsets(
+        points: np.ndarray,
+        knn_radius: float,
+        return_barycenters: bool = False,
+        min_cluster_size_to_return: int = 0
 ):
-    """
+    """Given a set of points in Euclidean space, returns
+    a list of subsets of indexes into these points corresponding to
+    a list of connected components of its kNN graph (a clustering method).
+    Optionally, filter by number of points involved in each cluster
+    and compute its barycenter.
+
     Create knn graph and separate graph nodes into connected components.
     Args:
-        points_to_tree (np.ndarray): 3D coordinates of points to create graph on
-        radius (float): radius to connect points into knn
-        compute_barycenters (bool): whether to compute connected component barycenters
-        filtering_mode (bool): whether to use filetring mode
-        filtering_factor (int): minimal number of nodes in connected component to pass through filtering
+        points (np.ndarray): 3D coordinates of points to create graph on
+        knn_radius (float): radius to use when connecting points into a knn graph
+        return_barycenters (bool): whether to compute connected component barycenters
+        min_cluster_size_to_return (int): minimal number of nodes
+            in connected component to pass through filtering
     Returns:
         clusters (list of lists): indices of points from points_to_tree that compose a connected component
-        (optional) centers (list): indices for each cluster that is a barycenter
+        (optional) barycenters (list): indices for each cluster that is a barycenter
     """
     # create knn graph
-    tree = cKDTree(points_to_tree)
-    out = tree.query_pairs(radius)
-    G = nx.Graph()
-    G.add_edges_from(out)
+    edges = cKDTree(points).query_pairs(knn_radius)
+    graph = nx.Graph()
+    graph.add_edges_from(edges)
+
     # divide it into connected components
-    S = [G.subgraph(c).copy() for c in tqdm(nx.connected_components(G))]
-    clusters = []
-    if filtering_mode:
-        for subgraph in S:
-            subgraph = list(subgraph)
-            
-            # add connected component if number of nodes is greater than filtering factor
-            if len(subgraph) > filtering_factor:
-                clusters.append(subgraph)
-        return clusters   
+    cc_graphs = [graph.subgraph(c).copy()
+                 for c in tqdm(nx.connected_components(graph))]
+
     # compute barycenters of connected components; 
     # if there is more than one barycenter, add the first one
-    if compute_barycenters:
-        centers = []
-        for subgraph in S:
-            clusters.append(list(subgraph))
-            centers.append(nx.barycenter(subgraph)[0])
+    if return_barycenters:
+        clusters, centers = [], []
+        for subgraph in cc_graphs:
+            if len(subgraph) > min_cluster_size_to_return:
+                # add connected component if number of nodes
+                # is greater than filtering factor
+                clusters.append(list(subgraph))
+                centers.append(nx.barycenter(subgraph)[0])
         return clusters, centers
     else:
-        for subgraph in S:
-            clusters.append(list(subgraph))
+        clusters = []
+        for subgraph in cc_graphs:
+            if len(subgraph) > min_cluster_size_to_return:
+                clusters.append(list(subgraph))
         return clusters
     
     
-# def identify_corners_old(points, fps, corner_detector_radius, corner_extractor_radius, 
-#                      variance_threshold, connected_components_radius):
-#     """
-#     Detect corners and extract them into separate clusters
-#     Args:
-#         points (np.array): 3D coordinates of points
-#         fps (list): indices of farthest sampled points
-#         corner_detector_radius (float): radius of neighbourhood to detect corners
-#         corner_extractor_radius (float): radius of neighbourhood to extract corners
-#         variance_threshold (float): threshold to decide whether a neighbourhood contains corner
-#         connected_components_radius (float): radius to connect points into knn
-#     Returns:
-#         clusters (list of lists): indices of points from points_to_tree that compose a connected component
-#         corner_neighbours (list): indices of points that are close to corners
-#         corner_clusters (list of lists): indices of points[corner_neighbours] that compose a corner cluster
-#         corner_centers (list): indices from each cluster that indicate a barycenter
-#     """
-#     tree = cKDTree(points)
-#     neighbours = tree.query_ball_point(points[fps], r=corner_detector_radius)
-#     variances = []
-#     for n in neighbours:
-#         pca = PCA(3)
-#         # if size of neighbourhood is sufficient
-#         if len(n) > 5:
-#             pca.fit(points[n])
-#             variances.append(pca.explained_variance_ratio_)
-#         else: variances.append([1,0,0])
-            
-#     # if the second largest explained variance is greater than threshold
-#     # (if the points in neighbourhood are not in linear arrangement)
-#     corners = points[fps][np.array(variances)[:,1] > variance_threshold]
-    
-#     # select point near corners
-#     corner_neighbours = tree.query_ball_point(corners, corner_extractor_radius)
-#     corner_neighbours = np.unique(np.concatenate(corner_neighbours))
-    
-#     # create near-corner knn graph and divide it into separate corner clusters
-#     corner_clusters, corner_centers = separate_graph_connected_components(points[corner_neighbours], 
-#                                                                           radius=connected_components_radius,
-#                                                                           compute_barycenters=True)
-#     return corner_neighbours, corner_clusters, corner_centers
+def get_explained_variance_ratio(X):
+    pca = PCA(3)
+    if X.shape[0] > 5:  # if size of neighbourhood is sufficient
+        return pca.fit(X).explained_variance_ratio_
+    else:
+        return np.ndarray([1, 0, 0])
 
 
-def identify_corners(
+def detect_corners(
         points: np.ndarray,
         distances: np.ndarray,
-        points_indexes: np.ndarray,
-        corner_detector_radius,
-        upper_variance_threshold,
-        lower_variance_threshold,
-        cornerness_threshold,
-        connected_components_radius,
-        box_margin,
-        quantile
+        seeds_rate: float = 1.0,
+        corner_detector_radius: float = 1.0,
+        upper_variance_threshold: float = 0.2,
+        lower_variance_threshold: float = 0.1,
+        cornerness_threshold: float = 1.25,
+        connected_components_radius: float = 0.2,
+        box_margin: float = 0.2,
+        quantile: float = 0.2,
+        n_jobs: int = 0,
 ):
     """
-    Detect corners and extract them into separate clusters
+    Detects corners from points annotated with predicted distances
+    and extracts them into separate clusters
     Args:
         points (np.array): 3D coordinates of points
         distances (np.array): 1D array of distance-to-feature values
-        points_indexes (list): indices of farthest sampled points
+        seeds_rate (float): fraction of points to use as seeds for corner detection (all points by default)
         corner_detector_radius (float): radius of neighbourhood to detect corners
         corner_extractor_radius (float): radius of neighbourhood to extract corners
+        upper_variance_threshold (float):
+        lower_variance_threshold (float):
         variance_threshold (float): threshold to decide whether a neighbourhood contains corner
         connected_components_radius (float): radius to connect points into knn
+        n_jobs (int): number of CPU jobs to use for extracting corners; if set to 0, all CPUs are used
     Returns:
-        clusters (list of lists): indices of points from points_to_tree that compose a connected component
+        corners (list of lists): indices of points from points that compose a connected component
         corner_neighbours (list): indices of points that are close to corners
         corner_clusters (list of lists): indices of points[corner_neighbours] that compose a corner cluster
         corner_centers (list): indices from each cluster that indicate a barycenter
     """
+    if seeds_rate < 1.0:
+        num_seeds = np.ceil(len(points) * seeds_rate).astype(np.int)
+        points_indexes, _ = farthest_point_sampling(points, num_seeds)
+    elif seeds_rate == 1.0:
+        points_indexes = np.arange(len(points))
+    else:
+        raise ValueError('seeds_rate > 1.0')
+
     tree = cKDTree(points)
-    neighbours = tree.query_ball_point(points[points_indexes], r=corner_detector_radius)
-    variances = []
-    for n in tqdm(neighbours):
-        pca = PCA(3)
-        # if size of neighbourhood is sufficient
-        if len(n) > 5:
-            pca.fit(points[n])
-            variances.append(pca.explained_variance_ratio_)
-        else: variances.append([1,0,0])
-            
+    neighbours = tree.query_ball_point(
+        points[points_indexes],
+        r=corner_detector_radius)
+
+    iterable = (points[n] for n in neighbours)
+    variances = loky_parallel(
+        get_explained_variance_ratio,
+        iterable,
+        n_jobs=n_jobs,
+        verbose=20,
+        batch_size=64)
+
     # smooth intersection: add more weight, if a point with small distance is present in corner-like neighbourhood
-    # subtract more wight if a point with large distance is present in corner-like neighbourhood
-    cornerness_counter = np.zeros((len(points)))
+    # subtract more weight if a point with large distance is present in corner-like neighbourhood
+    cornerness_score = np.zeros((len(points)))
     weights = (distances - distances.min()) / (distances.max() - distances.min())
-    for i in np.where(np.array(variances)[:,1] > upper_variance_threshold)[0]:
-        cornerness_counter[neighbours[i]] += 1 - weights[neighbours[i]]
-    for i in np.where(np.array(variances)[:,1] <= lower_variance_threshold)[0]:
-        cornerness_counter[neighbours[i]] -= weights[neighbours[i]]
+    for i in np.where(np.array(variances)[:, 1] > upper_variance_threshold)[0]:
+        cornerness_score[neighbours[i]] += 1 - weights[neighbours[i]]
+    for i in np.where(np.array(variances)[:, 1] <= lower_variance_threshold)[0]:
+        cornerness_score[neighbours[i]] -= weights[neighbours[i]]
 
     # separate high-cornerness clusters
-    crnr_clst = separate_graph_connected_components(points[np.where(cornerness_counter > cornerness_threshold)], radius=connected_components_radius)
+    high_cornerness_indexes = np.where(cornerness_score > cornerness_threshold)
+    high_cornerness_clusters = separate_points_to_subsets(
+        points[high_cornerness_indexes],
+        knn_radius=connected_components_radius)
 
-    # inflate high-cornerness clusters by choosing a bounding box, in order to reliably separate corners from curves
+    # inflate high-cornerness clusters by choosing a bounding box,
+    # in order to reliably separate corners from curves
     boxes = []
-    for c in crnr_clst:
-        upper_b = points[np.where(cornerness_counter > cornerness_threshold)][c].max(0) + box_margin
-        lower_b = points[np.where(cornerness_counter > cornerness_threshold)][c].min(0) - box_margin
-        boxes.append(np.where(np.logical_and((points < upper_b).all(-1), (points > lower_b).all(-1)))[0])
+    for cluster in high_cornerness_clusters:
+        upper_b = points[high_cornerness_indexes][cluster].max(0) + box_margin
+        lower_b = points[high_cornerness_indexes][cluster].min(0) - box_margin
+        inside_box_mask = np.logical_and(
+            (points < upper_b).all(-1),
+            (points > lower_b).all(-1))
+        boxes.append(np.where(inside_box_mask)[0])
 
     corner_centers = []
     corner_clusters = []
     corners = np.unique(np.concatenate(boxes))
 
-    tmp_corner_clusters, tmp_corner_centers = separate_graph_connected_components(points[corners], 
-                                                                              radius=connected_components_radius,
-                                                                              compute_barycenters=True)
+    tmp_corner_clusters, tmp_corner_centers = separate_points_to_subsets(
+        points[corners],
+        knn_radius=connected_components_radius,
+        return_barycenters=True)
     
-    # for every corner box, sample two points as corners, and store connections between them
-    
+    # for every corner box, sample two points as corners,
+    # and store connections between them
     init_connections = []
     norms = []
     for i, cluster in enumerate(tmp_corner_clusters):
         tmp_p = points[corners][cluster]
         tmp_p -= tmp_p.mean(0)
         norms.append(np.linalg.norm(tmp_p, axis=1).max())
+
     for i, cluster in enumerate(tmp_corner_clusters):
         if norms[i] < np.quantile(norms, quantile):
             corner_clusters.append(cluster)
             corner_centers.append(tmp_corner_centers[i])
             continue
-    #         tree = cKDTree(points[box])
-    #         out = tree.query_pairs(2*RES)
-    #         G = nx.Graph()
-    #         G.add_edges_from(out)
-    # #             centers = []
-    #         corner_centers.append([nx.barycenter(G)[0]])
         else:
-    #         print('here')
-    #         new_clusters.pop(i)
-    #         corner_centers.pop(i)
             gmm = GaussianMixture(2)
             res = gmm.fit_predict(points[corners][cluster])
             corner_clusters.append(np.array(cluster)[res == 0].tolist())
@@ -200,21 +183,8 @@ def identify_corners(
             ind = len(corner_centers)
             corner_centers.append(endpoints_query[1][0])
             corner_centers.append(endpoints_query[1][1])
-            init_connections.append([ind, ind+1])    
+            init_connections.append([ind, ind + 1])
             
-#     init_connections = []
-#     for i, cluster in enumerate(tmp_corner_clusters):
-#             gmm = GaussianMixture(2)
-#             res = gmm.fit_predict(points[corners][cluster])
-#             corner_clusters.append(np.array(cluster)[res == 0].tolist())
-#             corner_clusters.append(np.array(cluster)[res == 1].tolist())
-#             # select two points from the point cloud
-#             endpoints_query = cKDTree(points[corners]).query(gmm.means_, 1)
-#             ind = len(corner_centers)
-#             corner_centers.append(endpoints_query[1][0])
-#             corner_centers.append(endpoints_query[1][1])
-#             init_connections.append([ind, ind+1])     
-
     return corners, corner_clusters, corner_centers, init_connections
 
 
