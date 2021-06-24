@@ -6,8 +6,8 @@ import h5py
 def main(options):
     
     g = h5py.File(options.input_file, "r")
-    num_patches = g['points'].shape[0]
-    print("number of patches ", num_patches)
+    n_patches = g['points'].shape[0]
+    print("number of patches ", n_patches)
 
     f = h5py.File(options.output_file, "w")
     dt = h5py.vlen_dtype(np.dtype('float32'))
