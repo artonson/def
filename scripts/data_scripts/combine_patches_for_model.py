@@ -24,7 +24,7 @@ def main(options):
         if key == "points" or key == "distances":
             continue
         else:
-            dset = f.create_dataset('key', data=g[key])
+            dset = f.create_dataset(key, data=g[key])
     
 def parse_args():
     parser = argparse.ArgumentParser()
