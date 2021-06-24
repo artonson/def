@@ -1,31 +1,35 @@
 import os
 import argparse
+import numpy as np
+import h5py
 
 def main(options):
     
-    hdf5_pathes = []
-    with open(options.hdf5_list, "r") as f:
-        for line in f:
-            path = line.strip().split(" ")[1]
-            if os.path.exists(path):
-                hdf5_pathes.append(path)
-    with open(options.hdf5_list_out, "w") as f:
-        for path in hdf5_pathes:
-            f.write(path + "\n")
-    
-    
+    g = h5py.File(options.input_file, "r")
+    num_patches = g['points'].shape[0]
+    print("number of patches ", num_patches)
 
-
+    f = h5py.File(options.output_file, "w")
+    dt = h5py.vlen_dtype(np.dtype('float32'))
+    points = f.create_dataset('points', (n_patches,), dtype=dt)
+    distances = f.create_dataset('distances', (n_patches,), dtype=dt)
+    for idx, item in enumerate(g['points']):
+        points[idx] = item
+    for idx, item in enumerate(g['distances']):
+        distances[idx] = item
+    
+    for key in g.keys():
+        if key == "points" or key == "distances":
+            continue
+        else:
+            dset = f.create_dataset('key', data=g[key])
+    
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-i', '--input_dir', dest='input_dir',
-                        type=str, required=False, help='where to find all input dirs')
-    parser.add_argument('-hl', '--hdf5_list', dest='hdf5_list',
-                        type=str, required=True, help='file with hdf5 pathes')
-    parser.add_argument('-hlo', '--hdf5_list_out', dest='hdf5_list_out',
-                        type=str, required=True, help='file with hdf5 pathes succeeded')
-    parser.add_argument('-od', '--output_dir', dest='output_dir',
-                        type=str, required=False, help='where to store patches')
+    parser.add_argument('-i', '--input_file', dest='input_file',
+                        type=str, required=False, help='input hdf5 file')
+    parser.add_argument('-o', '--output_file', dest='output_file',
+                        type=str, required=True, help='output hdf5 file')
     return parser.parse_args()
 
 if __name__ == '__main__':
