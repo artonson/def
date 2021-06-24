@@ -9,6 +9,8 @@ def main(options):
     n_patches = g['points'].shape[0]
     print("number of patches ", n_patches)
 
+    if os.path.exists(options.output_file):
+        os.remove(options.output_file)
     f = h5py.File(options.output_file, "w")
     dt = h5py.vlen_dtype(np.dtype('float32'))
     points = f.create_dataset('points', (n_patches,), dtype=dt)
