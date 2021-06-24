@@ -21,3 +21,7 @@ def parse_args():
     parser.add_argument('-hlo', '--hdf5_list_out', dest='hdf5_list_out',
                         type=str, required=True, help='file with hdf5 pathes succeeded')
     return parser.parse_args()
+
+if __name__ == "__main__":
+    options = parse_args()
+    main(options)
