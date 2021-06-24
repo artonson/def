@@ -1,0 +1,12 @@
+resolution_3d: 0.02  # point cloud resolution (mean point-to-point distance).
+corner_detector_radius_factor: 6  # ball radius for corner detection (in units of resolution_3d).
+upper_variance_threshold: 0.2   # upper threshold for PCA component
+                                # 1 explained variance to compute cornerness
+lower_variance_threshold: 0.1   # lower threshold for PCA component 1
+                                # explained variance to compute cornerness
+cornerness_threshold: 1.25  # threshold to consider neighbourhood as a corner
+knn_radius_factor: 3.0    # max distance to connect a pair of points
+                          # in knn graph (in units of resolution_3d).
+quantile: 0.8  # anti-double corner rate quantile
+box_margin: 1.5  # anti-double corner rate quantile
+seeds_rate: 0.1  # fraction of points to use as seeds for corner detection

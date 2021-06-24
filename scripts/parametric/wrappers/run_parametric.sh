@@ -50,24 +50,18 @@ filter_sample() {
 
 }
 
-filter_sample
+python ${FILTER_SAMPLE_SCRIPT} \
+  --verbose \
+  --input ${} \
+  --output ${} \
+  --resolution_3d ${} \
+  --distances_near_thr_factor ${} \
+  --knn_radius_factor ${} \
+  --min_cc_points_to_keep ${} \
+  --subsample_rate ${}
 
-
-for config in ${CONFIG_LIST}
-do
-  if [[ -n "${TRAIN_START_CHUNK}" && -n "${TRAIN_END_CHUNK}" ]]
-  then
-    run_slurm_jobs "${TRAIN_START_CHUNK}" "${TRAIN_END_CHUNK}" "${config}" 800
-  fi
-
-  if [[ -n "${VAL_START_CHUNK}" && -n "${VAL_END_CHUNK}" ]]
-  then
-    run_slurm_jobs "${VAL_START_CHUNK}" "${VAL_END_CHUNK}" "${config}" 80
-  fi
-
-  if [[ -n "${TEST_START_CHUNK}" && -n "${TEST_END_CHUNK}" ]]
-  then
-    run_slurm_jobs "${TEST_START_CHUNK}" "${TEST_END_CHUNK}" "${config}" 80
-  fi
-done
-
+python ${DETECT_CORNERS_SCRIPT} \
+  --verbose \
+  --input ${} \
+  --output ${} \
+  --config ${}

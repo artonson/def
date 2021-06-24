@@ -1,14 +1,28 @@
 import argparse
-import numpy as np
-import h5py
+import os
+import sys
 
+import numpy as np
+
+__dir__ = os.path.normpath(
+    os.path.join(
+        os.path.dirname(os.path.realpath(__file__)), '..', '..')
+)
+sys.path[1:1] = [__dir__]
+
+from sharpf.data.patch_cropping import farthest_point_sampling
+import sharpf.fusion.io as fusion_io
 import sharpf.parametric.optimization as opt
 import sharpf.parametric.topological_graph as tg
 import sharpf.parametric.utils as utils
+from sharpf.utils.py_utils.logging import create_logger
+from sharpf.utils.abc_utils.hdf5.dataset import Hdf5File, PreloadTypes
 
 
 def parse_args():
     parser = argparse.ArgumentParser(
+        description='Given an input set of fused points with predictions, '
+                    'produce a subsampled set of points to extract parametric curves.',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument(
         '--verbose',
@@ -16,17 +30,30 @@ def parse_args():
         action='store_true',
         default=False,
         help='be verbose')
+    parser.add_argument(
+        '--logging_filename',
+        dest='logging_filename',
+        help='specifies an output filename to log to.')
 
     parser.add_argument(
         '-i', '--input',
-        dest='points',
+        dest='input_filename',
         required=True,
-        help='path to points')
-#     parser.add_argument('--preds', required=True, 
-#                         help='path to predictions')
-    parser.add_argument('--save_folder', required=True, 
-                        help='path to save results')
-    
+        help='path to file with fused points and predictions.')
+    parser.add_argument(
+        '-id', '--input-distances',
+        dest='input_distances_filename',
+        required=False,
+        help='path to file with fused predictions; if specified, '
+             'this replaces predictions from INPUT_FILENAME.')
+
+    parser.add_argument(
+        '-o', '--output',
+        dest='output_filename',
+        required=True,
+        help='path to save the filtered results (in the same format as input)')
+
+
     parser.add_argument('--res', type=float, default=0.02, 
                         help='point cloud resolution (avg pointwise distance) [default: 0.02]')
     parser.add_argument('--sharp', type=float, default=1.5, 
@@ -124,52 +151,46 @@ def main(options):
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~
 
-    print('loading data from {path_to_points}'.format(path_to_points=path_to_points))
-    #     whole_model_points = np.load(path_to_points)
-    #     whole_model_distances = np.load(path_to_preds)
-    with h5py.File(path_to_points, 'r') as f:
-        whole_model_points = f['points'][:]
-        whole_model_distances = f['distances'][:]
-    points = whole_model_points[whole_model_distances < sharpness_threshold]
-    distances = whole_model_distances[whole_model_distances < sharpness_threshold]
-    print('processing {size} points'.format(size=len(points)))
+    logger = create_logger(options)
 
-    if filtering_mode:
-        print('filtering')
-        filtered_clusters = tg.separate_graph_connected_components(
+    try:
+        logger.debug('Loading data from {}'.format(options.input_filename))
+        dataset = Hdf5File(
+            options.input_filename,
+            io=fusion_io.FusedPredictionsIO,
+            preload=PreloadTypes.LAZY,
+            labels='*')
+        points, distances = dataset[0]['points'], dataset[0]['distances']
+    except Exception as e:
+        logger.error('Cannot load {}: {}; stopping'.format(options.input_filename, str(e)))
+        exit(1)
+    logger.debug('Loaded {} points'.format(len(points)))
+
+    fps_indexes, _ = farthest_point_sampling(points, points.shape[0] // fps_factor)
+
+    try:
+        logger.debug('Loading data from {}'.format(options.input_filename))
+        corners, corner_clusters, corner_centers, init_connections = tg.detect_corners(
             points,
-            radius=filtering_radius,
-            filtering_mode=True,
-            filtering_factor=filtering_factor)
-        points = points[np.unique(np.concatenate(filtered_clusters))]
-        distances = distances[np.unique(np.concatenate(filtered_clusters))]
-
-    if subsample_rate > 0:
-        print('sampling')
-        fps_sub = farthest_point_sampling(points, points.shape[0] // subsample_rate)
-        points = points[fps_sub[0][0]]
-        distances = distances[fps_sub[0][0]]
-    fps = farthest_point_sampling(points, points.shape[0] // fps_factor)
-
-    print('identifying corners')
-    corners, corner_clusters, corner_centers, init_connections = tg.identify_corners(
-        points,
-        distances,
-        fps[0][0],
-        corner_detector_radius,
-        upper_variance_threshold,
-        lower_variance_threshold,
-        cornerness_threshold,
-        corner_connected_components_radius,
-        box_margin,
-        quantile)
+            distances,
+            fps_indexes[0],
+            corner_detector_radius,
+            upper_variance_threshold,
+            lower_variance_threshold,
+            cornerness_threshold,
+            corner_connected_components_radius,
+            box_margin,
+            quantile)
+    except Exception as e:
+        logger.error('Cannot load {}: {}; stopping'.format(options.input_filename, str(e)))
+        exit(1)
 
     not_corners = np.setdiff1d(np.arange(len(points)), corners)
 
     print('separating curves')
-    curves = tg.separate_graph_connected_components(
+    curves = tg.separate_points_to_subsets(
         points[not_corners],
-        radius=curve_connected_components_radius)
+        knn_radius=curve_connected_components_radius)
 
     print('initializing topological graph')
     corner_positions, corner_pairs = tg.initialize_topological_graph(
