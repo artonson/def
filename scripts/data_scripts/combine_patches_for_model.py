@@ -25,6 +25,7 @@ def main(options):
             continue
         else:
             dset = f.create_dataset(key, data=g[key])
+    print("written ", options.output_file)
     
 def parse_args():
     parser = argparse.ArgumentParser()
