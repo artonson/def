@@ -40,7 +40,7 @@ def main(options):
                 train_file = path / f'train_{idx}.hdf5'
                 os.symlink(hdf5_file, train_file)
                 output_file.append((hdf5_file, train_file))
-    with open(options.hdf5_output_list, "w"):
+    with open(options.hdf5_output_list, "w") as f:
         for line in output_file:
             f.write(f'{line[0]} {line[1]}\n')
     
