@@ -38,6 +38,8 @@ def main(options):
                 pass
             for idx, hdf5_file in enumerate(hdf5_dict[resol][noise]):
                 train_file = path / f'train_{idx}.hdf5'
+                if os.path.exists(train_file):
+                    os.remove(train_file)
                 os.symlink(hdf5_file, train_file)
                 output_file.append((hdf5_file, train_file))
     with open(options.hdf5_output_list, "w") as f:
