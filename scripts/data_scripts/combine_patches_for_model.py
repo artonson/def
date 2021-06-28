@@ -16,6 +16,9 @@ def main(options):
     with open(options.hdf5_list) as f:
         for line in f:
             line = line.strip()
+            line = line.split(" ")[1]
+            if not os.path.exists(line):
+                continue
             if "low_res_whole.json" in line:
                 hdf5_dict["low_res_whole.json"]["0.0"].append(line)
             elif "med_res_whole.json" in line:
