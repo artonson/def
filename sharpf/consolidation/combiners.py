@@ -36,7 +36,8 @@ class PredictionsCombiner(ABC):
             list_predictions: List[np.array],
             list_indexes_in_whole: List[np.array],
             list_points: List[np.array],
-    ) -> Tuple[np.array, Mapping]:
+            max_distance: float = 1.0
+    ) -> Tuple[np.array, np.array, Mapping]:
 
         raise NotImplemented()
 
@@ -46,7 +47,8 @@ class PointwisePredictionsCombiner(PredictionsCombiner):
     by taking a simple function of the point's predictions.
 
     Returns:
-        whole_model_distances_pred: consolidated predictions
+        fused_points_pred: consolidated predictions
+        fused_distances_pred: consolidated predictions
         predictions_variants: enumerates predictions per each point
         """
 
@@ -60,22 +62,25 @@ class PointwisePredictionsCombiner(PredictionsCombiner):
             list_predictions: List[np.array],
             list_indexes_in_whole: List[np.array],
             list_points: List[np.array],
-    ) -> Tuple[np.array, Mapping]:
+            max_distance: float = 1.0
+    ) -> Tuple[np.array, np.array, Mapping]:
 
-        whole_model_distances_pred = np.ones(n_points) * np.inf
+        fused_points_pred = np.zeros((n_points, 3))
+        fused_distances_pred = np.ones(n_points) * max_distance
 
         # step 1: gather predictions
         predictions_variants = defaultdict(list)
         iterable = zip(list_predictions, list_indexes_in_whole, list_points)
         for distances, indexes_gt, points_gt in tqdm(iterable):
+            fused_points_pred[indexes_gt] = points_gt
             for i, idx in enumerate(indexes_gt):
                 predictions_variants[idx].append(distances[i])
 
         # step 2: consolidate predictions
-        for idx, values in predictions_variants.items():
-            whole_model_distances_pred[idx] = self._func(values)
+        for idx, values in tqdm(predictions_variants.items()):
+            fused_distances_pred[idx] = self._func(values)
 
-        return whole_model_distances_pred, predictions_variants
+        return fused_points_pred, fused_distances_pred, predictions_variants
 
 
 class AvgProbaPredictionsCombiner(PointwisePredictionsCombiner):
@@ -103,7 +108,8 @@ class MinPredictionsCombiner(PointwisePredictionsCombiner):
 
 
 class TruncatedAvgPredictionsCombiner(PointwisePredictionsCombiner):
-    def __init__(self): super().__init__(func=TruncatedMean(0.6), tag='adv60')
+    def __init__(self, func=np.min):
+        super().__init__(func=TruncatedMean(0.6, func=func), tag='adv60')
 
 
 class MinsAvgPredictionsCombiner(PointwisePredictionsCombiner):
@@ -131,14 +137,17 @@ class CenterCropPredictionsCombiner(PointwisePredictionsCombiner):
             list_predictions: List[np.array],
             list_indexes_in_whole: List[np.array],
             list_points: List[np.array],
-    ) -> Tuple[np.array, Mapping]:
+            max_distance: float = 1.0
+    ) -> Tuple[np.array, np.array, Mapping]:
 
-        whole_model_distances_pred = np.ones(n_points) * np.inf
+        fused_points_pred = np.zeros((n_points, 3))
+        fused_distances_pred = np.ones(n_points) * max_distance
 
         # step 1: gather predictions
         predictions_variants = defaultdict(list)
         iterable = zip(list_predictions, list_indexes_in_whole, list_points)
         for distances, indexes_gt, points_gt in tqdm(iterable):
+            fused_points_pred[indexes_gt] = points_gt
             # here comes difference from the previous variant
             points_radii = np.linalg.norm(points_gt - points_gt.mean(axis=0), axis=1)
             center_indexes = np.where(points_radii < np.percentile(points_radii, self._brd_thr))[0]
@@ -147,9 +156,9 @@ class CenterCropPredictionsCombiner(PointwisePredictionsCombiner):
 
         # step 2: consolidate predictions
         for idx, values in predictions_variants.items():
-            whole_model_distances_pred[idx] = self._func(values)
+            fused_distances_pred[idx] = self._func(values)
 
-        return whole_model_distances_pred, predictions_variants
+        return fused_points_pred, fused_distances_pred, predictions_variants
 
 
 class SmoothingCombiner(PredictionsCombiner):
@@ -166,18 +175,45 @@ class SmoothingCombiner(PredictionsCombiner):
             list_predictions: List[np.array],
             list_indexes_in_whole: List[np.array],
             list_points: List[np.array],
-    ) -> Tuple[np.array, Mapping]:
+            max_distance: float = 1.0
+    ) -> Tuple[np.array, np.array, Mapping]:
 
-        combined_predictions, predictions_variants = self._combiner(
-            n_points, list_predictions, list_indexes_in_whole, list_points)
+        fused_points, fused_predictions, predictions_variants = self._combiner(
+            n_points,
+            list_predictions,
+            list_indexes_in_whole,
+            list_points,
+            max_distance=max_distance)
 
-        points = np.zeros((n_points, 3))
-        iterable = zip(list_indexes_in_whole, list_points)
-        for indexes_gt, points_gt in tqdm(iterable):
-            points[indexes_gt] = points_gt.reshape((-1, 3))
-        combined_predictions = self._smoother(combined_predictions, points, predictions_variants)
+        fused_predictions = self._smoother(
+            fused_predictions,
+            fused_points,
+            predictions_variants)
 
-        return combined_predictions, predictions_variants
-
+        return fused_points, fused_predictions, predictions_variants
 
 
+class GroundTruthCombiner(PredictionsCombiner):
+    """Combine ground-truth distances and directions:
+    this is similar to MinPredictionsCombiner, but also computes directions."""
+    def __call__(
+            self,
+            n_points: int,
+            list_predictions: List[np.array],
+            list_indexes_in_whole: List[np.array],
+            list_points: List[np.array],
+            max_distance: float = 1.0
+    ) -> Tuple[np.array, np.array, Mapping]:
+
+        fused_points = np.zeros((n_points, 3))
+        fused_distances = np.ones(n_points) * max_distance
+        # fused_directions = np.ones((n_points, 3)) * np.inf
+
+        iterable = zip(list_predictions, list_indexes_in_whole, list_points)
+        for distances, indexes, points in tqdm(iterable):
+            fused_points[indexes] = points
+            assign_mask = fused_distances[indexes] > distances
+            fused_distances[indexes[assign_mask]] = np.minimum(distances[assign_mask], max_distance)
+            # fused_directions[indexes[assign_mask]] = directions[assign_mask]
+
+        return fused_points, fused_distances, {}
