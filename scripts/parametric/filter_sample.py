@@ -135,11 +135,11 @@ def main(options):
             points, distances = points[indexes_to_keep], distances[indexes_to_keep]
             logger.debug('Selected a subset of close points containing {} points'.format(len(points)))
 
-    logger.debug('Saving selected points to {}'.format(options.output_filename))
     fusion_io.save_full_model_predictions(
         points,
         distances,
         options.output_filename)
+    logger.debug('Saved selected points to {}'.format(options.output_filename))
 
 
 if __name__ == '__main__':

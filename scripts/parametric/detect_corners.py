@@ -11,7 +11,6 @@ __dir__ = os.path.normpath(
 )
 sys.path[1:1] = [__dir__]
 
-from sharpf.data.patch_cropping import farthest_point_sampling
 import sharpf.fusion.io as fusion_io
 import sharpf.parametric.io as parametric_io
 import sharpf.parametric.topological_graph as tg
@@ -105,22 +104,21 @@ def main(options):
             points,
             distances,
             **corner_detector_params)
+        not_corners = np.setdiff1d(np.arange(len(points)), corners)
     except Exception as e:
         logger.error('Cannot load {}: {}; stopping'.format(options.input_filename, str(e)))
         exit(1)
 
-    not_corners = np.setdiff1d(np.arange(len(points)), corners)
-
     detected_corners = {
-        'corners': corners,
+        'corners': corners,  #
         'not_corners': not_corners,
         'corner_centers': corner_centers,
         'init_connections': init_connections,
     }
-    logger.debug('Saving detected corners to {}'.format(options.output_filename))
     parametric_io.save_parametric_corners(
         detected_corners,
         options.output_filename)
+    logger.debug('Saved detected corners to {}'.format(options.output_filename))
 
 
 if __name__ == '__main__':

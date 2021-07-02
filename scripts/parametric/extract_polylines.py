@@ -8,8 +8,12 @@ __dir__ = os.path.normpath(
     os.path.join(
         os.path.dirname(os.path.realpath(__file__)), '..', '..')
 )
+
+import yaml
+
 sys.path[1:1] = [__dir__]
 
+import sharpf.parametric.io as parametric_io
 from sharpf.data.patch_cropping import farthest_point_sampling
 import sharpf.fusion.io as fusion_io
 import sharpf.parametric.optimization as opt
@@ -41,17 +45,16 @@ def parse_args():
         required=True,
         help='path to file with fused points and predictions.')
     parser.add_argument(
-        '-id', '--input-distances',
-        dest='input_distances_filename',
-        required=False,
-        help='path to file with fused predictions; if specified, '
-             'this replaces predictions from INPUT_FILENAME.')
+        '-r', '--corners',
+        dest='corners_filename',
+        required=True,
+        help='path to file with corner predictions.')
 
     parser.add_argument(
         '-o', '--output',
         dest='output_filename',
         required=True,
-        help='path to save the filtered results (in the same format as input)')
+        help='path to save the initialised topological graph.')
 
 
     parser.add_argument('--res', type=float, default=0.02, 
@@ -151,6 +154,7 @@ def main(options):
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~
 
+    config = yaml.load(options.config)
     logger = create_logger(options)
 
     try:
@@ -166,45 +170,60 @@ def main(options):
         exit(1)
     logger.debug('Loaded {} points'.format(len(points)))
 
-    fps_indexes, _ = farthest_point_sampling(points, points.shape[0] // fps_factor)
+    try:
+        logger.debug('Loading data from {}'.format(options.corners_filename))
+        dataset = Hdf5File(
+            options.corners_filename,
+            io=parametric_io.ParametricCornersIO,
+            preload=PreloadTypes.LAZY,
+            labels='*')
+        corners = dataset[0]['corners']
+        not_corners = dataset[0]['not_corners']
+        corner_centers = dataset[0]['corner_centers']
+        init_connections = dataset[0]['init_connections']
+    except Exception as e:
+        logger.error('Cannot load {}: {}; stopping'.format(options.corners_filename, str(e)))
+        exit(1)
+    logger.debug('Loaded {} corners'.format(len(points)))
 
     try:
-        logger.debug('Loading data from {}'.format(options.input_filename))
-        corners, corner_clusters, corner_centers, init_connections = tg.detect_corners(
+        logger.debug('Segmenting individual curves')
+        curves = tg.separate_points_to_subsets(
+            points[not_corners],
+            knn_radius=curve_connected_components_radius)
+    except Exception as e:
+        logger.error('Cannot segment curves: {}; stopping'.format(str(e)))
+        exit(1)
+    logger.debug('Segmented {} individual curves'.format(len(curves)))
+
+    try:
+        logger.debug('Initializing topological graph')
+        corner_positions, corner_pairs = tg.initialize_topological_graph(
             points,
             distances,
-            fps_indexes[0],
-            corner_detector_radius,
-            upper_variance_threshold,
-            lower_variance_threshold,
-            cornerness_threshold,
-            corner_connected_components_radius,
-            box_margin,
-            quantile)
+            not_corners,
+            curves,
+            corners,
+            corner_centers,
+            init_connections,
+            endpoint_detector_radius,
+            endpoint_threshold,
+            initial_split_threshold,
+            corner_connector_radius)
     except Exception as e:
-        logger.error('Cannot load {}: {}; stopping'.format(options.input_filename, str(e)))
+        logger.error('Initializing topological graph failed: {}; stopping'.format(str(e)))
         exit(1)
+    logger.debug('Segmented {} individual curves'.format(len(curves)))
 
-    not_corners = np.setdiff1d(np.arange(len(points)), corners)
+    topological_graph = {
+        'vertices': corners,
+        'edges': not_corners,
+    }
+    parametric_io.save_parametric_corners(
+        topological_graph,
+        options.output_filename)
+    logger.debug('Saved detected corners to {}'.format(options.output_filename))
 
-    print('separating curves')
-    curves = tg.separate_points_to_subsets(
-        points[not_corners],
-        knn_radius=curve_connected_components_radius)
-
-    print('initializing topological graph')
-    corner_positions, corner_pairs = tg.initialize_topological_graph(
-        points,
-        distances,
-        not_corners,
-        curves,
-        corners,
-        corner_centers,
-        init_connections,
-        endpoint_detector_radius,
-        endpoint_threshold,
-        initial_split_threshold,
-        corner_connector_radius)
 
     filename = path_to_save.split('/')[-2]
     #     np.save('{path_to_save}/{filename}__corner_positions_unopt.npy'.format(path_to_save=path_to_save, filename=filename), corner_positions)

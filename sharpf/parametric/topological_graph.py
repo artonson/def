@@ -41,26 +41,20 @@ def separate_points_to_subsets(
     graph.add_edges_from(edges)
 
     # divide it into connected components
-    cc_graphs = [graph.subgraph(c).copy()
-                 for c in tqdm(nx.connected_components(graph))]
+    cc_graphs = [graph.subgraph(c).copy() for c in tqdm(nx.connected_components(graph))]
+
+    # add connected component if number of nodes is greater than filtering factor
+    cc_subgraphs = [
+        subgraph for subgraph in cc_graphs
+        if len(subgraph) > min_cluster_size_to_return]
 
     # compute barycenters of connected components; 
     # if there is more than one barycenter, add the first one
     if return_barycenters:
-        clusters, centers = [], []
-        for subgraph in cc_graphs:
-            if len(subgraph) > min_cluster_size_to_return:
-                # add connected component if number of nodes
-                # is greater than filtering factor
-                clusters.append(list(subgraph))
-                centers.append(nx.barycenter(subgraph)[0])
-        return clusters, centers
+        centers = [nx.barycenter(subgraph)[0] for subgraph in cc_subgraphs]
+        return [list(c) for c in cc_subgraphs], centers
     else:
-        clusters = []
-        for subgraph in cc_graphs:
-            if len(subgraph) > min_cluster_size_to_return:
-                clusters.append(list(subgraph))
-        return clusters
+        return [list(c) for c in cc_subgraphs]
     
     
 def get_explained_variance_ratio(X):
@@ -99,9 +93,8 @@ def detect_corners(
         connected_components_radius (float): radius to connect points into knn
         n_jobs (int): number of CPU jobs to use for extracting corners; if set to 0, all CPUs are used
     Returns:
-        corners (list of lists): indices of points from points that compose a connected component
-        corner_neighbours (list): indices of points that are close to corners
-        corner_clusters (list of lists): indices of points[corner_neighbours] that compose a corner cluster
+        corners_indexes (list): indices of points from points that are likely to correspond to one of the corners
+        corner_instance_indexes (list of lists): indices of points[corners] that compose a corner instance
         corner_centers (list): indices from each cluster that indicate a barycenter
     """
     if seeds_rate < 1.0:
@@ -185,7 +178,7 @@ def detect_corners(
             corner_centers.append(endpoints_query[1][1])
             init_connections.append([ind, ind + 1])
             
-    return corners, corner_clusters, corner_centers, init_connections
+    return corners, corner_centers, init_connections
 
 
 def connect_dangling_nodes(corner_pairs, corner_positions, connector_radius):
@@ -209,11 +202,19 @@ def connect_dangling_nodes(corner_pairs, corner_positions, connector_radius):
     return corner_pairs
 
 
-def initialize_topological_graph(points, distances, 
-                                 not_corners, curves, 
-                                 corners, corner_centers, init_connections, 
-                                 endpoint_detector_radius, endpoint_threshold, 
-                                 initial_split_threshold, corner_connector_radius):
+def initialize_topological_graph(
+        points,
+        distances,
+        not_corners,
+        curves,
+        corners,
+        corner_centers,
+        init_connections,
+        endpoint_detector_radius,
+        endpoint_threshold,
+        initial_split_threshold,
+        corner_connector_radius
+):
     """
     Initialize topological graph and do initial fit to the curves
     Args:
@@ -381,154 +382,3 @@ def initialize_topological_graph(points, distances,
         corner_pairs.append(pair)
 #     corner_pairs = connect_dangling_nodes(corner_pairs, corner_positions, 5*0.02)  
     return corner_positions, corner_pairs
-
-
-# def initialize_topological_graph(points, distances, 
-#                                  not_corners, curves, 
-#                                  corners, corner_centers,
-#                                  init_connections,
-#                                  endpoint_detector_radius, endpoint_threshold, 
-#                                  initial_split_threshold, corner_connector_radius):
-#     """
-#     Initialize topological graph and do initial fit to the curves
-#     Args:
-#         points (np.array): 3D coordinates of points
-#         distances (np.array): per-point sharpness distances
-#         not_corners (list): indices of points far from corners
-#         curves (list of lists): indices of points[not_corners] that compose a curve cluster
-#         corners (list): indices of points near corners
-#         corner_centers (list): indices from 'corners' that indicate a corner
-#         endpoint_detector_radius (float): radius of neighbourhood to detect endpoints
-#         endpoint_threshold (float): threshold to decide whether a neighbourhood contains endpoint
-#         initial_split_threshold (float): threshold for initial rough splits
-#         corner_connector_radius (float): radius to connect endpoints to corners
-#     Returns:
-#         corner_positions (list of lists): 3D coordinates of polyline nodes
-#         corner_pairs (list of lists): pairs of indices from corner_positions that compose a segment
-#     """
-#     corner_positions_all = []
-#     corner_pairs_all = []
-
-#     # add already detected corner positions
-#     corner_positions_all.append(points[corners][corner_centers].tolist())
-
-#     # for each curve
-#     for i in tqdm(range(len(curves))):
-#         # calculate index shift value for global indexing
-#         if len(corner_positions_all) > 0:
-#             global_index_shift = len(np.concatenate(corner_positions_all))
-#         else: global_index_shift = 0
-            
-#         # if fps would produce not enough samples
-#         if points[not_corners][curves[i]].shape[0] // 10 < 2:
-#             continue
-    
-#         # sample fps on curves for endpoint detection
-#         fps_curve = farthest_point_sampling(points[not_corners][curves[i]], 
-#                                             points[not_corners][curves[i]].shape[0] // 10)
-
-#         # create neighbourhoods for endpoint detection
-#         neighbours = cKDTree(points[not_corners][curves[i]]).query_ball_point(
-#             points[not_corners][curves[i]][fps_curve[0][0]], r=endpoint_detector_radius)
-#         endpoint_candidate_indicators = []
-#         endpoint_candidate_indicators_mean = []
-#         for n in range(len(neighbours)):
-#             pca = PCA(1)
-#             if len(neighbours[n]) > 3:
-#                 fitted_pca = pca.fit(points[not_corners][curves[i]][neighbours[n]])
-                
-#                 # calculate linear point embedding inside neighbourhood
-#                 point_linear_embeddings = fitted_pca.transform(points[not_corners][curves[i]][neighbours[n]]).flatten() - fitted_pca.transform(points[not_corners][curves[i]][fps_curve[0][0]][n][None,:]).flatten()
-                
-#                 # if neighbourhood center embedding is greater or smaller than embeddings of other points, it is 
-#                 # suspected to be an endpoint
-#                 endpoint_candidate_indicators_mean.append(np.abs(np.sign(point_linear_embeddings).mean()))
-#                 endpoint_candidate_indicators.append(np.abs(np.sign(point_linear_embeddings).mean()) > endpoint_threshold)
-                
-#         if np.sum(endpoint_candidate_indicators) > 0:
-#             if np.sum(endpoint_candidate_indicators) < 2:
-#                 # if there is only one detected endpoint, take second largest value for the second endpoint
-#                 # and add them to per-curve list of endpoints
-#                 argsort = np.argsort(endpoint_candidate_indicators_mean)
-#                 endpoint_positions = points[not_corners][curves[i]][fps_curve[0][0]][argsort[-2:]].tolist()
-#             else:
-#                 # if there is two or more endpoints, take two most distant ones
-#                 # and add them to per-curve list of endpoints
-#                 endpoints_query = cKDTree(
-#                     points[not_corners][curves[i]][fps_curve[0][0]][endpoint_candidate_indicators]).query(
-#                     points[not_corners][curves[i]][fps_curve[0][0]][endpoint_candidate_indicators], 
-#                     np.sum(endpoint_candidate_indicators))
-#                 endpoints = [endpoints_query[0].argmax() // np.sum(endpoint_candidate_indicators), 
-#                              endpoints_query[1][endpoints_query[0].argmax() // np.sum(endpoint_candidate_indicators), 
-#                                                 endpoints_query[0].argmax() % np.sum(endpoint_candidate_indicators)]]
-#                 endpoint_positions = points[not_corners][curves[i]][fps_curve[0][0]][endpoint_candidate_indicators][endpoints].tolist()
-
-#             # initialize per-curve list of endpoint pairs
-#             endpoint_pairs = [[0,1]]
-            
-#             # select per-curve point coordinates for polyline splitting
-#             points_ref = points[not_corners][curves[i]]
-#             distances_ref = distances[not_corners][curves[i]]
-
-#             previous_len = 0
-#             # while splits are available, do splits
-#             while len(endpoint_positions) != previous_len:
-#                 previous_len = len(endpoint_positions)
-#                 aabboxes = create_aabboxes(np.array(endpoint_positions)[np.array(endpoint_pairs)])
-#                 matching = parallel_nearest_point(aabboxes, np.array(endpoint_positions)[np.array(endpoint_pairs)], points_ref)
-#                 curve_data, curve_distances = recalculate(points_ref, distances_ref, matching, endpoint_pairs)
-
-#                 endpoint_positions, endpoint_pairs = subdivide_wireframe(endpoint_positions, endpoint_pairs, 
-#                                                                          curve_data, curve_distances, 
-#                                                                          split_threshold=initial_split_threshold)
-
-#             # identify which corners are close to the curve endpoints
-#             nearest_corner_distances, nearest_corner_indices = cKDTree(points[corners][corner_centers]).query(
-#                 endpoint_positions[:2], 1,
-#                 distance_upper_bound=corner_connector_radius)
-
-#             # move endpoint indices in correspondance to the global indexing
-#             endpoint_pairs = (np.array(endpoint_pairs) + global_index_shift).tolist()
-#             for i in range(2):
-#                 # if for an endpoint the closest corner is not too far away,
-#                 # add a segment to connect with initial corners
-#                 if np.logical_not(np.isinf(nearest_corner_distances[i])): 
-#                     index = nearest_corner_indices[i]
-#                     index_shift = len(endpoint_positions)
-#                     pair = [i+global_index_shift, index]
-#                     endpoint_pairs.append(pair)
-
-#         # if no endpoints were detected, assume it's a closed curve
-#         elif np.sum(endpoint_candidate_indicators) == 0:
-#             # sample a triangle
-#             endpoint_positions = points[not_corners][curves[i]][fps_curve[0][0]][:3].tolist()
-#             endpoint_pairs = [[0,1],
-#                              [1,2],
-#                              [2,0]]
-            
-#             # select per-curve point coordinates for polyline splitting
-#             points_ref = points[not_corners][curves[i]]
-#             distances_ref = distances[not_corners][curves[i]]
-
-#             previous_len = 0
-#             # while splits are available, do splits
-#             while len(endpoint_positions) != previous_len:
-#                 previous_len = len(endpoint_positions)
-#                 aabboxes = create_aabboxes(np.array(endpoint_positions)[np.array(endpoint_pairs)])
-#                 matching = parallel_nearest_point(aabboxes, np.array(endpoint_positions)[np.array(endpoint_pairs)], points_ref)
-#                 curve_data, curve_distances = recalculate(points_ref, distances_ref, matching, endpoint_pairs)
-
-#                 endpoint_positions, endpoint_pairs = subdivide_wireframe(endpoint_positions, endpoint_pairs, 
-#                                                                          curve_data, curve_distances, 
-#                                                                          split_threshold=initial_split_threshold)
-#             endpoint_pairs = (np.array(endpoint_pairs) + global_index_shift).tolist()
-
-#         # add per-curve polyline nodes and segment pairs into global array
-#         corner_positions_all.append(endpoint_positions)
-#         corner_pairs_all.append((np.array(endpoint_pairs)).tolist())
-        
-#     # add initial connection between detected cornerpoints
-#     for pair in init_connections:
-#         corner_pairs.append(pair)
-#     corner_positions, corner_pairs = np.concatenate(corner_positions_all).tolist(), np.concatenate(corner_pairs_all).tolist()
-#     return corner_positions, corner_pairs
