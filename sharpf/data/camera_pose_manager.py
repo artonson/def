@@ -1,3 +1,4 @@
+import warnings
 from abc import ABC, abstractmethod
 from itertools import product
 
@@ -5,6 +6,7 @@ import numpy as np
 
 from sharpf.data import DataGenerationException
 from sharpf.utils.camera_utils.camera_pose import CameraPose, create_rotation_matrix_z, rotate_to_world_origin
+from sharpf.utils.camera_utils.spherical_spiral_sampling import spherical_spiral_sampling
 from sharpf.utils.py_utils.config import load_func_from_config
 from sharpf.utils.camera_utils.fibonacci_sphere_sampling import fibonacci_sphere_sampling
 
@@ -45,6 +47,41 @@ class SphereOrientedToWorldOrigin(AbstractCameraPoseManager):
 
         # scanning radius is determined from the mesh extent
         scanning_radius = np.max(mesh.bounding_box.extents)
+
+        # XYZ coordinates of camera frame origin in world frame
+        camera_origins = fibonacci_sphere_sampling(
+            self.n_images, radius=scanning_radius, seed=self.seed)
+
+        # creating transforms matrices
+        self.camera_poses = [
+            CameraPose.from_camera_axes(
+                R=rotate_to_world_origin(camera_origin),
+                t=camera_origin)
+            for camera_origin in camera_origins
+        ]
+        self.current_transform_idx = 0
+
+
+class SphericalSpiralOrientedToWorldOrigin(AbstractCameraPoseManager):
+    def __init__(self, n_images):
+        warnings.warn('n_images ignored')
+        super().__init__(n_images)
+        # parameters needed for the spiral
+        self.layer_radius = 0.1
+        self.resolution = 0.01
+
+    def prepare(self, mesh):
+        # precompute transformations from world frame to camera frame
+        # for all specified camera origins
+
+        # scanning radius is determined from the mesh extent
+        scanning_radius = np.max(mesh.bounding_box.extents)
+
+        camera_origins = spherical_spiral_sampling(
+            scanning_radius,
+            self.layer_radius,
+            self.resolution,
+        )
 
         # XYZ coordinates of camera frame origin in world frame
         camera_origins = fibonacci_sphere_sampling(
