@@ -77,15 +77,12 @@ class SphericalSpiralOrientedToWorldOrigin(AbstractCameraPoseManager):
         # scanning radius is determined from the mesh extent
         scanning_radius = np.max(mesh.bounding_box.extents)
 
+        # XYZ coordinates of camera frame origin in world frame
         camera_origins = spherical_spiral_sampling(
             scanning_radius,
             self.layer_radius,
             self.resolution,
         )
-
-        # XYZ coordinates of camera frame origin in world frame
-        camera_origins = fibonacci_sphere_sampling(
-            self.n_images, radius=scanning_radius, seed=self.seed)
 
         # creating transforms matrices
         self.camera_poses = [
