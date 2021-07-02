@@ -145,7 +145,8 @@ def display_depth_sharpness(
         sharpness_bg_value=0.0,
         depth_cmap='viridis_r',
         sharpness_cmap='plasma_r',
-        layout_pad=0, layout_hpad=0.25, layout_wpad=0.25):
+        layout_pad=0, layout_hpad=0.25, layout_wpad=0.25,
+        frame_visible=False):
     import matplotlib.cm
     import matplotlib.pyplot as plt
 
@@ -217,7 +218,11 @@ def display_depth_sharpness(
                 depth_image[background_idx] = np.nan
 
                 depth_ax.imshow(depth_image, interpolation='nearest', cmap=depth_colormap)
-                depth_ax.axis('off')
+                if not frame_visible:
+                    depth_ax.axis('off')
+                else:
+                    depth_ax.get_xaxis().set_ticks([])
+                    depth_ax.get_yaxis().set_ticks([])
 
     if None is not sharpness_images:
         sharpness_colormap = copy.copy(matplotlib.cm.get_cmap(sharpness_cmap))
@@ -238,7 +243,11 @@ def display_depth_sharpness(
                 tol = 1e-3
                 sharpness_ax.imshow(sharpness_image, interpolation='nearest', cmap=sharpness_colormap,
                                     vmin=-tol, vmax=max_sharpness + tol)
-                sharpness_ax.axis('off')
+                if not frame_visible:
+                    sharpness_ax.axis('off')
+                else:
+                    sharpness_ax.get_xaxis().set_ticks([])
+                    sharpness_ax.get_yaxis().set_ticks([])
 
     plt.tight_layout(pad=layout_pad, h_pad=layout_hpad, w_pad=layout_wpad)
 
