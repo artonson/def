@@ -465,7 +465,7 @@ def do_interpolate(
         # Distances to be produces as output.
         distances_j_interp = np.zeros(len(points_j), dtype=float)
 
-        for idx, point_from_j in tqdm(enumerate(reprojected_j)):
+        for idx, point_from_j in tqdm(enumerate(reprojected_j), desc='Fusing {} -> {}'.format(i, j)):
             point_nn_indexes = nn_indexes_in_i[idx]
             # Build an [n, 3] array of XYZ coordinates for each reprojected point by taking
             # UV values from pixel grid and Z value from depth image.
@@ -593,7 +593,7 @@ def main(options):
     # extrinsic camera matrixes describing the 3D camera poses used to capture depth images
     gt_extrinsics = [view['camera_pose'] for view in gt_dataset]
     # intrinsic camera parameters describing how to compute image from points and vice versa
-    gt_intrinsics = [dict(resolution_image=gt_images[0].shape, resolution_3d=options.resolution_3d) for view in
+    gt_intrinsics = [dict(resolution_image=gt_images[0].shape[::-1], resolution_3d=options.resolution_3d, projection=None, validate_image=None) for view in
                      gt_dataset]
 
     print('Fusing ground truth data...')
@@ -623,7 +623,7 @@ def main(options):
         io=sharpf_io.WholeDepthMapIO,
         preload=PreloadTypes.LAZY,
         labels='*')
-    pred_distances = [view['distances'] for view in predictions_dataset]
+    pred_distances = [view['distances'] * options.pred_distance_scale_ratio for view in predictions_dataset]
 
     threshold = options.resolution_3d * options.distance_interp_factor
     config = {
@@ -643,9 +643,9 @@ def main(options):
     # run various algorithms for consolidating predictions
     combiners = [
 #       MedianPredictionsCombiner(),
-#       MinPredictionsCombiner(),
+       MinPredictionsCombiner(),
 #       AvgPredictionsCombiner(),
-        TruncatedAvgPredictionsCombiner(func=np.min),
+#        TruncatedAvgPredictionsCombiner(func=np.min),
 #       MinsAvgPredictionsCombiner(signal_thr=0.9),
 #       SmoothingCombiner(
 #           combiner=MinPredictionsCombiner(),
@@ -708,6 +708,8 @@ def parse_args():
     parser.add_argument('-l', '--interpolator_function', dest='interpolator_function',
                         required=False, choices=['bisplrep', 'interp2d'], default='bisplrep',
                         help='interpolator function to use.')
+    parser.add_argument('-d', '--pred_distance_scale_ratio', dest='pred_distance_scale_ratio',
+                        default=1.0, type=float, required=False, help='factor by which to multiply the predicted distances.')
 
     return parser.parse_args()
 
