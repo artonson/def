@@ -63,12 +63,14 @@ class SphereOrientedToWorldOrigin(AbstractCameraPoseManager):
 
 
 class SphericalSpiralOrientedToWorldOrigin(AbstractCameraPoseManager):
-    def __init__(self, n_images):
+    def __init__(self, n_images, layer_radius, resolution, n_initial_samples, min_arc_length):
         warnings.warn('n_images ignored')
         super().__init__(n_images)
         # parameters needed for the spiral
-        self.layer_radius = 0.1
-        self.resolution = 0.01
+        self.layer_radius = layer_radius
+        self.resolution = resolution
+        self.n_initial_samples = n_initial_samples
+        self.min_arc_length = min_arc_length
 
     def prepare(self, mesh):
         # precompute transformations from world frame to camera frame
@@ -79,10 +81,11 @@ class SphericalSpiralOrientedToWorldOrigin(AbstractCameraPoseManager):
 
         # XYZ coordinates of camera frame origin in world frame
         camera_origins = spherical_spiral_sampling(
-            scanning_radius,
-            self.layer_radius,
-            self.resolution,
-        )
+            sphere_radius=scanning_radius,
+            layer_radius=self.layer_radius,
+            resolution=self.resolution,
+            n_initial_samples=self.n_initial_samples,
+            min_arc_length=self.min_arc_length)
 
         # creating transforms matrices
         self.camera_poses = [
@@ -92,6 +95,15 @@ class SphericalSpiralOrientedToWorldOrigin(AbstractCameraPoseManager):
             for camera_origin in camera_origins
         ]
         self.current_transform_idx = 0
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(
+            config['n_images'],
+            config['layer_radius'],
+            config['resolution'],
+            config['n_initial_samples'],
+            config['min_arc_length'])
 
 
 class ZRotationInCameraFrame(AbstractCameraPoseManager):
@@ -175,6 +187,7 @@ class CompositePoseManager(AbstractCameraPoseManager):
 POSE_MANAGER_BY_TYPE = {
     'composite': CompositePoseManager,
     'sphere_to_origin': SphereOrientedToWorldOrigin,
+    'sphere_spiral_to_origin': SphericalSpiralOrientedToWorldOrigin,
     'z_rotation': ZRotationInCameraFrame,
     'xy_translation': XYTranslationInCameraFrame,
 }
