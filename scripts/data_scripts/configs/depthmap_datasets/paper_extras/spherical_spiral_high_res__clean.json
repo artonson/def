@@ -20,7 +20,9 @@
     "validate_image": true
   },
   "noise": {
-    "type": "no_noise"
+    "type": "many_noisers",
+    "subtype": "z_direction",
+    "scale": [0.0]
   },
   "annotation": {
     "type": "surface_based_aabb",
