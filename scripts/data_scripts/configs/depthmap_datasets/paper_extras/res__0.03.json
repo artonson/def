@@ -1,0 +1,52 @@
+{
+  "shape_fabrication_extent": 10.0,
+  "short_curve_quantile": 0.25,
+  "base_n_points_per_short_curve": 8,
+  "base_resolution_3d": 0.125,
+  "camera_pose": {
+    "type": "composite",
+    "sequences": [
+      {
+        "type": "sphere_to_origin",
+        "n_images": 4
+      }
+    ]
+  },
+  "imaging": {
+    "type": "raycasting",
+    "projection": "ortho",
+    "resolution_image": 512,
+    "resolution_3d": 0.03,
+    "fov": [115, 85, 80],
+    "validate_image": true
+  },
+  "noise": {
+    "type": "many_noisers",
+    "subtype": "z_direction",
+    "scale": [0.0]
+  },
+  "annotation": {
+    "type": "surface_based_aabb",
+    "distance_upper_bound": 1.0
+  },
+  "smell_coarse_surfaces_by_num_edges": {
+    "num_edges_threshold": 8
+  },
+  "smell_coarse_surfaces_by_angles": {
+    "max_angle_threshold_degrees": 10.0
+  },
+  "smell_deviating_resolution": {
+    "resolution_3d": 0.02,
+    "resolution_deviation_tolerance": 0.01
+  },
+  "smell_sharpness_discontinuities": { },
+  "smell_bad_face_sampling": {
+    "min_points_per_face": 0.02,
+    "max_points_per_face": 20.0
+  },
+  "smell_raycasting_background": { },
+  "smell_mesh_self_intersections": { },
+  "smell_depth_discontinuity": {
+    "depth_discontinuity_threshold": 0.5
+  }
+}
