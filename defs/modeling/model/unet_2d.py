@@ -3,6 +3,7 @@ from typing import List
 import timm
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 __all__ = ['Unet2D']
 
@@ -137,6 +138,7 @@ class Unet2D(nn.Module):
         self.encoder = timm.create_model(encoder_name, features_only=True, pretrained=False, **encoder_kwargs)
         self.encoder.conv1.stride = 1
         _patch_first_conv2d(self.encoder, in_channels)
+        self.output_stride = 2 ** len(decoder_channels)
 
         for n, m in self.encoder.named_modules():
             if isinstance(m, nn.Conv1d):
@@ -165,8 +167,29 @@ class Unet2D(nn.Module):
         )
 
     def forward(self, x):
+        # pad
+        b, c, h, w = x.size()
+        pad_left, pad_right, pad_top, pad_bottom = 0, 0, 0, 0
+        if h % self.output_stride != 0:
+            pad_height = (h // self.output_stride + 1) * self.output_stride - h
+            pad_top = pad_height // 2
+            pad_bottom = pad_height - pad_top
+        if w % self.output_stride != 0:
+            pad_width = (w // self.output_stride + 1) * self.output_stride - w
+            pad_left = pad_width // 2
+            pad_right = pad_width - pad_left
+        x = F.pad(x, (pad_left, pad_right, pad_top, pad_bottom))
+
         features = self.encoder(x)
         decoder_output = self.decoder(*features)
+
+        # unpad
+        decoder_output = decoder_output[:, :, pad_top:, pad_left:]
+        if pad_bottom:
+            decoder_output = decoder_output[:, :, :-pad_bottom, :]
+        if pad_right:
+            decoder_output = decoder_output[:, :, :, :-pad_right]
+
         return decoder_output
 
 

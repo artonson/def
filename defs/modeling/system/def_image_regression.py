@@ -42,30 +42,53 @@ class DEFImageRegression(LightningModule):
         self.compute_metrics = self.hparams.datasets.compute_metrics
         mrmse_all: Dict[str, nn.ModuleList] = {}
         q95rmse_all: Dict[str, nn.ModuleList] = {}
-        mrecall: Dict[str, nn.ModuleList] = {}
-        mfpr: Dict[str, nn.ModuleList] = {}
+        mrecall_1r: Dict[str, nn.ModuleList] = {}
+        mfpr_1r: Dict[str, nn.ModuleList] = {}
+        mrecall_4r: Dict[str, nn.ModuleList] = {}
+        mfpr_4r: Dict[str, nn.ModuleList] = {}
         if self.compute_metrics and self.hparams.datasets.val is not None and len(self.hparams.datasets.val) > 0:
             mrmse_all['val'] = nn.ModuleList([MRMSE() for _ in range(len(self.hparams.datasets.val))])
             q95rmse_all['val'] = nn.ModuleList([Q95RMSE() for _ in range(len(self.hparams.datasets.val))])
-            mrecall['val'] = nn.ModuleList([MRecall() for _ in range(len(self.hparams.datasets.val))])
-            mfpr['val'] = nn.ModuleList([MFPR() for _ in range(len(self.hparams.datasets.val))])
+            mrecall_1r['val'] = nn.ModuleList([MRecall() for _ in range(len(self.hparams.datasets.val))])
+            mfpr_1r['val'] = nn.ModuleList([MFPR() for _ in range(len(self.hparams.datasets.val))])
+            mrecall_4r['val'] = nn.ModuleList([MRecall() for _ in range(len(self.hparams.datasets.val))])
+            mfpr_4r['val'] = nn.ModuleList([MFPR() for _ in range(len(self.hparams.datasets.val))])
 
         if self.compute_metrics and self.hparams.datasets.test is not None and len(self.hparams.datasets.test) > 0:
             mrmse_all['test'] = nn.ModuleList([MRMSE() for _ in range(len(self.hparams.datasets.test))])
             q95rmse_all['test'] = nn.ModuleList([Q95RMSE() for _ in range(len(self.hparams.datasets.test))])
-            mrecall['test'] = nn.ModuleList([MRecall() for _ in range(len(self.hparams.datasets.test))])
-            mfpr['test'] = nn.ModuleList([MFPR() for _ in range(len(self.hparams.datasets.test))])
+            mrecall_1r['test'] = nn.ModuleList([MRecall() for _ in range(len(self.hparams.datasets.test))])
+            mfpr_1r['test'] = nn.ModuleList([MFPR() for _ in range(len(self.hparams.datasets.test))])
+            mrecall_4r['test'] = nn.ModuleList([MRecall() for _ in range(len(self.hparams.datasets.test))])
+            mfpr_4r['test'] = nn.ModuleList([MFPR() for _ in range(len(self.hparams.datasets.test))])
 
-        if len(mrecall) > 0:
+        if len(mrecall_4r) > 0:
             self.mrmse_all = nn.ModuleDict(mrmse_all)
             self.q95rmse_all = nn.ModuleDict(q95rmse_all)
-            self.mrecall = nn.ModuleDict(mrecall)
-            self.mfpr = nn.ModuleDict(mfpr)
+            self.mrecall_1r = nn.ModuleDict(mrecall_1r)
+            self.mfpr_1r = nn.ModuleDict(mfpr_1r)
+            self.mrecall_4r = nn.ModuleDict(mrecall_4r)
+            self.mfpr_4r = nn.ModuleDict(mfpr_4r)
 
-    def forward(self, x, clamp=True):
+    def forward(self, x, clamp=True, pad_if_cropped=True):
         out: Dict[str, torch.Tensor] = {}
 
+        if self.hparams.system.crop:
+            b, c, h, w = x.shape
+            nonzero = torch.nonzero(x.view(b * c, h, w), as_tuple=False)  # (n, 3)
+            nonzero = nonzero[:, 1:]
+            t, l = nonzero.min(dim=0).values - 10
+            b, r = nonzero.max(dim=0).values + 10
+            t, b = t.clamp(0.0, h - 1).item(), b.clamp(0.0, h - 1).item()
+            l, r = l.clamp(0.0, w - 1).item(), r.clamp(0.0, w - 1).item()
+            x = x[:, :, t:b + 1, l:r + 1]
+            out['tblr'] = (t, b, l, r)
+
+        if self.hparams.system.scale != 1.0:
+            x = F.interpolate(x, scale_factor=self.hparams.system.scale, mode='bilinear', align_corners=False)
+
         output = self.model(x)  # (B, C, H, W)
+
         for output_element in self.hparams.model.output_elements:
             key = output_element['key']
             left, right = output_element['channel_range']
@@ -88,7 +111,17 @@ class DEFImageRegression(LightningModule):
         else:
             if clamp:
                 out['distances'] = out['distances'].clamp(0.0, 1.0)
-            out['distances'] = out['distances'].squeeze(1)  # (B, 1, H, W) -> (B, H, W)
+
+        if self.hparams.system.scale != 1.0:
+            out['distances'] = F.interpolate(out['distances'], scale_factor=1 / self.hparams.system.scale,
+                                             mode='bilinear', align_corners=False)
+
+        if self.hparams.system.crop and pad_if_cropped:
+            out['distances'] = F.pad(out['distances'], (l, w - 1 - r, t, h - 1 - b), value=1.0)
+            assert out['distances'].shape[2] == h and out['distances'].shape[
+                3] == w, f"{out['distances'].shape}, {h}, {w}"
+
+        out['distances'] = out['distances'].squeeze(1)  # (B, 1, H, W) -> (B, H, W)
 
         ##### post-process normals
         if 'normals' in out:
@@ -112,7 +145,12 @@ class DEFImageRegression(LightningModule):
             self.model.eval()
 
         self._check_range(batch['distances'])
-        outputs = self.forward(batch['points'], clamp=False)
+        outputs = self.forward(batch['points'], clamp=False, pad_if_cropped=False)
+        if self.hparams.system.crop:
+            t, b, l, r = outputs['tblr']
+            batch['distances'] = batch['distances'][:, t:b + 1, l:r + 1].contiguous()
+            if 'background_mask' in batch:
+                batch['background_mask'] = batch['background_mask'][:, t:b + 1, l:r + 1].contiguous()
 
         loss = 0
         loss_dict = {}
@@ -176,10 +214,16 @@ class DEFImageRegression(LightningModule):
             self.q95rmse_all[partition][dataloader_idx].update(
                 result['distances'][i][foreground_mask].view(1, -1),
                 batch['distances'][i][foreground_mask].view(1, -1))
-            self.mrecall[partition][dataloader_idx].update(
+            self.mrecall_1r[partition][dataloader_idx].update(
+                result['distances'][i][foreground_mask].view(1, -1) < 1 * resolution,
+                batch['distances'][i][foreground_mask].view(1, -1) < 1 * resolution)
+            self.mfpr_1r[partition][dataloader_idx].update(
+                result['distances'][i][foreground_mask].view(1, -1) < 1 * resolution,
+                batch['distances'][i][foreground_mask].view(1, -1) < 1 * resolution)
+            self.mrecall_4r[partition][dataloader_idx].update(
                 result['distances'][i][foreground_mask].view(1, -1) < 4 * resolution,
                 batch['distances'][i][foreground_mask].view(1, -1) < 4 * resolution)
-            self.mfpr[partition][dataloader_idx].update(
+            self.mfpr_4r[partition][dataloader_idx].update(
                 result['distances'][i][foreground_mask].view(1, -1) < 4 * resolution,
                 batch['distances'][i][foreground_mask].view(1, -1) < 4 * resolution)
 
@@ -198,16 +242,28 @@ class DEFImageRegression(LightningModule):
                      self.q95rmse_all[partition][i].compute(),
                      prog_bar=True, logger=True)
 
-            self.mrecall[partition][i].recall_sum = self.mrecall[partition][i].recall_sum.to(self.device)
-            self.mrecall[partition][i].total = self.mrecall[partition][i].total.to(self.device)
-            self.log(f'mRecall/{dataset_name}',
-                     self.mrecall[partition][i].compute(),
+            self.mrecall_1r[partition][i].recall_sum = self.mrecall_1r[partition][i].recall_sum.to(self.device)
+            self.mrecall_1r[partition][i].total = self.mrecall_1r[partition][i].total.to(self.device)
+            self.log(f'mRecall(1r)/{dataset_name}',
+                     self.mrecall_1r[partition][i].compute(),
                      prog_bar=True, logger=True)
 
-            self.mfpr[partition][i].fpr_sum = self.mfpr[partition][i].fpr_sum.to(self.device)
-            self.mfpr[partition][i].total = self.mfpr[partition][i].total.to(self.device)
-            self.log(f'mFPR/{dataset_name}',
-                     self.mfpr[partition][i].compute(),
+            self.mfpr_1r[partition][i].fpr_sum = self.mfpr_1r[partition][i].fpr_sum.to(self.device)
+            self.mfpr_1r[partition][i].total = self.mfpr_1r[partition][i].total.to(self.device)
+            self.log(f'mFPR(1r)/{dataset_name}',
+                     self.mfpr_1r[partition][i].compute(),
+                     prog_bar=True, logger=True)
+
+            self.mrecall_4r[partition][i].recall_sum = self.mrecall_4r[partition][i].recall_sum.to(self.device)
+            self.mrecall_4r[partition][i].total = self.mrecall_4r[partition][i].total.to(self.device)
+            self.log(f'mRecall(4r)/{dataset_name}',
+                     self.mrecall_4r[partition][i].compute(),
+                     prog_bar=True, logger=True)
+
+            self.mfpr_4r[partition][i].fpr_sum = self.mfpr_4r[partition][i].fpr_sum.to(self.device)
+            self.mfpr_4r[partition][i].total = self.mfpr_4r[partition][i].total.to(self.device)
+            self.log(f'mFPR(4r)/{dataset_name}',
+                     self.mfpr_4r[partition][i].compute(),
                      prog_bar=True, logger=True)
 
     def validation_step(self, batch, batch_idx: int, *args):

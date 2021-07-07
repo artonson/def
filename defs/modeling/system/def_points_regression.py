@@ -43,24 +43,32 @@ class DEFPointsRegression(LightningModule):
         self.compute_metrics = self.hparams.datasets.compute_metrics
         mrmse_all: Dict[str, nn.ModuleList] = {}
         q95rmse_all: Dict[str, nn.ModuleList] = {}
-        mrecall: Dict[str, nn.ModuleList] = {}
-        mfpr: Dict[str, nn.ModuleList] = {}
+        mrecall_1r: Dict[str, nn.ModuleList] = {}
+        mfpr_1r: Dict[str, nn.ModuleList] = {}
+        mrecall_4r: Dict[str, nn.ModuleList] = {}
+        mfpr_4r: Dict[str, nn.ModuleList] = {}
         if self.compute_metrics and self.hparams.datasets.val is not None and len(self.hparams.datasets.val) > 0:
             mrmse_all['val'] = nn.ModuleList([MRMSE() for _ in range(len(self.hparams.datasets.val))])
             q95rmse_all['val'] = nn.ModuleList([Q95RMSE() for _ in range(len(self.hparams.datasets.val))])
-            mrecall['val'] = nn.ModuleList([MRecall() for _ in range(len(self.hparams.datasets.val))])
-            mfpr['val'] = nn.ModuleList([MFPR() for _ in range(len(self.hparams.datasets.val))])
+            mrecall_1r['val'] = nn.ModuleList([MRecall() for _ in range(len(self.hparams.datasets.val))])
+            mfpr_1r['val'] = nn.ModuleList([MFPR() for _ in range(len(self.hparams.datasets.val))])
+            mrecall_4r['val'] = nn.ModuleList([MRecall() for _ in range(len(self.hparams.datasets.val))])
+            mfpr_4r['val'] = nn.ModuleList([MFPR() for _ in range(len(self.hparams.datasets.val))])
         if self.compute_metrics and self.hparams.datasets.test is not None and len(self.hparams.datasets.test) > 0:
             mrmse_all['test'] = nn.ModuleList([MRMSE() for _ in range(len(self.hparams.datasets.test))])
             q95rmse_all['test'] = nn.ModuleList([Q95RMSE() for _ in range(len(self.hparams.datasets.test))])
-            mrecall['test'] = nn.ModuleList([MRecall() for _ in range(len(self.hparams.datasets.test))])
-            mfpr['test'] = nn.ModuleList([MFPR() for _ in range(len(self.hparams.datasets.test))])
+            mrecall_1r['test'] = nn.ModuleList([MRecall() for _ in range(len(self.hparams.datasets.test))])
+            mfpr_1r['test'] = nn.ModuleList([MFPR() for _ in range(len(self.hparams.datasets.test))])
+            mrecall_4r['test'] = nn.ModuleList([MRecall() for _ in range(len(self.hparams.datasets.test))])
+            mfpr_4r['test'] = nn.ModuleList([MFPR() for _ in range(len(self.hparams.datasets.test))])
 
-        if len(mrecall) > 0:
+        if len(mrecall_4r) > 0:
             self.mrmse_all = nn.ModuleDict(mrmse_all)
             self.q95rmse_all = nn.ModuleDict(q95rmse_all)
-            self.mrecall = nn.ModuleDict(mrecall)
-            self.mfpr = nn.ModuleDict(mfpr)
+            self.mrecall_1r = nn.ModuleDict(mrecall_1r)
+            self.mfpr_1r = nn.ModuleDict(mfpr_1r)
+            self.mrecall_4r = nn.ModuleDict(mrecall_4r)
+            self.mfpr_4r = nn.ModuleDict(mfpr_4r)
 
     def forward(self, x, clamp=True):
         out: Dict[str, torch.Tensor] = {}
@@ -140,8 +148,10 @@ class DEFPointsRegression(LightningModule):
         resolution = self.hparams.datasets.resolution_q
         self.mrmse_all[partition][dataloader_idx].update(result['distances'], batch['distances'])
         self.q95rmse_all[partition][dataloader_idx].update(result['distances'], batch['distances'])
-        self.mrecall[partition][dataloader_idx].update(result['distances'] < 4 * resolution, batch['distances'] < 4 * resolution)
-        self.mfpr[partition][dataloader_idx].update(result['distances'] < 4 * resolution, batch['distances'] < 4 * resolution)
+        self.mrecall_1r[partition][dataloader_idx].update(result['distances'] < 1 * resolution, batch['distances'] < 1 * resolution)
+        self.mfpr_1r[partition][dataloader_idx].update(result['distances'] < 1 * resolution, batch['distances'] < 1 * resolution)
+        self.mrecall_4r[partition][dataloader_idx].update(result['distances'] < 4 * resolution, batch['distances'] < 4 * resolution)
+        self.mfpr_4r[partition][dataloader_idx].update(result['distances'] < 4 * resolution, batch['distances'] < 4 * resolution)
 
 
     def _shared_eval_epoch_end(self, outputs, partition: str):
@@ -159,16 +169,28 @@ class DEFPointsRegression(LightningModule):
                      self.q95rmse_all[partition][i].compute(),
                      prog_bar=True, logger=True)
 
-            self.mrecall[partition][i].recall_sum = self.mrecall[partition][i].recall_sum.to(self.device)
-            self.mrecall[partition][i].total = self.mrecall[partition][i].total.to(self.device)
-            self.log(f'mRecall/{dataset_name}',
-                     self.mrecall[partition][i].compute(),
+            self.mrecall_1r[partition][i].recall_sum = self.mrecall_1r[partition][i].recall_sum.to(self.device)
+            self.mrecall_1r[partition][i].total = self.mrecall_1r[partition][i].total.to(self.device)
+            self.log(f'mRecall(1r)/{dataset_name}',
+                     self.mrecall_1r[partition][i].compute(),
                      prog_bar=True, logger=True)
 
-            self.mfpr[partition][i].fpr_sum = self.mfpr[partition][i].fpr_sum.to(self.device)
-            self.mfpr[partition][i].total = self.mfpr[partition][i].total.to(self.device)
-            self.log(f'mFPR/{dataset_name}',
-                     self.mfpr[partition][i].compute(),
+            self.mfpr_1r[partition][i].fpr_sum = self.mfpr_1r[partition][i].fpr_sum.to(self.device)
+            self.mfpr_1r[partition][i].total = self.mfpr_1r[partition][i].total.to(self.device)
+            self.log(f'mFPR(1r)/{dataset_name}',
+                     self.mfpr_1r[partition][i].compute(),
+                     prog_bar=True, logger=True)
+
+            self.mrecall_4r[partition][i].recall_sum = self.mrecall_4r[partition][i].recall_sum.to(self.device)
+            self.mrecall_4r[partition][i].total = self.mrecall_4r[partition][i].total.to(self.device)
+            self.log(f'mRecall(4r)/{dataset_name}',
+                     self.mrecall_4r[partition][i].compute(),
+                     prog_bar=True, logger=True)
+
+            self.mfpr_4r[partition][i].fpr_sum = self.mfpr_4r[partition][i].fpr_sum.to(self.device)
+            self.mfpr_4r[partition][i].total = self.mfpr_4r[partition][i].total.to(self.device)
+            self.log(f'mFPR(4r)/{dataset_name}',
+                     self.mfpr_4r[partition][i].compute(),
                      prog_bar=True, logger=True)
 
     def validation_step(self, batch, batch_idx: int, *args):

@@ -3,6 +3,9 @@
 system_class:
   _target_: defs.modeling.DEFImageRegression
 
+crop: false
+scale: 1.0
+
 eval_mode: false
 
 losses:
