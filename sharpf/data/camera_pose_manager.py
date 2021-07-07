@@ -1,3 +1,4 @@
+import warnings
 from abc import ABC, abstractmethod
 from itertools import product
 
@@ -5,6 +6,7 @@ import numpy as np
 
 from sharpf.data import DataGenerationException
 from sharpf.utils.camera_utils.camera_pose import CameraPose, create_rotation_matrix_z, rotate_to_world_origin
+from sharpf.utils.camera_utils.spherical_spiral_sampling import spherical_spiral_sampling
 from sharpf.utils.py_utils.config import load_func_from_config
 from sharpf.utils.camera_utils.fibonacci_sphere_sampling import fibonacci_sphere_sampling
 
@@ -58,6 +60,50 @@ class SphereOrientedToWorldOrigin(AbstractCameraPoseManager):
             for camera_origin in camera_origins
         ]
         self.current_transform_idx = 0
+
+
+class SphericalSpiralOrientedToWorldOrigin(AbstractCameraPoseManager):
+    def __init__(self, n_images, layer_radius, resolution, n_initial_samples, min_arc_length):
+        warnings.warn('n_images ignored')
+        super().__init__(n_images)
+        # parameters needed for the spiral
+        self.layer_radius = layer_radius
+        self.resolution = resolution
+        self.n_initial_samples = n_initial_samples
+        self.min_arc_length = min_arc_length
+
+    def prepare(self, mesh):
+        # precompute transformations from world frame to camera frame
+        # for all specified camera origins
+
+        # scanning radius is determined from the mesh extent
+        scanning_radius = np.max(mesh.bounding_box.extents)
+
+        # XYZ coordinates of camera frame origin in world frame
+        camera_origins = spherical_spiral_sampling(
+            sphere_radius=scanning_radius,
+            layer_radius=self.layer_radius,
+            resolution=self.resolution,
+            n_initial_samples=self.n_initial_samples,
+            min_arc_length=self.min_arc_length)
+
+        # creating transforms matrices
+        self.camera_poses = [
+            CameraPose.from_camera_axes(
+                R=rotate_to_world_origin(camera_origin),
+                t=camera_origin)
+            for camera_origin in camera_origins
+        ]
+        self.current_transform_idx = 0
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(
+            config['n_images'],
+            config['layer_radius'],
+            config['resolution'],
+            config['n_initial_samples'],
+            config['min_arc_length'])
 
 
 class ZRotationInCameraFrame(AbstractCameraPoseManager):
@@ -141,6 +187,7 @@ class CompositePoseManager(AbstractCameraPoseManager):
 POSE_MANAGER_BY_TYPE = {
     'composite': CompositePoseManager,
     'sphere_to_origin': SphereOrientedToWorldOrigin,
+    'sphere_spiral_to_origin': SphericalSpiralOrientedToWorldOrigin,
     'z_rotation': ZRotationInCameraFrame,
     'xy_translation': XYTranslationInCameraFrame,
 }

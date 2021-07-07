@@ -54,14 +54,17 @@ python ${FILTER_SAMPLE_SCRIPT} \
   --verbose \
   --input ${} \
   --output ${} \
-  --resolution_3d ${} \
-  --distances_near_thr_factor ${} \
-  --knn_radius_factor ${} \
-  --min_cc_points_to_keep ${} \
-  --subsample_rate ${}
+  --config ${}
 
 python ${DETECT_CORNERS_SCRIPT} \
   --verbose \
   --input ${} \
+  --output ${} \
+  --config ${}
+
+python ${INIT_TOPOGRAPH_SCRIPT} \
+  --verbose \
+  --input ${} \
+  --corners ${} \
   --output ${} \
   --config ${}
