@@ -38,7 +38,7 @@ TRANSFORM_TYPE=depth-regression-arbitrary
 SYSTEM=def-image-regression
 CHECKPOINT=
 
-while getopts "i:o:vt:d:c:m:l:" opt
+while getopts "i:o:vt:d:c:m:s:l:" opt
 do
     case ${opt} in
         i) INPUT_PATH_HOST=$OPTARG;;
@@ -47,6 +47,7 @@ do
         d) DATA_READER_TYPE=$OPTARG;;
         c) CHECKPOINT=$OPTARG;;
         m) MODEL_TYPE=$OPTARG;;
+        s) SYSTEM=$OPTARG;;
         l) LOGS_PATH_HOST=$OPTARG;;
         v) VERBOSE=true;;
         *) usage; exit 1 ;;
