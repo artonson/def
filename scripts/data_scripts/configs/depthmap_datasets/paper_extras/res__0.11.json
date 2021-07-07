@@ -4,18 +4,19 @@
   "base_n_points_per_short_curve": 8,
   "base_resolution_3d": 0.125,
   "camera_pose": {
-    "type": "sphere_spiral_to_origin",
-    "n_images": 0,
-    "layer_radius": 0.1,
-    "resolution": 0.01,
-    "n_initial_samples": 1024,
-    "min_arc_length": 0
+    "type": "composite",
+    "sequences": [
+      {
+        "type": "sphere_to_origin",
+        "n_images": 4
+      }
+    ]
   },
   "imaging": {
     "type": "raycasting",
     "projection": "ortho",
     "resolution_image": 512,
-    "resolution_3d": 0.02,
+    "resolution_3d": 0.11,
     "fov": [115, 85, 80],
     "validate_image": true
   },
@@ -26,8 +27,7 @@
   },
   "annotation": {
     "type": "surface_based_aabb",
-    "distance_upper_bound": 1.0,
-    "distance_computation_method": "geom"
+    "distance_upper_bound": 1.0
   },
   "smell_coarse_surfaces_by_num_edges": {
     "num_edges_threshold": 8
