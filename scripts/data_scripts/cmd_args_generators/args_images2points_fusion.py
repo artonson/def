@@ -17,14 +17,20 @@ def main():
         for line in f:
             line = line.strip()
             gt_path, symlink_path = line.split(" ")
-            symlink_path = str(pathlib.Path().relative_to("/gpfs/gpfs0/3ddl/sharp_features/images2points/for_model"))
+            symlink_path = str(pathlib.Path(symlink_path).relative_to("/gpfs/gpfs0/3ddl/sharp_features/images2points/for_model"))
             symlink_path = symlink_path.replace("_res_whole.json", "")
             symlink_path = symlink_path.replace(".hdf5", "")
+
+            outdir = pathlib.Path(os.path.join(fusion_prefix, symlink_path))
+            try:
+                outdir.mkdir(parents=True, exist_ok=False)
+            except FileExistsError:
+                pass
 
             arguments.append((
                 gt_path, 
                 os.path.join(predicts_prefix, symlink_path), 
-                os.path.join(fusion_prefix, symlink_path),
+                str(outdir),
             ))
 
     with open(output_file, "w") as f:
