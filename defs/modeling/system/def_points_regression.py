@@ -192,6 +192,7 @@ class DEFPointsRegression(LightningModule):
             self.log(f'mFPR(4r)/{dataset_name}',
                      self.mfpr_4r[partition][i].compute(),
                      prog_bar=True, logger=True)
+        return {}
 
     def validation_step(self, batch, batch_idx: int, *args):
         dataloader_idx = args[0] if len(args) == 1 else 0
@@ -201,22 +202,33 @@ class DEFPointsRegression(LightningModule):
         dataloader_idx = args[0] if len(args) == 1 else 0
         return self._shared_eval_step(batch, batch_idx, dataloader_idx, 'test')
 
+    def train_epoch_end(self, outputs):
+        if self.datasets['train'] is not None:
+            for _, dataset in self.datasets['train']:
+                dataset.unload()
+
     def validation_epoch_end(self, outputs):
+        if self.datasets['val'] is not None:
+            for _, dataset in self.datasets['val']:
+                dataset.unload()
         return self._shared_eval_epoch_end(outputs, 'val')
 
     def test_epoch_end(self, outputs):
-        return self._shared_eval_epoch_end(outputs, 'test')
-
-    def on_fit_end(self, *args, **kwargs):
-        for stage in ['train', 'val']:
-            if self.datasets[stage] is not None:
-                for _, dataset in self.datasets[stage]:
-                    dataset.unload()
-
-    def on_test_end(self, *args, **kwargs):
         if self.datasets['test'] is not None:
             for _, dataset in self.datasets['test']:
                 dataset.unload()
+        return self._shared_eval_epoch_end(outputs, 'test')
+
+    # def on_fit_end(self, *args, **kwargs):
+    #     for stage in ['train', 'val']:
+    #         if self.datasets[stage] is not None:
+    #             for _, dataset in self.datasets[stage]:
+    #                 dataset.unload()
+    #
+    # def on_test_end(self, *args, **kwargs):
+    #     if self.datasets['test'] is not None:
+    #         for _, dataset in self.datasets['test']:
+    #             dataset.unload()
 
     def configure_optimizers(self):
         params = get_params_for_optimizer(self.model, self.hparams.opt.lr, self.hparams.opt.weight_decay,

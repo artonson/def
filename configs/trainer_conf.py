@@ -8,7 +8,7 @@ cs = ConfigStore.instance()
 
 @dataclass
 class LightningTrainerConf:
-    accelerator: Optional[str] = None
+    # accelerator: Optional[str] = None
     accumulate_grad_batches: Any = 1
     amp_backend: str = 'native'
     amp_level: str = 'O2'
@@ -21,14 +21,14 @@ class LightningTrainerConf:
     default_root_dir: Optional[str] = None
     deterministic: bool = False
     fast_dev_run: bool = False
-    flush_logs_every_n_steps: int = 100
+    # flush_logs_every_n_steps: int = 100
     gpus: Optional[Any] = None
     gradient_clip_val: float = 0
     limit_train_batches: float = 1.0
     limit_val_batches: float = 1.0
     limit_test_batches: float = 1.0
     log_gpu_memory: Optional[str] = None
-    log_every_n_steps: int = 50
+    # log_every_n_steps: int = 50
     prepare_data_per_node: bool = True
     process_position: int = 0
     progress_bar_refresh_rate: int = 1
@@ -57,10 +57,10 @@ class LightningTrainerConf:
 
 @dataclass
 class LightningTrainerProjectConf(LightningTrainerConf):
-    accelerator: Optional[str] = 'ddp'
+    # accelerator: Optional[str] = 'ddp'
     log_gpu_memory: Optional[str] = 'min_max'
-    log_every_n_steps: int = 5
-    profiler: Any = 'simple'
+    # log_every_n_steps: int = 5
+    # profiler: Any = 'simple'
     num_sanity_val_steps: int = 0
     sync_batchnorm: bool = True
 
