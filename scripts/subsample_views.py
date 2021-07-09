@@ -83,7 +83,8 @@ def main(options):
     if os.path.isdir(options.pred_dir):
         convert_npylist_to_hdf5(options.pred_dir, gt_images, predictions_filename_samedir)
     else:
-        os.symlink(options.pred_dir, predictions_filename_samedir)
+        if not os.path.exists(predictions_filename_samedir):
+            os.symlink(options.pred_dir, predictions_filename_samedir)
     predictions_dataset = Hdf5File(
         predictions_filename_samedir,
         io=sharpf_io.WholeDepthMapIO,
