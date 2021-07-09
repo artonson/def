@@ -109,7 +109,7 @@ def parse_args():
     parser.add_argument('-o', '--output-dir', dest='output_dir', required=True,
                         help='Path to output (suffixes indicating various methods will be added).')
 
-    parser.add_argument('-n', '--n_views', dest='n_views', default=4,
+    parser.add_argument('-n', '--n_views', dest='n_views', default=4, type=int,
                         required=False, help='number of views to use for fusion.')
     parser.add_argument('-r', '--resolution_3d', dest='resolution_3d', required=False, default=0.02, type=float,
                         help='3D resolution of scans.')
