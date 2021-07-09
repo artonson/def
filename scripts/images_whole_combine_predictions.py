@@ -307,7 +307,10 @@ def main(options):
     predictions_filename = os.path.join(
         options.output_dir,
         '{}__{}.hdf5'.format(name, 'predictions'))
-    convert_npylist_to_hdf5(options.pred_dir, gt_images, predictions_filename)
+    if os.path.isdir(options.pred_dir):
+        convert_npylist_to_hdf5(options.pred_dir, gt_images, predictions_filename)
+    else:
+        os.symlink(options.pred_dir, predictions_filename)
     predictions_dataset = Hdf5File(
         predictions_filename,
         io=sharpf_io.WholeDepthMapIO,
