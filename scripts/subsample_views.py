@@ -72,7 +72,7 @@ def main(options):
 
     print('Saving ground truth data...')
     gt_dataset = [gt_dataset[i] for i in views_indexes]
-    sharpf_io.save_whole_images(
+    sharpf_io.save_depth_maps(
         gt_dataset,
         os.path.join(options.output_dir, os.path.basename(options.true_filename)))
 
