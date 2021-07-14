@@ -25,12 +25,14 @@ def main():
                 outdir.mkdir(parents=True, exist_ok=False)
             except FileExistsError:
                 pass
-
-            arguments.append((
-                gt_path, 
-                os.path.join(predicts_prefix, symlink_path), 
-                str(outdir),
-            ))
+            
+            predict_path = os.path.join(predicts_prefix, symlink_path)
+            if os.path.exists(predict_path):
+                arguments.append((
+                    gt_path, 
+                    predict_path, 
+                    str(outdir),
+                ))
 
     with open(output_file, "w") as f:
         for args in arguments:
