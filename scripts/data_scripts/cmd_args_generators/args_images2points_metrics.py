@@ -12,11 +12,16 @@ def main():
             line = line.rstrip()
             path = line.split(" ")[2]
             fused_paths.append(path)
-    for path in fused_paths:
-        path_obj = pathlib,Path(path)
-        print(path_obj.name)
-        print([x for x in os.listdir(path_obj) if ".hdf5" in x])
-        print("\n")
 
+    mv_args = []
+    for path in fused_paths:
+        path_obj = pathlib.Path(path)
+        hdf5_src = [path_obj / x for x in os.listdir(path_obj) if ".hdf5" in x]
+        hdf5_dst = [path_obj / x.replace("patches", path_obj.name) for x in os.listdir(path_obj) if ".hdf5" in x]
+        mv_args.extend(*zip(hdf5_src, hdf5_dst))
+
+    for pair in mv_args:
+        print(pair, "\n")
+        
 if __name__ == "__main__":
     main()
