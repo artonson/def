@@ -46,7 +46,7 @@ def move_input():
 
 
 
-def main():
+def create_args():
     fused_paths = []
     with open(FUSION_PARAMETERS, "r") as f:
         for line in f:
