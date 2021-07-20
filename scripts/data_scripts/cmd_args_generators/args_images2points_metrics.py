@@ -38,7 +38,7 @@ def move_input():
         path_obj = pathlib.Path(path)
         hdf5_src = path_obj
         hdf5_dst = str(path_obj).replace("/patches", "")
-        mv_args.append(hdf5_src, hdf5_dst)
+        mv_args.append((hdf5_src, hdf5_dst, ))
 
     for pair in mv_args:
         if not os.path.exists(str(pair[1])):
