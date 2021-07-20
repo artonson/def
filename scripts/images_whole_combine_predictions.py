@@ -260,7 +260,10 @@ def multi_view_interpolate_predictions_by_single_view(
     n_images = len(images)
 
     for t in range(n_images):
-        indexes = slice(point_indexes[t-1], point_indexes[t])
+
+        start_idx, end_idx = (0, point_indexes[t]) if 0 == t else (point_indexes[t - 1], point_indexes[t])
+        indexes = slice(start_idx, end_idx)
+
         view_t = get_view_local(t)
         data_iterable = (
             (s, t, get_view_local(s), view_t, point_indexes, config)
@@ -384,6 +387,8 @@ def main(options):
 
 
     if options.save_single_views:
+        from collections import defaultdict
+        fused_points_pred_view, fused_distances_pred_view = defaultdict(list), defaultdict(list)
         for t, (indexes, list_predictions, list_indexes_in_whole, list_points) in enumerate(multi_view_interpolate_predictions_by_single_view(
                 gt_images, pred_distances, gt_extrinsics, gt_intrinsics, **config)):
             print('Obtained view synthesis results for view {}'.format(t))
@@ -401,10 +406,27 @@ def main(options):
                     fused_points_pred[indexes],
                     fused_distances_pred[indexes],
                     pred_output_filename)
+                fused_points_pred_view[combiner.tag].append(fused_points_pred[indexes])
+                fused_distances_pred_view[combiner.tag].append(fused_distances_pred[indexes])
+                # print(fused_points_pred[indexes].shape, fused_distances_pred[indexes].shape)
+
+        for combiner in combiners:
+            print('Concatenating into final result for {}'.format(combiner.tag))
+            fused_points_pred = np.concatenate(fused_points_pred_view[combiner.tag])
+            fused_distances_pred = np.concatenate(fused_distances_pred_view[combiner.tag])
+            print(fused_points_pred.shape, fused_distances_pred.shape)
+            pred_output_filename = os.path.join(
+                options.output_dir,
+                '{}__{}.hdf5'.format(name, combiner.tag))
+            print('Saving preds to {}'.format(pred_output_filename))
+            save_full_model_predictions(
+                fused_points_pred,
+                fused_distances_pred,
+                pred_output_filename)
 
     else:
         list_predictions, list_indexes_in_whole, list_points = multi_view_interpolate_predictions(
-            gt_images, pred_distances, gt_extrinsics, gt_intrinsics, **config):
+            gt_images, pred_distances, gt_extrinsics, gt_intrinsics, **config)
 
         for combiner in combiners:
             print('Fusing predictions...')
