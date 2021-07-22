@@ -67,7 +67,7 @@ def main(options):
             mrmse,
             q95rmse,
         ]
-    thresh_4r = options.resolution_3d * 4
+    thresh_r = options.resolution_3d * options.resolution_multiplier
     for idx, (true_item, pred_item) in enumerate(zip(true_distances, pred_distances)):
         print(idx)
         for metric in metrics:
@@ -172,6 +172,12 @@ def parse_args():
         default='distances',
         type=str,
         help='key to use as predictions.')
+   parser.add_argument(
+        '-rm', '--resolution_multiplier',
+        dest='resolution_multiplier',
+        default=1,
+        type=int,
+        help='resolution multiplier for the probability thresholding')
 
     return parser.parse_args()
 

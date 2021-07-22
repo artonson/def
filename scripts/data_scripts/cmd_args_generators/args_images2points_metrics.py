@@ -17,12 +17,13 @@ def move_predicts():
     for path in fused_paths:
         path_obj = pathlib.Path(path)
         hdf5_src = [path_obj / x for x in os.listdir(path_obj) if ".hdf5" in x]
-        hdf5_dst = [path_obj / x.replace("patches", path_obj.name) for x in os.listdir(path_obj) if ".hdf5" in x]
+        hdf5_dst = [path_obj / "def" / x.replace("patches", path_obj.name) for x in os.listdir(path_obj) if ".hdf5" in x]
         mv_args.extend(zip(hdf5_src, hdf5_dst))
 
     for pair in mv_args:
         if not os.path.exists(str(pair[1])):
-            os.symlink(str(pair[0]), str(pair[1]))
+            pair[1].parents[0].mkdir(parents=True, exist_ok=True)
+            pair[1].symlink_to(str(pair[0]))
 
 
 def move_input():
@@ -46,7 +47,7 @@ def move_input():
 
 
 
-def main():
+def create_args():
     fused_paths = []
     with open(FUSION_PARAMETERS, "r") as f:
         for line in f:
