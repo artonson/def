@@ -2,6 +2,7 @@ from collections import defaultdict
 from copy import deepcopy
 
 import numpy as np
+import trimesh.base
 
 from sharpf.utils.abc_utils.mesh.indexing import reindex_array, reindex_zerobased
 
@@ -266,6 +267,30 @@ def get_sharp_edge_endpoints(mesh, features):
 
     sharp_edges = mesh.vertices[sharp_edge_indexes]
     return sharp_edges
+
+
+def get_sharp_edge_endpoints_degen(mesh, features):
+    """For computing distances using
+    https://libigl.github.io/libigl-python-bindings/igl_docs/#point_mesh_squared_distance."""
+    sharp_edge_indexes = np.concatenate([
+        mesh.edges_unique[
+            np.where(
+                np.all(np.isin(mesh.edges_unique, curve['vert_indices']), axis=1)
+            )[0]
+        ]
+        for curve in features['curves'] if curve['sharp']])
+
+    sharp_vert_indexes = np.unique(sharp_edge_indexes)
+    sharp_edge_indexes = reindex_array(sharp_edge_indexes, sharp_vert_indexes)
+    sharp_edge_vertices = mesh.vertices[sharp_vert_indexes]
+    sharp_face_indexes = np.hstack((sharp_edge_indexes, np.atleast_2d(sharp_edge_indexes[:, 1]).T))
+
+    edge_pseudo_mesh = trimesh.base.Trimesh(
+        vertices=sharp_edge_vertices,
+        faces=sharp_face_indexes,
+        process=False,
+        validate=False)
+    return edge_pseudo_mesh
 
 
 def get_corner_vertex_indexes(features):

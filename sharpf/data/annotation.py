@@ -7,6 +7,7 @@ import sharpf.utils.abc_utils.abc.feature_utils as features
 from sharpf.utils.abc_utils.mesh.indexing import in2d
 import sharpf.utils.geometry_utils.aabb as aabb
 import sharpf.utils.geometry_utils.geometry as geom
+import sharpf.utils.geometry_utils.igl_wrapper as igl_wrapper
 
 
 def compute_bounded_labels(
@@ -132,9 +133,14 @@ class AABBSurfacePatchAnnotator(AnnotatorFunc):
         projections, distances, _ = self.flat_annotation(points)
 
         if self.distance_computation_method == 'aabb':
-            pointset_edgeset_distances_projections = aabb.pointset_edgeset_distances_projections
+            pointset_edgeset_distances_projections_fn = aabb.pointset_edgeset_distances_projections
+            sharp_edges_repr_fn = features.get_sharp_edge_endpoints
         elif self.distance_computation_method == 'geom':
-            pointset_edgeset_distances_projections = geom.parallel_pointset_edgeset_projections
+            pointset_edgeset_distances_projections_fn = geom.parallel_pointset_edgeset_projections
+            sharp_edges_repr_fn = features.get_sharp_edge_endpoints
+        elif self.distance_computation_method == 'igl':
+            pointset_edgeset_distances_projections_fn = igl_wrapper.pointset_edgeset_distances_projections
+            sharp_edges_repr_fn = features.get_sharp_edge_endpoints_degen
         else:
             raise ValueError('distance_computation_method unknown')
 
@@ -164,10 +170,10 @@ class AABBSurfacePatchAnnotator(AnnotatorFunc):
             if len(points_indexes) == 0:
                 continue
 
-            sharp_edges = features.get_sharp_edge_endpoints(
+            sharp_edges = sharp_edges_repr_fn(
                 mesh_patch,
                 surface_adjacent_features)
-            surface_distances, surface_projections = pointset_edgeset_distances_projections(
+            surface_distances, surface_projections = pointset_edgeset_distances_projections_fn(
                 points[points_indexes],
                 sharp_edges)
             distances[points_indexes], projections[points_indexes] = \
