@@ -108,6 +108,7 @@ def get_annotated_patches(item, config):
     for pose_idx, camera_pose in enumerate(pose_manager):
         eprint_t("Computing images from pose {pose_idx}".format(pose_idx=pose_idx))
 
+        eprint_t("  getting image")
         # extract neighbourhood
         try:
             image, points, normals, mesh_face_indexes = \
@@ -115,7 +116,9 @@ def get_annotated_patches(item, config):
         except DataGenerationException as e:
             eprint_t(str(e))
             continue
+        eprint_t("  done")
 
+        eprint_t("  processing features")
         nbhood, mesh_vertex_indexes, mesh_face_indexes = \
             feature_utils.submesh_from_hit_surfaces(mesh, features, mesh_face_indexes)
 
@@ -131,6 +134,7 @@ def get_annotated_patches(item, config):
 
         # remove vertices lying on the boundary (sharp edges found in 1 face only)
         nbhood_features = feature_utils.remove_boundary_features(nbhood, nbhood_features, how='edges')
+        eprint_t("  done")
 
         # create a noisy sample
         for configuration, noisy_points in noiser.make_noise(
@@ -139,12 +143,14 @@ def get_annotated_patches(item, config):
                 z_direction=np.array([0., 0., -1.])):
 
             # compute the TSharpDF
+            eprint_t("  annotating")
             try:
                 distances, directions, has_sharp = annotator.annotate(
                     nbhood, nbhood_features, camera_pose.camera_to_world(noisy_points))
             except DataGenerationException as e:
                 eprint_t(str(e))
                 continue
+            eprint_t("  done")
 
             try:
                 has_smell_sharpness_discontinuities = smell_sharpness_discontinuities.run(noisy_points, distances)
@@ -152,6 +158,7 @@ def get_annotated_patches(item, config):
                 eprint_t(str(e))
                 continue
 
+            eprint_t("  preparing to save")
             # convert everything to images
             ray_indexes = np.where(image.ravel() != 0)[0]
             noisy_image = imaging.points_to_image(noisy_points, ray_indexes)
@@ -186,6 +193,7 @@ def get_annotated_patches(item, config):
                 'has_smell_depth_discontinuity': has_smell_depth_discontinuity,
                 'has_smell_mesh_self_intersections': has_smell_mesh_self_intersections,
             }
+            eprint_t("  done")
             yield configuration, patch_info
 
 

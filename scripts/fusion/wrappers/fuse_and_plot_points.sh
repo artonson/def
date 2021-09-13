@@ -1,15 +1,16 @@
 #!/bin/bash
 
-# set -x 
+set -x 
 
 # /mnt/ssd/artonson/def_predictions/data_rw_siggraph/images_aligninf_partmesh_whole_testonly/amed
 FUSE_SCRIPT=/code/scripts/fusion/fuse_points.py
 FUSION_ANALYSIS_SCRIPT=/code/scripts/fusion/fusion_analysis.py
 PLOT_SNAPSHOTS_SCRIPT=/code/scripts/plot_snapshots.py
-COMPUTE_METRICS_SCRIPT=/code/scripts/compute_metrics.py
+COMPUTE_METRICS_SCRIPT=/code/scripts/compute_metrics_ruslan.py
 
 
-DATASETS="points_align4mm_partmesh_whole"
+#DATASETS="points_align4mm_partmesh_whole"
+DATASETS="points_aligninf_partmesh_whole_testonly"
 
 awk_compute_mean_std() {
     in_dir=$1
@@ -22,13 +23,33 @@ awk_compute_mean_std() {
         | awk -F, '{sum+=$2; sumsq+=$2*$2} END {print "mq95RMSE-ALL=" sum/NR " +/- " sqrt(sumsq/NR - (sum/NR)*(sum/NR))}'
 
     tail -q -n+2 ${in_dir}/*${mask}.txt \
+        | grep -v nan \
         | awk -F, '{sum+=$3; sumsq+=$3*$3} END {print "mBadPoints(0.5)-Close-Sharp=" sum/NR " +/- " sqrt(sumsq/NR - (sum/NR)*(sum/NR))}'
 
     tail -q -n+2 ${in_dir}/*${mask}.txt \
+        | grep -v nan \
         | awk -F, '{sum+=$4; sumsq+=$4*$4} END {print "mBadPoints(2)-Close-Sharp=" sum/NR " +/- " sqrt(sumsq/NR - (sum/NR)*(sum/NR))}'
 
     tail -q -n+2 ${in_dir}/*${mask}.txt \
-        | awk -F, '{sum+=$5; sumsq+=$5*$5} END {print "mIOU-Sharp=" sum/NR " +/- " sqrt(sumsq/NR - (sum/NR)*(sum/NR))}'
+        | grep -v nan \
+        | awk -F, '{sum+=$5; sumsq+=$5*$5} END {print "mIOU(0.5)-Sharp=" sum/NR " +/- " sqrt(sumsq/NR - (sum/NR)*(sum/NR))}'
+
+    tail -q -n+2 ${in_dir}/*${mask}.txt \
+        | grep -v nan \
+        | awk -F, '{sum+=$6; sumsq+=$6*$6} END {print "mIOU(2)-Sharp=" sum/NR " +/- " sqrt(sumsq/NR - (sum/NR)*(sum/NR))}'
+
+    tail -q -n+2 ${in_dir}/*${mask}.txt \
+        | grep -v nan \
+        | awk -F, '{sum+=$7; sumsq+=$7*$7} END {print "AP-Sharp=" sum/NR " +/- " sqrt(sumsq/NR - (sum/NR)*(sum/NR))}'
+
+    tail -q -n+2 ${in_dir}/*${mask}.txt \
+        | grep -v nan \
+        | awk -F, '{sum+=$8; sumsq+=$8*$8} END {print "FPR(0.5)-Far-ALL=" sum/NR " +/- " sqrt(sumsq/NR - (sum/NR)*(sum/NR))}'
+
+    tail -q -n+2 ${in_dir}/*${mask}.txt \
+        | grep -v nan \
+        | awk -F, '{sum+=$9; sumsq+=$9*$9} END {print "FPR(2)-Far-ALL=" sum/NR " +/- " sqrt(sumsq/NR - (sum/NR)*(sum/NR))}'
+
 }
 
 for gt_dataset in ${DATASETS}
@@ -48,18 +69,24 @@ do
     dataset_fused_pred_adv60__metrics="${output_path_config}/adv60__metrics__fusion.txt"
     dataset_fused_pred_linreg__metrics="${output_path_config}/linreg__metrics__fusion.txt"
 
+    true_arg_v1=""
+    pred_arg_v1=""
+    true_arg_v2=""
+    pred_arg_v2=""
+    true_arg_v3=""
+    pred_arg_v3=""
     for f in $( ls -1 ${INPUT_DIR_GT} )
     do
         patches_gt="/data/${gt_dataset}/test/${f}"
         patches_pred_dir="${INPUT_DIR_PRED}/$( basename "$f" .hdf5)/predictions/"
 
-         ${FUSE_SCRIPT} \
-            -t "${patches_gt}" \
-            -p "${patches_pred_dir}" \
-            -o ${output_path_config} \
-            -j 36 \
-            -s 10.0 \
-            -r 10.0
+        ${FUSE_SCRIPT} \
+           -t "${patches_gt}" \
+           -p "${patches_pred_dir}" \
+           -o ${output_path_config} \
+           -j 36 \
+           -s 10.0 \
+           -r 10.0
 
         patches_pred="${output_path_config}/$( basename "$f" .hdf5)__predictions.hdf5"
         patches__metrics="${output_path_config}/$( basename "$f" .hdf5)__metrics__patches.txt"
@@ -80,6 +107,10 @@ do
 
         fused_snapshot="${output_path_config}/$( basename "$f" .hdf5).html"
 
+        if [[ -f ${fused_pred_min} ]]; then true_arg_v1="${true_arg_v1} -t ${fused_gt}"; pred_arg_v1="${pred_arg_v1} -p ${fused_pred_min}"; fi
+        if [[ -f ${fused_pred_adv60} ]]; then true_arg_v2="${true_arg_v2} -t ${fused_gt}"; pred_arg_v2="${pred_arg_v2} -p ${fused_pred_adv60}"; fi
+        if [[ -f ${fused_pred_linreg} ]]; then true_arg_v3="${true_arg_v3} -t ${fused_gt}"; pred_arg_v3="${pred_arg_v3} -p ${fused_pred_linreg}"; fi
+
 
         python ${FUSION_ANALYSIS_SCRIPT} \
             -t "${fused_gt}" \
@@ -93,7 +124,7 @@ do
             -t "${fused_gt}" \
             -p "${fused_pred_linreg}" \
             -o "${fused_pred_linreg_absdiff}"
-
+ 
         python ${PLOT_SNAPSHOTS_SCRIPT} \
             -i "${fused_gt}" \
             -i "${fused_pred_min}" \
@@ -111,46 +142,64 @@ do
             -icm plasma \
             -o "${fused_snapshot}" \
             -s 11.0 -ps 1.25 -ph flat &
-
-        python ${COMPUTE_METRICS_SCRIPT} \
-            -t "${patches_gt}" \
-            -p "${patches_pred}" \
-            -r 0.5 -s 10.0 -sv \
-            >"${patches__metrics}" &
-
+ 
+#       python ${COMPUTE_METRICS_SCRIPT} \
+#           -t "${patches_gt}" \
+#           -p "${patches_pred}" \
+#           -r 0.5 -s 10.0 -sp \
+#           >"${patches__metrics}" 
+ 
         python ${COMPUTE_METRICS_SCRIPT} \
             -t "${fused_gt}" \
             -p "${fused_pred_adv60}" \
             -r 0.5 -s 10.0 \
             >"${fused_pred_adv60__metrics}" &
-
+ 
         python ${COMPUTE_METRICS_SCRIPT} \
             -t "${fused_gt}" \
             -p "${fused_pred_min}" \
             -r 0.5 -s 10.0 \
             >"${fused_pred_min__metrics}" &
-
+ 
         python ${COMPUTE_METRICS_SCRIPT} \
             -t "${fused_gt}" \
             -p "${fused_pred_linreg}" \
             -r 0.5 -s 10.0 \
             >"${fused_pred_linreg__metrics}" &
 
+#       exit 0
     done
 
-    wait
+    python ${COMPUTE_METRICS_SCRIPT} \
+        ${true_arg_v1} \
+        ${pred_arg_v1} \
+        -r 0.5 -s 10.0 \
+        >"${dataset_fused_pred_min__metrics}" &
+    
+    python ${COMPUTE_METRICS_SCRIPT} \
+        ${true_arg_v2} \
+        ${pred_arg_v2} \
+        -r 0.5 -s 10.0 \
+        >"${dataset_fused_pred_adv60__metrics}" &
 
-    awk_compute_mean_std ${output_path_config} __metrics__patches \
-        >${dataset_views__metrics}
+    python ${COMPUTE_METRICS_SCRIPT} \
+        ${true_arg_v3} \
+        ${pred_arg_v3} \
+        -r 0.5 -s 10.0 \
+        >"${dataset_fused_pred_linreg__metrics}" &
 
-    awk_compute_mean_std ${output_path_config} __min__metrics \
-        >${dataset_fused_pred_min__metrics}
-
-    awk_compute_mean_std ${output_path_config} __adv60__metrics \
-        >${dataset_fused_pred_adv60__metrics}
-
-    awk_compute_mean_std ${output_path_config} __linreg__metrics \
-        >${dataset_fused_pred_linreg__metrics}
+#   awk_compute_mean_std ${output_path_config} __metrics__patches \
+#       >${dataset_views__metrics}
+#
+#   awk_compute_mean_std ${output_path_config} __min__metrics \
+#       >${dataset_fused_pred_min__metrics}
+#
+#   awk_compute_mean_std ${output_path_config} __adv60__metrics \
+#       >${dataset_fused_pred_adv60__metrics}
+#
+#   awk_compute_mean_std ${output_path_config} __linreg__metrics \
+#       >${dataset_fused_pred_linreg__metrics}
 
 done
 
+wait

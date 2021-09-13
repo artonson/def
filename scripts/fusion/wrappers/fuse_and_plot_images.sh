@@ -4,14 +4,19 @@
 
 # /mnt/ssd/artonson/def_predictions/data_rw_siggraph/images_aligninf_partmesh_whole_testonly/amed
 
-#DATASETS="images_align4mm_fullmesh_whole
-#images_align4mm_fullmesh_whole_testonly
-#images_align4mm_partmesh_whole
-#images_align4mm_partmesh_whole_testonly
-#images_aligninf_fullmesh_whole
-#images_aligninf_fullmesh_whole_testonly
-#images_aligninf_partmesh_whole
-#images_aligninf_partmesh_whole_testonly"
+FUSE_SCRIPT=/code/scripts/fusion/fuse_images.py
+FUSION_ANALYSIS_SCRIPT=/code/scripts/fusion/fusion_analysis.py
+PLOT_SNAPSHOTS_SCRIPT=/code/scripts/plot_snapshots.py
+COMPUTE_METRICS_SCRIPT=/code/scripts/compute_metrics_ruslan.py
+
+DATASETS="images_align4mm_fullmesh_whole
+images_align4mm_fullmesh_whole_testonly
+images_align4mm_partmesh_whole
+images_align4mm_partmesh_whole_testonly
+images_aligninf_fullmesh_whole
+images_aligninf_fullmesh_whole_testonly
+images_aligninf_partmesh_whole
+images_aligninf_partmesh_whole_testonly"
 
 #DATASETS="images_align4mm_fullmesh_whole"
 
@@ -36,9 +41,9 @@
 #images_align4mm_partmesh_whole
 #images_align4mm_partmesh_whole_testonly"
 
-DATASETS="images_align4mm_fullmesh_whole"
-VIEWS_DATASET="images_align4mm_fullmesh_whole"
-FUSED_DATASET="images_align4mm_fullmesh_whole"
+#DATASETS="images_align4mm_fullmesh_whole"
+#VIEWS_DATASET="images_align4mm_fullmesh_whole"
+#FUSED_DATASET="images_align4mm_fullmesh_whole"
 
 CONFIGS="real_images_base.yml"
 
@@ -87,21 +92,27 @@ do
         dataset_fused_pred_adv60__metrics="${output_path_config}/adv60__metrics__fusion.txt"
         dataset_fused_pred_linreg__metrics="${output_path_config}/linreg__metrics__fusion.txt"
 
+        true_arg_v1=""
+        pred_arg_v1=""
+        true_arg_v2=""
+        pred_arg_v2=""
+        true_arg_v3=""
+        pred_arg_v3=""
         for f in $( ls -1 ${INPUT_DIR_GT} )
         do
             # views_gt="${INPUT_DIR_GT}/$f"
-            views_gt="/data/${VIEWS_DATASET}/test/${f}"
+            views_gt="/data/${gt_dataset}/test/${f}"
             views_pred_dir="${INPUT_DIR_PRED}/$( basename $f .hdf5)/predictions/"
 
-            ./fuse_images.py \
-                -t ${views_gt} \
-                -p ${views_pred_dir} \
-                -o ${output_path_config} \
-                -j 36 \
-                -f configs/${config} \
-                -s 10.0 \
-                -r 10.0
-
+#           ${FUSE_SCRIPT} \
+#               -t ${views_gt} \
+#               -p ${views_pred_dir} \
+#               -o ${output_path_config} \
+#               -j 36 \
+#               -f configs/${config} \
+#               -s 10.0 \
+#               -r 10.0
+#
             views_gt__grid="${output_path_config}/$( basename $f .hdf5)__ground_truth.png"
             views_pred="${output_path_config}/$( basename $f .hdf5)__predictions.hdf5"
             views_pred__grid="${output_path_config}/$( basename $f .hdf5)__predictions.png"
@@ -111,7 +122,7 @@ do
             views__metrics="${output_path_config}/$( basename $f .hdf5)__metrics__single_view.txt"
  
             # fused_gt="${output_path_config}/$( basename $f .hdf5)__ground_truth.hdf5"
-            fused_gt="/logs/${FUSED_DATASET}/amed/$( basename ${config} .yml )/$( basename $f .hdf5)__ground_truth.hdf5"
+            fused_gt="/logs/${gt_dataset}/amed/$( basename ${config} .yml )/$( basename $f .hdf5)__ground_truth.hdf5"
  
             fused_pred_min="${output_path_config}/$( basename $f .hdf5)__min.hdf5"
             fused_pred_min_absdiff="${output_path_config}/$( basename $f .hdf5)__min__absdiff.hdf5"
@@ -127,100 +138,122 @@ do
 
             fused_snapshot="${output_path_config}/$( basename $f .hdf5).html"
  
+        if [[ -f ${fused_pred_min} ]]; then true_arg_v1="${true_arg_v1} -t ${fused_gt}"; pred_arg_v1="${pred_arg_v1} -p ${fused_pred_min}"; fi
+        if [[ -f ${fused_pred_adv60} ]]; then true_arg_v2="${true_arg_v2} -t ${fused_gt}"; pred_arg_v2="${pred_arg_v2} -p ${fused_pred_adv60}"; fi
+        if [[ -f ${fused_pred_linreg} ]]; then true_arg_v3="${true_arg_v3} -t ${fused_gt}"; pred_arg_v3="${pred_arg_v3} -p ${fused_pred_linreg}"; fi
+
+
  
-            python ./fusion_analysis.py \
-                -t ${fused_gt} \
-                -p ${fused_pred_min} \
-                -o ${fused_pred_min_absdiff}
-            python ./fusion_analysis.py \
-                -t ${fused_gt} \
-                -p ${fused_pred_adv60} \
-                -o ${fused_pred_adv60_absdiff}
-            python ./fusion_analysis.py \
-                -t ${fused_gt} \
-                -p ${fused_pred_linreg} \
-                -o ${fused_pred_linreg_absdiff}
+#           python ${FUSION_ANALYSIS_SCRIPT} \
+#               -t ${fused_gt} \
+#               -p ${fused_pred_min} \
+#               -o ${fused_pred_min_absdiff}
+#           python ${FUSION_ANALYSIS_SCRIPT} \
+#               -t ${fused_gt} \
+#               -p ${fused_pred_adv60} \
+#               -o ${fused_pred_adv60_absdiff}
+#           python ${FUSION_ANALYSIS_SCRIPT} \
+#               -t ${fused_gt} \
+#               -p ${fused_pred_linreg} \
+#               -o ${fused_pred_linreg_absdiff}
+#
+#           python ../plot_depth_sharpness_grid.py \
+#               -i ${views_gt} \
+#               -o ${views_gt__grid} \
+#               -s 11.0 -di -si --ncols 1 -f 8 8 -c auto -cx -w -dv 0 -sv 0 -bgd --verbose -dp -sp &
+#
+#           python ../plot_depth_sharpness_grid.py \
+#               -i ${views_pred} \
+#               -o ${views_pred__grid} \
+#               -s 11.0 -di -si --ncols 1 -f 8 8 -c auto -cx -dv 0 -sv 10 -bgd --verbose -sp &
+#
+#           python ../plot_depth_sharpness_grid.py \
+#               -i ${views_absdiff} \
+#               -o ${views_absdiff__grid} \
+#               -s 11.0 -di -si --ncols 1 -f 8 8 -c auto -cx -dv 0 -sv 0 -bgd --verbose -scm plasma -sp &
+#
+#           python ../plot_snapshots.py \
+#               -i ${fused_gt} \
+#               -i ${fused_pred_min} \
+#               -i ${fused_pred_min_absdiff} \
+#               -i ${fused_pred_adv60} \
+#               -i ${fused_pred_adv60_absdiff} \
+#               -i ${fused_pred_linreg} \
+#               -i ${fused_pred_linreg_absdiff} \
+#               -icm plasma_r \
+#               -icm plasma_r \
+#               -icm plasma \
+#               -icm plasma_r \
+#               -icm plasma \
+#               -icm plasma_r \
+#               -icm plasma \
+#               -o ${fused_snapshot} \
+#               -s 11.0 -ps 1.25 -ph flat &
  
-            python ../plot_depth_sharpness_grid.py \
-                -i ${views_gt} \
-                -o ${views_gt__grid} \
-                -s 11.0 -di -si --ncols 1 -f 8 8 -c auto -cx -w -dv 0 -sv 0 -bgd --verbose -dp -sp &
+#           python ${COMPUTE_METRICS_SCRIPT} \
+#               -t ${views_gt} \
+#               -p ${views_pred} \
+#               -r 0.5 -s 10.0 -sv \
+#               >${views__metrics} &
  
-            python ../plot_depth_sharpness_grid.py \
-                -i ${views_pred} \
-                -o ${views_pred__grid} \
-                -s 11.0 -di -si --ncols 1 -f 8 8 -c auto -cx -dv 0 -sv 10 -bgd --verbose -sp &
- 
-            python ../plot_depth_sharpness_grid.py \
-                -i ${views_absdiff} \
-                -o ${views_absdiff__grid} \
-                -s 11.0 -di -si --ncols 1 -f 8 8 -c auto -cx -dv 0 -sv 0 -bgd --verbose -scm plasma -sp &
- 
-            python ../plot_snapshots.py \
-                -i ${fused_gt} \
-                -i ${fused_pred_min} \
-                -i ${fused_pred_min_absdiff} \
-                -i ${fused_pred_adv60} \
-                -i ${fused_pred_adv60_absdiff} \
-                -i ${fused_pred_linreg} \
-                -i ${fused_pred_linreg_absdiff} \
-                -icm plasma_r \
-                -icm plasma_r \
-                -icm plasma \
-                -icm plasma_r \
-                -icm plasma \
-                -icm plasma_r \
-                -icm plasma \
-                -o ${fused_snapshot} \
-                -s 11.0 -ps 1.25 -ph flat &
- 
-            python ../compute_metrics.py \
-                -t ${views_gt} \
-                -p ${views_pred} \
-                -r 0.5 -s 10.0 -sv \
-                >${views__metrics} &
- 
-            python ../compute_metrics.py \
+            python ${COMPUTE_METRICS_SCRIPT} \
                 -t ${fused_gt} \
                 -p ${fused_pred_adv60} \
                 -r 0.5 -s 10.0 \
                 >${fused_pred_adv60__metrics} &
  
-            python ../compute_metrics.py \
+            python ${COMPUTE_METRICS_SCRIPT} \
                 -t ${fused_gt} \
                 -p ${fused_pred_min} \
                 -r 0.5 -s 10.0 \
                 >${fused_pred_min__metrics} &
  
-            python ../compute_metrics.py \
+            python ${COMPUTE_METRICS_SCRIPT} \
                 -t ${fused_gt} \
                 -p ${fused_pred_linreg} \
                 -r 0.5 -s 10.0 \
                 >${fused_pred_linreg__metrics} &
 
-            wait
-            /usr/bin/convert \
-                ${views_gt__grid} \
-                ${views_pred__grid} \
-                ${views_absdiff__grid} \
-                +append ${views_result__grid}
+#           wait
+#           /usr/bin/convert \
+#               ${views_gt__grid} \
+#               ${views_pred__grid} \
+#               ${views_absdiff__grid} \
+#               +append ${views_result__grid}
 
         done
 
         wait
  
-        awk_compute_mean_std ${output_path_config} __metrics__single_view \
-            >${dataset_views__metrics}
- 
-        awk_compute_mean_std ${output_path_config} __min__metrics \
-            >${dataset_fused_pred_min__metrics}
- 
-        awk_compute_mean_std ${output_path_config} __adv60__metrics \
-            >${dataset_fused_pred_adv60__metrics}
+#       awk_compute_mean_std ${output_path_config} __metrics__single_view \
+#           >${dataset_views__metrics}
+#
+#       awk_compute_mean_std ${output_path_config} __min__metrics \
+#           >${dataset_fused_pred_min__metrics}
+#
+#       awk_compute_mean_std ${output_path_config} __adv60__metrics \
+#           >${dataset_fused_pred_adv60__metrics}
+#
+#       awk_compute_mean_std ${output_path_config} __linreg__metrics \
+#           >${dataset_fused_pred_linreg__metrics}
 
-        awk_compute_mean_std ${output_path_config} __linreg__metrics \
-            >${dataset_fused_pred_linreg__metrics}
+        python ${COMPUTE_METRICS_SCRIPT} \
+            ${true_arg_v1} \
+            ${pred_arg_v1} \
+            -r 0.5 -s 10.0 \
+            >"${dataset_fused_pred_min__metrics}" &
+        
+        python ${COMPUTE_METRICS_SCRIPT} \
+            ${true_arg_v2} \
+            ${pred_arg_v2} \
+            -r 0.5 -s 10.0 \
+            >"${dataset_fused_pred_adv60__metrics}" &
 
+        python ${COMPUTE_METRICS_SCRIPT} \
+            ${true_arg_v3} \
+            ${pred_arg_v3} \
+            -r 0.5 -s 10.0 \
+            >"${dataset_fused_pred_linreg__metrics}" &
     done
 
 done

@@ -30,6 +30,7 @@ ComparisonsIO = io_struct.HDF5IO({
     'points': io_struct.VarFloat64('points'),
     'indexes_in_whole': io_struct.VarInt32('indexes_in_whole'),
     'distances': io_struct.VarFloat64('distances'),
+    'distances_for_sh': io_struct.VarFloat64('distances_for_sh'),
     'item_id': io_struct.AsciiString('item_id'),
     'voronoi': io_struct.VarFloat64('voronoi'),
     'ecnet': io_struct.VarFloat64('ecnet'),

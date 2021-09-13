@@ -21,11 +21,27 @@ from sharpf.utils.py_utils.os import change_ext
 
 
 def main(options):
-    FusedPredictionsIO = io_struct.HDF5IO(
-        {'points': io_struct.Float64('points'),
-         'distances': io_struct.Float64('distances')},
-        len_label='distances',
+#   FusedPredictionsIO = io_struct.HDF5IO(
+#       {'points': io_struct.Float64('points'),
+#        'distances': io_struct.Float64('distances')},
+#       len_label='distances',
+#       compression='lzf')
+
+
+    ComparisonsIO = io_struct.HDF5IO({
+        'points': io_struct.VarFloat64('points'),
+        'indexes_in_whole': io_struct.VarInt32('indexes_in_whole'),
+        'distances': io_struct.VarFloat64('distances'),
+        'item_id': io_struct.AsciiString('item_id'),
+        'voronoi': io_struct.VarFloat64('voronoi'),
+        'ecnet': io_struct.VarFloat64('ecnet'),
+        'sharpness': io_struct.VarFloat64('sharpness'),
+        'sharpness_seg': io_struct.VarFloat64('sharpness_seg'),
+        'distances_for_sh': io_struct.VarFloat64('distances_for_sh'),
+    },
+        len_label='points',
         compression='lzf')
+
 
     plot_height = 768
     plot = k3d.plot(
@@ -45,17 +61,18 @@ def main(options):
             low, high = 0.0, options.max_distance_to_feature
 
     input_cmaps = options.input_cmaps or ['plasma_r'] * len(options.inputs)
-    for input_filename, input_cmap in tqdm(zip(options.inputs, input_cmaps), desc='Loading/plotting'):
+    for input_filename, input_cmap, key in tqdm(zip(options.inputs, input_cmaps, options.keys), desc='Loading/plotting'):
         dataset = Hdf5File(
             input_filename,
-            io=FusedPredictionsIO,
+            io=ComparisonsIO,
             preload=PreloadTypes.LAZY,
-            labels='*')
-        name_for_plot = change_ext(
-            os.path.basename(input_filename), '').split('__', maxsplit=1)[-1]
+            labels=['points', key])
+#        name_for_plot = change_ext(
+#            os.path.basename(input_filename), '').split('__', maxsplit=1)[-1]
+        name_for_plot = key
 
         points = dataset[0]['points']
-        distances = dataset[0]['distances']
+        distances = np.array(dataset[0][key], dtype=np.float)
 
         if is_hard_label:
             distances[distances <= options.sharpness_hard_thr] = low
@@ -111,6 +128,9 @@ def parse_args():
     parser.add_argument('-icm', '--input_cmaps', dest='input_cmaps', action='append',
                         help='if specified, this should be a list of string colormaps (e.g. "plasma_r", '
                              'one per input file).')
+
+    parser.add_argument('-k', '--key', dest='keys', action='append',
+                        default=[], help='what key to use for getting preds.')
     return parser.parse_args()
 
 

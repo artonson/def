@@ -16,6 +16,8 @@ from sharpf.utils.convertor_utils.convertors_io import AnnotatedViewIO
 from sharpf.utils.abc_utils.hdf5.dataset import Hdf5File, PreloadTypes
 from sharpf.utils.camera_utils.view import CameraView
 from sharpf.utils.plotting import display_depth_sharpness
+from sharpf.utils.camera_utils.camera_pose import camera_to_display
+
 
 
 def sharpness_with_depth_background(
@@ -213,6 +215,10 @@ def main(options):
             for sharpness_image, depth_image in
             zip(sharpness_images_for_display, depth_images_for_display)]
 
+    if options.camera_to_display:
+        depth_images_for_display = [camera_to_display(image) for image in depth_images_for_display]
+        sharpness_images_for_display = [camera_to_display(distances) for distances in sharpness_images_for_display]
+
     f_x, f_y = map(float, options.figsize)
     if options.verbose:
         print('Plotting...')
@@ -376,6 +382,12 @@ def parse_args():
         type=float,
         default=1.0,
         help='max distance to sharp feature to display.')
+    parser.add_argument(
+        '-c2d', '--camera_to_display',
+        dest='camera_to_display',
+        default=False,
+        action='store_true',
+        help='if set, this will rotate the image to accomodate for synthetic data.')
     return parser.parse_args()
 
 

@@ -18,9 +18,9 @@ PREPARE_SCRIPT=/code/scripts/data_scripts/prepare_real_scans.py
 POINTS_SCRIPT=/code/scripts/data_scripts/prepare_real_points_dataset.py
 IMAGES_SCRIPT=/code/scripts/data_scripts/prepare_real_images_dataset.py
 
-MAX_POINT_MESH_DISTANCE=99999
+MAX_POINT_MESH_DISTANCE=4
 MAX_DISTANCE_TO_FEATURE=10.0
-SUFFIX="__aligninf_partmesh_whole"
+SUFFIX="__align4mm_partmesh_whole"
 
 DEBUG_FLAG="--debug"
 VERBOSE_FLAG="--verbose"
@@ -100,8 +100,8 @@ find ${INPUT_BASE_DIR} \
 echo "Preprocessing scans as point clouds..."
 
 NUM_PROCESSES=8
-#export OMP_NUM_THREADS=4
-#parallel --progress -j ${NUM_PROCESSES} <${POINTS_CMDS_FILE}
+export OMP_NUM_THREADS=4
+parallel --progress -j ${NUM_PROCESSES} <${POINTS_CMDS_FILE}
 
 
 ####################################################################
@@ -139,7 +139,7 @@ find ${INPUT_BASE_DIR} \
 echo "Preprocessing scans as images..."
 
 NUM_PROCESSES=2
-export OMP_NUM_THREADS=18
-parallel --progress -j ${NUM_PROCESSES} <${IMAGES_CMDS_FILE}
+#export OMP_NUM_THREADS=18
+#parallel --progress -j ${NUM_PROCESSES} <${IMAGES_CMDS_FILE}
 
 

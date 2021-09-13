@@ -5,6 +5,7 @@ import os
 import sys
 import io
 
+import numpy as np
 import torch
 
 __dir__ = os.path.normpath(
@@ -29,6 +30,9 @@ def main(options):
     else:
         true_data_io = fusion_io.FusedPredictionsIO
         pred_data_io = fusion_io.FusedPredictionsIO
+
+    # true_data_io = fusion_io.ComparisonsIO
+    # pred_data_io = fusion_io.ComparisonsIO
 
     assert len(options.true_filenames) == len(options.pred_filenames), '-t and -p must be added the same number of times'
 
@@ -72,12 +76,12 @@ def main(options):
         print(idx)
         for metric in metrics:
             if isinstance(metric, MFPR) or isinstance(metric, MRecall):
-                pred_tensor = torch.tensor(pred_item, dtype=torch.float32).reshape(1, -1)
+                pred_tensor = torch.tensor(np.array(pred_item, dtype=np.float32), dtype=torch.float32).reshape(1, -1)
                 if not options.is_binary:
-                    pred_tensor = pred_tensor < thresh_4r
+                    pred_tensor = pred_tensor < thresh_r
                 metric.update(
                     pred_tensor,
-                    torch.tensor(true_item, dtype=torch.float32).reshape(1, -1) < thresh_4r
+                    torch.tensor(np.array(true_item, dtype=np.float32), dtype=torch.float32).reshape(1, -1) < thresh_r
                 )
             else:
                 metric.update(
@@ -172,11 +176,11 @@ def parse_args():
         default='distances',
         type=str,
         help='key to use as predictions.')
-   parser.add_argument(
+    parser.add_argument(
         '-rm', '--resolution_multiplier',
         dest='resolution_multiplier',
         default=1,
-        type=int,
+        type=float,
         help='resolution multiplier for the probability thresholding')
 
     return parser.parse_args()
