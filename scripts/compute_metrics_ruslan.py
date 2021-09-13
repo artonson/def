@@ -21,6 +21,7 @@ from sharpf.metrics.torch_metrics import MRMSE, Q95RMSE, MRecall, MFPR
 
 
 def main(options):
+    print(options)
     if options.single_view:
         true_data_io = convertors_io.AnnotatedViewIO
         pred_data_io = fusion_io.ImagePredictionsIO
@@ -51,9 +52,13 @@ def main(options):
         assert len(true_dataset) == len(pred_dataset), 'lengths of files: {} and {} are not equal'.format(true_filename, pred_filename)
 
         sharpness_masks = [item[options.true_key] != options.sharpness_bg_value for item in true_dataset]
+        #for item, mask in zip(true_dataset, sharpness_masks):
+        #    print(item[options.true_key][mask].shape, item[options.true_key].shape, mask.shape)    
         true_distances.extend([item[options.true_key][mask] for item, mask in zip(true_dataset, sharpness_masks)])
         pred_distances.extend([item[options.pred_key][mask] for item, mask in zip(pred_dataset, sharpness_masks)])
-
+    #for item in pred_distances:
+    #    for val in item:
+    #        print(val)
     mfpr = MFPR()
     mrec = MRecall()
     mrmse = MRMSE()
@@ -160,7 +165,7 @@ def parse_args():
     parser.add_argument(
         '-sbg', '--sharpness_bg_value',
         dest='sharpness_bg_value',
-        default=0.0,
+        default=float('inf'),
         type=float,
         help='if set, specifies sharpness value to be treated as background.')
 
