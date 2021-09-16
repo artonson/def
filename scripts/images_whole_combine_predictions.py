@@ -432,6 +432,13 @@ def main(options):
             print('Fusing predictions...')
             fused_points_pred, fused_distances_pred, prediction_variants = \
                 combiner(n_points, list_predictions, list_indexes_in_whole, list_points)
+            if None is not options.export_prediction_variants:
+                with open(options.export_prediction_variants, 'w') as f:
+                    for idx, values in tqdm(prediction_variants.items()):
+                        f.write('{idx}\t{values}\n'.format(
+                            idx=idx,
+                            values=','.join([str(v) for v in values])
+                        ))
 
             pred_output_filename = os.path.join(
                 options.output_dir,
@@ -473,6 +480,8 @@ def parse_args():
     parser.add_argument('-ssv', '--save_single_views', action='store_true', default=False, dest='save_single_views',
                         help='is set, each single target view is going to be saved')
 
+    parser.add_argument('-epi', '--export_prediction_variants', dest='export_prediction_variants',
+                        help='if set, this should be the filename to save interpolated predictions to.')
     return parser.parse_args()
 
 
