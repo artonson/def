@@ -70,7 +70,7 @@ def process_images(
         f'has_sharp {int(item["has_sharp"])}',
         f'num_sharp_curves {item["num_sharp_curves"]}',
         f'num_surfaces {item["num_surfaces"]}',
-        f'num_samples {int(np.count_nonzero(item["image"]))}'
+        f'num_samples {int(np.count_nonzero(item["image"].numpy()))}'
         f'mean_sampling_distance {mean_mmd(points)}'
     ]
 
