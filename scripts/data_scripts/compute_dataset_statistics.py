@@ -134,9 +134,9 @@ def main(options):
         for item in items:
             try:
                 s = process_fn(item, imaging, obj_filename, feat_filename)
-            except:
+            except Exception as e:
                 if options.verbose:
-                    eprint_t('Error getting item {}'.format(item['item_id']))
+                    eprint_t('Error getting item {}: {}'.format(item['item_id'], str(e)))
                 continue
 
             with open(options.output_file, 'a') as out_file:
