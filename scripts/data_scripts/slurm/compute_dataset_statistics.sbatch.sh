@@ -8,7 +8,6 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --ntasks=1
 #SBATCH --mem-per-cpu=2g
-#SBATCH --oversubscribe
 
 __usage="
 Usage: $0 -a abc_input_dir -i input_file -o output_file [-v]
@@ -55,7 +54,7 @@ if [[ ! ${ABC_PATH_HOST} ]]; then
 fi
 
 OUTPUT_PATH_CONTAINER="/out"
-if [[ ! ${OUTPUT_PATH_HOST} ]]; then
+if [[ ! ${OUTPUT_FILE_HOST} ]]; then
     echo "output_dir is not set" && usage && exit 1
 fi
 OUTPUT_PATH_HOST=$( dirname "${OUTPUT_FILE_HOST}" )
