@@ -126,6 +126,8 @@ def main(options):
             chunk=options.chunk.zfill(4),
             modality=ABCModality.FEAT.value,
             version='00'))
+    if options.verbose:
+        eprint_t('Obj filename: {}, feat filename: '.format(obj_filename, feat_filename))
 
     stored_count = 0
     for batch_idx, batch in enumerate(loader):
