@@ -57,7 +57,7 @@ def process_images(
     mesh_face_indexes = item['orig_face_indexes']
 
     with ABCChunk([obj_filename, feat_filename]) as data_holder:
-        abc_item = data_holder.get(item['item_id'])
+        abc_item = data_holder.get(str(item['item_id'].decode('utf-8')))
         mesh, _, _ = trimesh_load(abc_item.obj)
         features = yaml.load(abc_item.feat, Loader=yaml.Loader)
 
@@ -127,7 +127,7 @@ def main(options):
             modality=ABCModality.FEAT.value,
             version='00'))
     if options.verbose:
-        eprint_t('Obj filename: {}, feat filename: '.format(obj_filename, feat_filename))
+        eprint_t('Obj filename: {}, feat filename: {}'.format(obj_filename, feat_filename))
 
     stored_count = 0
     for batch_idx, batch in enumerate(loader):
