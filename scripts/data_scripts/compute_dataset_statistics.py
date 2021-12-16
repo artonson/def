@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import sys
+import traceback
 from functools import partial
 from typing import Mapping, List
 
@@ -139,6 +140,7 @@ def main(options):
             except Exception as e:
                 if options.verbose:
                     eprint_t('Error getting item {}: {}'.format(item['item_id'], str(e)))
+                    eprint_t(traceback.format_exc())
                 continue
 
             with open(options.output_file, 'a') as out_file:
