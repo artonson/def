@@ -66,7 +66,7 @@ def process_images(
     nbhood_features = compute_features_nbhood(mesh, features, mesh_vertex_indexes, mesh_face_indexes)
     nbhood_features = remove_boundary_features(nbhood, nbhood_features, how='edges')
 
-    points = imaging.image_to_points(item["image"])
+    points = imaging.image_to_points(item["image"].numpy())
     s = [
         f'has_sharp {int(item["has_sharp"])}',
         f'num_sharp_curves {item["num_sharp_curves"]}',
