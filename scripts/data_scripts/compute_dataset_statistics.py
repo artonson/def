@@ -141,7 +141,7 @@ def main(options):
             items = uncollate(batch)
             for item in items:
                 item_idx += 1
-                item_id = str(item['item_id']).decode('utf-8')
+                item_id = str(item['item_id'].decode('utf-8'))
                 future = executor.submit(process_fn, item, imaging, obj_filename, feat_filename)
                 index_by_future[future] = (item_idx, item_id)
 
