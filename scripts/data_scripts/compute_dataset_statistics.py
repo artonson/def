@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+from concurrent.futures import ProcessPoolExecutor, as_completed
 import json
 import os
 import sys
@@ -31,8 +32,8 @@ from sharpf.utils.abc_utils.hdf5.dataset import Hdf5File, PreloadTypes
 from sharpf.utils.abc_utils.hdf5.io_struct import collate_mapping_with_io
 
 
-PATCH_TYPES = ['plane', 'cylinder', 'cone', 'sphere', 'torus', 'revolution', 'extrusion', 'bspline', 'other']
-CURVE_TYPES = ['line', 'circle', 'ellipse', 'bspline', 'other']
+PATCH_TYPES = ['Plane', 'Cylinder', 'Cone', 'Sphere', 'Torus', 'Revolution', 'Extrusion', 'BSpline', 'Other']
+CURVE_TYPES = ['Line', 'Circle', 'Ellipse', 'BSpline', 'Other']
 
 
 def uncollate(collated: Mapping) -> List[Mapping]:
@@ -71,17 +72,17 @@ def process_images(
         f'has_sharp {int(item["has_sharp"])}',
         f'num_sharp_curves {item["num_sharp_curves"]}',
         f'num_surfaces {item["num_surfaces"]}',
-        f'num_samples {int(np.count_nonzero(item["image"].numpy()))}'
-        f'mean_sampling_distance {mean_mmd(points)}'
+        f'num_samples {int(np.count_nonzero(item["image"].numpy()))}',
+        f'mean_sampling_distance {mean_mmd(points)}',
     ]
 
     for curve_type in CURVE_TYPES:
         count = len([curve for curve in nbhood_features['curves'] if curve['type'] == curve_type])
-        s.append(f'num_curve_{curve_type} {count}')
+        s.append(f'num_curve_{curve_type.lower()} {count}')
 
     for surface_type in PATCH_TYPES:
         count = len([surface for surface in nbhood_features['surfaces'] if surface['type'] == surface_type])
-        s.append(f'num_surface_{surface_type} {count}')
+        s.append(f'num_surface_{surface_type.lower()} {count}')
 
     return s
 
@@ -130,28 +131,35 @@ def main(options):
     if options.verbose:
         eprint_t('Obj filename: {}, feat filename: {}'.format(obj_filename, feat_filename))
 
-    stored_count = 0
-    for batch_idx, batch in enumerate(loader):
-        items = uncollate(batch)
+    with ProcessPoolExecutor(max_workers=options.n_jobs) as executor:
+        index_by_future = {}
+        item_idx = 0
+        for batch_idx, batch in enumerate(loader):
+            items = uncollate(batch)
+            for item in items:
+                item_idx += 1
+                future = executor.submit(process_fn, item, imaging, obj_filename, feat_filename)
+                index_by_future[future] = (item_idx, item['item_id'])
 
-        for item in items:
+        for future in as_completed(index_by_future):
+            item_idx, item_id = index_by_future[future]
             try:
-                s = process_fn(item, imaging, obj_filename, feat_filename)
+                s = future.result()
             except Exception as e:
                 if options.verbose:
                     eprint_t('Error getting item {}: {}'.format(item['item_id'], str(e)))
                     eprint_t(traceback.format_exc())
-                continue
-
-            with open(options.output_file, 'a') as out_file:
-                out_file.write('\n'.join(s) + '\n')
+            else:
+                with open(options.output_file, 'a') as out_file:
+                    lines = ['{} {} '.format(item_id, item_idx) + line for line in s]
+                    out_file.write('\n'.join(lines) + '\n')
+                if options.verbose:
+                    eprint_t('Processed item {}, {}'.format(item_id, item_idx))
 
         if options.verbose:
-            any_key = next(items[0].keys())
-            stored_count += len(items[0][any_key])
             seen_fraction = batch_idx * batch_size / len(loader.dataset)
-            eprint_t('Processed {0:d} items ({1:3.1f}% of data), stored {2:d} items'.format(
-                batch_idx * batch_size, seen_fraction * 100, stored_count))
+            eprint_t(f'Processed {batch_idx * batch_size:d} items '
+                     f'({seen_fraction * 100:3.1f}% of data)')
 
 
 def parse_args():
