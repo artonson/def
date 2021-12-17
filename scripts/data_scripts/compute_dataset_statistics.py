@@ -131,35 +131,43 @@ def main(options):
     if options.verbose:
         eprint_t('Obj filename: {}, feat filename: {}'.format(obj_filename, feat_filename))
 
+    max_queued_tasks = 1024
     with ProcessPoolExecutor(max_workers=options.n_jobs) as executor:
         index_by_future = {}
         item_idx = 0
         for batch_idx, batch in enumerate(loader):
+            # submit the full batch for processing
             items = uncollate(batch)
             for item in items:
                 item_idx += 1
                 future = executor.submit(process_fn, item, imaging, obj_filename, feat_filename)
                 index_by_future[future] = (item_idx, item['item_id'])
 
-        for future in as_completed(index_by_future):
-            item_idx, item_id = index_by_future[future]
-            try:
-                s = future.result()
-            except Exception as e:
-                if options.verbose:
-                    eprint_t('Error getting item {}: {}'.format(item['item_id'], str(e)))
-                    eprint_t(traceback.format_exc())
-            else:
-                with open(options.output_file, 'a') as out_file:
-                    lines = ['{} {} '.format(item_id, item_idx) + line for line in s]
-                    out_file.write('\n'.join(lines) + '\n')
-                if options.verbose:
-                    eprint_t('Processed item {}, {}'.format(item_id, item_idx))
+            if len(index_by_future) >= max_queued_tasks:
+                # don't enqueue more tasks until all previously submitted
+                # are complete and dumped to disk
 
-        if options.verbose:
-            seen_fraction = batch_idx * batch_size / len(loader.dataset)
-            eprint_t(f'Processed {batch_idx * batch_size:d} items '
-                     f'({seen_fraction * 100:3.1f}% of data)')
+                for future in as_completed(index_by_future):
+                    item_idx, item_id = index_by_future[future]
+                    try:
+                        s = future.result()
+                    except Exception as e:
+                        if options.verbose:
+                            eprint_t('Error getting item {}: {}'.format(item['item_id'], str(e)))
+                            eprint_t(traceback.format_exc())
+                    else:
+                        with open(options.output_file, 'a') as out_file:
+                            lines = ['{} {} '.format(item_id, item_idx) + line for line in s]
+                            out_file.write('\n'.join(lines) + '\n')
+                        if options.verbose:
+                            eprint_t('Processed item {}, {}'.format(item_id, item_idx))
+
+                index_by_future = {}
+
+                if options.verbose:
+                    seen_fraction = batch_idx * batch_size / len(loader.dataset)
+                    eprint_t(f'Processed {batch_idx * batch_size:d} items '
+                             f'({seen_fraction * 100:3.1f}% of data)')
 
 
 def parse_args():
