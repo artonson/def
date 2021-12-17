@@ -65,21 +65,30 @@ def process_images(
         features = yaml.load(abc_item.feat, Loader=yaml.Loader)
 
     nbhood = reindex_zerobased(mesh, mesh_vertex_indexes, mesh_face_indexes)
-    nbhood_features = compute_features_nbhood(mesh, features, mesh_vertex_indexes, mesh_face_indexes)
+    nbhood_features = compute_features_nbhood(mesh, features, mesh_face_indexes, mesh_vertex_indexes)
     nbhood_features = remove_boundary_features(nbhood, nbhood_features, how='edges')
+
+    num_sharp_curves = len([curve for curve in nbhood_features['curves'] if curve['sharp']])
+    num_all_curves = len(nbhood_features['curves'])
+    num_surfaces = len(nbhood_features['surfaces'])
 
     points = imaging.image_to_points(item["image"].numpy())
     s = [
         f'has_sharp {int(item["has_sharp"])}',
-        f'num_sharp_curves {item["num_sharp_curves"]}',
-        f'num_surfaces {item["num_surfaces"]}',
+        f'num_sharp_curves {num_sharp_curves}',
+        f'num_all_curves {num_all_curves}',
+        f'num_surfaces {num_surfaces}',
         f'num_samples {int(np.count_nonzero(item["image"].numpy()))}',
         f'mean_sampling_distance {mean_mmd(points)}',
     ]
 
     for curve_type in CURVE_TYPES:
         count = len([curve for curve in nbhood_features['curves'] if curve['type'] == curve_type])
-        s.append(f'num_curve_{curve_type.lower()} {count}')
+        s.append(f'num_all_curve_{curve_type.lower()} {count}')
+
+    for curve_type in CURVE_TYPES:
+        count = len([curve for curve in nbhood_features['curves'] if curve['type'] == curve_type and curve['sharp']])
+        s.append(f'num_sharp_curve_{curve_type.lower()} {count}')
 
     for surface_type in PATCH_TYPES:
         count = len([surface for surface in nbhood_features['surfaces'] if surface['type'] == surface_type])
