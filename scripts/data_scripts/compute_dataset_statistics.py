@@ -58,8 +58,9 @@ def process_images(
     mesh_vertex_indexes = item['orig_vert_indices']
     mesh_face_indexes = item['orig_face_indexes']
 
+    item_id = str(item['item_id'].decode('utf-8'))
     with ABCChunk([obj_filename, feat_filename]) as data_holder:
-        abc_item = data_holder.get(str(item['item_id'].decode('utf-8')))
+        abc_item = data_holder.get(item_id)
         mesh, _, _ = trimesh_load(abc_item.obj)
         features = yaml.load(abc_item.feat, Loader=yaml.Loader)
 
@@ -140,8 +141,9 @@ def main(options):
             items = uncollate(batch)
             for item in items:
                 item_idx += 1
+                item_id = str(item['item_id']).decode('utf-8')
                 future = executor.submit(process_fn, item, imaging, obj_filename, feat_filename)
-                index_by_future[future] = (item_idx, item['item_id'])
+                index_by_future[future] = (item_idx, item_id)
 
             if len(index_by_future) >= max_queued_tasks:
                 # don't enqueue more tasks until all previously submitted
@@ -153,7 +155,7 @@ def main(options):
                         s = future.result()
                     except Exception as e:
                         if options.verbose:
-                            eprint_t('Error getting item {}: {}'.format(item['item_id'], str(e)))
+                            eprint_t('Error getting item {}: {}'.format(item_id, str(e)))
                             eprint_t(traceback.format_exc())
                     else:
                         with open(options.output_file, 'a') as out_file:
