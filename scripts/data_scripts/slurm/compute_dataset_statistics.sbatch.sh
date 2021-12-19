@@ -5,9 +5,9 @@
 #SBATCH --error=/trinity/home/a.artemov/tmp/sharpf-stats/%A.err
 #SBATCH --time=01:00:00
 #SBATCH --partition=htc
-#SBATCH --cpus-per-task=4
+#SBATCH --cpus-per-task=10
 #SBATCH --ntasks=1
-#SBATCH --mem-per-cpu=2g
+#SBATCH --mem-per-cpu=6g
 
 __usage="
 Usage: $0 -a abc_input_dir -i input_file -o output_file [-v]

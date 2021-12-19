@@ -48,17 +48,13 @@ def uncollate(collated: Mapping) -> List[Mapping]:
         for idx in range(list_len)
     ]
 
-
-def process_images(
-        item,
-        imaging,
-        obj_filename,
-        feat_filename
+def get_patch(
+    mesh_vertex_indexes,
+    mesh_face_indexes,
+    item_id,
+    obj_filename,
+    feat_filename,
 ):
-    mesh_vertex_indexes = item['orig_vert_indices']
-    mesh_face_indexes = item['orig_face_indexes']
-
-    item_id = str(item['item_id'].decode('utf-8'))
     with ABCChunk([obj_filename, feat_filename]) as data_holder:
         abc_item = data_holder.get(item_id)
         mesh, _, _ = trimesh_load(abc_item.obj)
@@ -68,11 +64,18 @@ def process_images(
     nbhood_features = compute_features_nbhood(mesh, features, mesh_face_indexes, mesh_vertex_indexes)
     nbhood_features = remove_boundary_features(nbhood, nbhood_features, how='edges')
 
+    return nbhood, nbhood_features
+
+
+def build_patch_description(
+        item,
+        nbhood_features,
+        points
+):
     num_sharp_curves = len([curve for curve in nbhood_features['curves'] if curve['sharp']])
     num_all_curves = len(nbhood_features['curves'])
     num_surfaces = len(nbhood_features['surfaces'])
 
-    points = imaging.image_to_points(item["image"].numpy())
     s = [
         f'has_sharp {int(item["has_sharp"])}',
         f'num_sharp_curves {num_sharp_curves}',
@@ -97,6 +100,46 @@ def process_images(
     return s
 
 
+def process_images(
+        item,
+        imaging,
+        obj_filename,
+        feat_filename
+):
+    nbhood, nbhood_features = get_patch(
+        item['orig_vert_indices'],
+        item['orig_face_indexes'],
+        str(item['item_id'].decode('utf-8')),
+        obj_filename,
+        feat_filename)
+    points = imaging.image_to_points(item["image"].numpy())
+    s = build_patch_description(
+        item,
+        nbhood_features,
+        points)
+    return s
+
+
+def process_points(
+        item,
+        imaging,
+        obj_filename,
+        feat_filename
+):
+    nbhood, nbhood_features = get_patch(
+        item['orig_vert_indices'],
+        item['orig_face_indexes'],
+        str(item['item_id'].decode('utf-8')),
+        obj_filename,
+        feat_filename)
+    points = item['points']
+    s = build_patch_description(
+        item,
+        nbhood_features,
+        points)
+    return s
+
+
 def main(options):
     # % \LA{for submission -- add figures displaying:
     # % 1) distribution of types of patches and curves over the patch-based dataset;
@@ -108,6 +151,7 @@ def main(options):
     schema = io.IO_SPECS[options.io_spec]
     process_fn = {
         'images': process_images,
+        'points': process_points,
     }[options.io_spec]
 
     batch_size = 128
