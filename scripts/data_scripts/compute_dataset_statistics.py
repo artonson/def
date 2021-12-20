@@ -75,13 +75,13 @@ def build_patch_description(
     num_sharp_curves = len([curve for curve in nbhood_features['curves'] if curve['sharp']])
     num_all_curves = len(nbhood_features['curves'])
     num_surfaces = len(nbhood_features['surfaces'])
-
+    num_samples = len(points)
     s = [
         f'has_sharp {int(item["has_sharp"])}',
         f'num_sharp_curves {num_sharp_curves}',
         f'num_all_curves {num_all_curves}',
         f'num_surfaces {num_surfaces}',
-        f'num_samples {int(np.count_nonzero(item["image"].numpy()))}',
+        f'num_samples {num_samples}',
         f'mean_sampling_distance {mean_mmd(points)}',
     ]
 
@@ -168,7 +168,9 @@ def main(options):
 
     with open(options.dataset_config) as config_file:
         config = json.load(config_file)
-    imaging = load_func_from_config(IMAGING_BY_TYPE, config['imaging'])
+    imaging = None
+    if options.io_spec in ['images', 'whole_images']:
+        imaging = load_func_from_config(IMAGING_BY_TYPE, config['imaging'])
 
     obj_filename = os.path.join(
         options.abc_input_dir,

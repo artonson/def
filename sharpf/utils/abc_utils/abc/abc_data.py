@@ -8,6 +8,7 @@ from enum import Enum
 import glob
 import re
 import os
+import sys
 from operator import attrgetter
 
 import py7zlib
