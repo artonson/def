@@ -236,7 +236,8 @@ def multi_view_interpolate_predictions(
     list_predictions, list_indexes_in_whole, list_points = [], [], []
     for predictions_interp, indexes_interp, points_interp in multiproc_parallel(
             do_interpolate,
-            data_iterable):
+            data_iterable,
+            batch_size=16):
         list_predictions.append(predictions_interp)
         list_indexes_in_whole.append(indexes_interp)
         list_points.append(points_interp)
@@ -341,24 +342,8 @@ def main(options):
 
     # run various algorithms for consolidating predictions
     combiners = [
-#       MedianPredictionsCombiner(),
         cc.MinPredictionsCombiner(),
-#       AvgPredictionsCombiner(),
         cc.TruncatedAvgPredictionsCombiner(func=np.min),
-#       MinsAvgPredictionsCombiner(signal_thr=0.9),
-#       SmoothingCombiner(
-#           combiner=MinPredictionsCombiner(),
-#           smoother=L2Smoother(regularizer_alpha=0.01)
-#       ),
-#       SmoothingCombiner(
-#           combiner=MinPredictionsCombiner(),
-#           smoother=TotalVariationSmoother(regularizer_alpha=0.001)
-#       ),
-      cc.SmoothingCombiner(
-          cc.TruncatedAvgPredictionsCombiner(func=np.min),
-          smoother=cs.RobustLocalLinearFit(
-              HuberRegressor(epsilon=4., alpha=1.),
-              n_jobs=32)),
     ]
 
     for combiner in combiners:
@@ -388,7 +373,7 @@ def parse_args():
     parser.add_argument('-o', '--output-dir', dest='output_dir', required=True,
                         help='Path to output (suffixes indicating various methods will be added).')
 
-    parser.add_argument('-j', '--jobs', dest='n_jobs', default=4,
+    parser.add_argument('-j', '--jobs', dest='n_jobs', default=4, type=int,
                         required=False, help='number of jobs to use for fusion.')
 
     parser.add_argument('-k', '--nn_set_size', dest='nn_set_size', required=False, default=4, type=int,

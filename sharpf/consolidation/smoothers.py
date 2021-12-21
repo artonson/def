@@ -101,6 +101,19 @@ class TotalVariationSmoother(OptimizationBasedSmoother):
         return torch.sum(data_fidelity_term) + alpha * torch.sum(regularization_term)
 
 
+def local_linear_fit_with_pipe(X, y):
+    pipe = Pipeline([
+        ('scaler', StandardScaler()),
+        ('pca', PCA(n_components=2)),
+        ('feat', PolynomialFeatures(2)),
+        ('reg', lm.HuberRegressor(epsilon=4., alpha=1., max_iter=1000))])
+    try:
+        y_pred = pipe.fit(X, y).predict(X)
+    except ValueError:
+        y_pred = None
+    return y_pred
+
+
 class RobustLocalLinearFit(PredictionsSmoother):
     def __init__(self, estimator, n_jobs=1, n_neighbours=51):
         super().__init__(tag='linreg', n_neighbours=n_neighbours)
@@ -125,18 +138,6 @@ class RobustLocalLinearFit(PredictionsSmoother):
                 X, y, uniq_indexes = make_xy(point_index, points, nn_indexes, predictions_variants)
                 yield point_index, X, y, uniq_indexes
 
-        def local_linear_fit_with_pipe(X, y):
-            pipe = Pipeline([
-                ('scaler', StandardScaler()),
-                ('pca', PCA(n_components=2)),
-                ('feat', PolynomialFeatures(2)),
-                ('reg', lm.HuberRegressor(epsilon=4., alpha=1., max_iter=1000))])
-            try:
-                y_pred = pipe.fit(X, y).predict(X)
-            except ValueError:
-                y_pred = None
-            return y_pred
-
         def local_linear_fit(X, y, estimator):
             X_trans = PCA(n_components=2).fit_transform(X)
             X_trans = PolynomialFeatures(2).fit_transform(X_trans)
@@ -146,7 +147,7 @@ class RobustLocalLinearFit(PredictionsSmoother):
                 y_pred = None
             return y_pred
 
-        parallel = Parallel(n_jobs=self._n_jobs, backend='loky', verbose=100)
+        parallel = Parallel(n_jobs=self._n_jobs, backend='multiprocessing', verbose=20, batch_size=64)
         #       delayed_iterable = (delayed(local_linear_fit)(X, y, deepcopy(self._estimator))
         #                           for point_index, X, y, uniq_indexes in data_maker(points, nn_indexes, predictions_variants))
         delayed_iterable = (delayed(local_linear_fit_with_pipe)(X, y)
@@ -158,7 +159,7 @@ class RobustLocalLinearFit(PredictionsSmoother):
                 zip(refined_predictions, data_maker(points, nn_indexes, predictions_variants))):
             if None is refined_prediction:
                 continue
-            for ui, nn_index in enumerate(zip(uniq_indexes, nn_indexes[point_index])):
+            for ui, nn_index in zip(uniq_indexes, nn_indexes[point_index]):
                 refined_predictions_variants[nn_index].append(refined_prediction[ui])
 
         refined_combined_predictions = np.zeros_like(predictions)

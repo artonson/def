@@ -3,13 +3,12 @@
 #SBATCH --job-name=sharpf-fuse-image-synth
 #SBATCH --output=/trinity/home/a.artemov/tmp/sharpf_images/%A_%a.out
 #SBATCH --error=/trinity/home/a.artemov/tmp/sharpf_images/%A_%a.err
-#SBATCH --array=1-1
-#SBATCH --time=24:00:00
-#SBATCH --partition=htc
-#SBATCH --cpus-per-task=16
+#SBATCH --array=1-550
+#SBATCH --time=48:00:00
+#SBATCH --partition=cpu
+#SBATCH --cpus-per-task=12
 #SBATCH --ntasks=1
-#SBATCH --mem-per-cpu=8g
-#SBATCH --oversubscribe
+#SBATCH --mem-per-cpu=7g
 
 __usage="
 Usage: $0 [-v] <[input_filename]
@@ -77,17 +76,19 @@ done <"${1:-/dev/stdin}"
 #SLICE_END=$(( SLICE_SIZE * (SLURM_ARRAY_TASK_ID + 1) ))
 #echo "SLURM_ARRAY_TASK_ID=${SLURM_ARRAY_TASK_ID} SLICE_START=${SLICE_START} SLICE_END=${SLICE_END}"
 #
+N_JOBS=$(( 2 * SLURM_CPUS_PER_TASK ))
 singularity exec \
   --bind ${CODE_PATH_HOST}:${CODE_PATH_CONTAINER} \
   --bind "${PWD}":/run/user \
   --bind /gpfs:/gpfs \
   "${SIMAGE_FILENAME}" \
       bash -c 'export OMP_NUM_THREADS='"${OMP_NUM_THREADS}; \\
+      export JOBLIB_TEMP_FOLDER=${OUTPUT_PATH_GLOBAL}; \\
       python3 ${COMBINE_SCRIPT} \\
         --true-filename ${TRUE_FILENAME_GLOBAL} \\
         --pred-dir ${PRED_PATH_GLOBAL} \\
         --output-dir ${OUTPUT_PATH_GLOBAL} \\
-        --jobs ${N_TASKS} \\
+        --jobs ${N_JOBS} \\
         --nn_set_size ${PARAM_NN_SET_SIZE} \\
         --resolution_3d ${PARAM_RESOLUTION_3D} \\
         --distance_interp_factor ${PARAM_DISTANCE_INTERP_FACTOR} \\
