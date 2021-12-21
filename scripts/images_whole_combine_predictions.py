@@ -155,7 +155,7 @@ def do_interpolate(
         # Distances to be produces as output.
         distances_j_interp = np.zeros(len(points_j), dtype=float)
 
-        for idx, point_from_j in tqdm(enumerate(reprojected_j)):
+        for idx, point_from_j in tqdm(enumerate(reprojected_j), desc='Fusing {} -> {}'.format(i, j)):
             point_nn_indexes = nn_indexes_in_i[idx]
             # Build an [n, 3] array of XYZ coordinates for each reprojected point by taking
             # UV values from pixel grid and Z value from depth image.
@@ -245,6 +245,44 @@ def multi_view_interpolate_predictions(
     return list_predictions, list_indexes_in_whole, list_points
 
 
+def multi_view_interpolate_predictions_by_single_view(
+        images: List[np.array],
+        distances: List[np.array],
+        extrinsics: List[np.array],
+        intrinsics_dict: List[Mapping],
+        **config,
+):
+    get_view_local = partial(get_view, images, distances, extrinsics, intrinsics_dict)
+
+    point_indexes = np.cumsum([
+        np.count_nonzero(image) for image in images])
+
+    n_jobs = config.get('n_jobs')
+    n_images = len(images)
+
+    for t in range(n_images):
+
+        start_idx, end_idx = (0, point_indexes[t]) if 0 == t else (point_indexes[t - 1], point_indexes[t])
+        indexes = slice(start_idx, end_idx)
+
+        view_t = get_view_local(t)
+        data_iterable = (
+            (s, t, get_view_local(s), view_t, point_indexes, config)
+            for s in range(n_images))
+
+        os.environ['OMP_NUM_THREADS'] = str(n_jobs)
+        list_predictions, list_indexes_in_whole, list_points = [], [], []
+        for predictions_interp, indexes_interp, points_interp in multiproc_parallel(
+                do_interpolate,
+                data_iterable):
+            list_predictions.append(predictions_interp)
+            list_indexes_in_whole.append(indexes_interp)
+            list_points.append(points_interp)
+
+        yield indexes, list_predictions, list_indexes_in_whole, list_points
+
+
+
 def interpolate_ground_truth(
         images: List[np.array],
         distances: List[np.array],
@@ -284,7 +322,7 @@ def main(options):
     # extrinsic camera matrixes describing the 3D camera poses used to capture depth images
     gt_extrinsics = [view['camera_pose'] for view in gt_dataset]
     # intrinsic camera parameters describing how to compute image from points and vice versa
-    gt_intrinsics = [dict(resolution_image=gt_images[0].shape, resolution_3d=options.resolution_3d) for view in
+    gt_intrinsics = [dict(resolution_image=gt_images[0].shape[::-1], resolution_3d=options.resolution_3d, projection=None, validate_image=None) for view in
                      gt_dataset]
 
     print('Fusing ground truth data...')
@@ -308,13 +346,17 @@ def main(options):
     predictions_filename = os.path.join(
         options.output_dir,
         '{}__{}.hdf5'.format(name, 'predictions'))
-    convert_npylist_to_hdf5(options.pred_dir, gt_images, predictions_filename)
+    if os.path.isdir(options.pred_dir):
+        convert_npylist_to_hdf5(options.pred_dir, gt_images, predictions_filename)
+    else:
+        if not os.path.exists(predictions_filename):
+            os.symlink(options.pred_dir, predictions_filename)
     predictions_dataset = Hdf5File(
         predictions_filename,
         io=sharpf_io.WholeDepthMapIO,
         preload=PreloadTypes.LAZY,
         labels='*')
-    pred_distances = [view['distances'] for view in predictions_dataset]
+    pred_distances = [view['distances'] * options.pred_distance_scale_ratio for view in predictions_dataset]
 
     diff_images = [{
         'image': image,
@@ -333,32 +375,80 @@ def main(options):
         'distance_interpolation_threshold': threshold,
         'interpolator_function': options.interpolator_function,
     }
-    list_predictions, list_indexes_in_whole, list_points = multi_view_interpolate_predictions(
-        gt_images,
-        pred_distances,
-        gt_extrinsics,
-        gt_intrinsics,
-        **config)
-
     # run various algorithms for consolidating predictions
     combiners = [
         cc.MinPredictionsCombiner(),
-        cc.TruncatedAvgPredictionsCombiner(func=np.min),
+        cc.TruncatedAvgPredictionsCombiner(func=cc.TruncatedMean(0.6, func=np.min))
+    #     cc.SmoothingCombiner(
+    #         cc.TruncatedAvgPredictionsCombiner(func=np.min),
+    #         smoother=cs.RobustLocalLinearFit(
+    #             HuberRegressor(epsilon=4., alpha=1.),
+    #             n_jobs=32)),
     ]
 
-    for combiner in combiners:
-        print('Fusing predictions...')
-        fused_points_pred, fused_distances_pred, prediction_variants = \
-            combiner(n_points, list_predictions, list_indexes_in_whole, list_points)
 
-        pred_output_filename = os.path.join(
-            options.output_dir,
-            '{}__{}.hdf5'.format(name, combiner.tag))
-        print('Saving preds to {}'.format(pred_output_filename))
-        save_full_model_predictions(
-            fused_points_pred,
-            fused_distances_pred,
-            pred_output_filename)
+    if options.save_single_views:
+        from collections import defaultdict
+        fused_points_pred_view, fused_distances_pred_view = defaultdict(list), defaultdict(list)
+        for t, (indexes, list_predictions, list_indexes_in_whole, list_points) in enumerate(multi_view_interpolate_predictions_by_single_view(
+                gt_images, pred_distances, gt_extrinsics, gt_intrinsics, **config)):
+            print('Obtained view synthesis results for view {}'.format(t))
+
+            for combiner in combiners:
+                print('Fusing predictions...')
+                fused_points_pred, fused_distances_pred, prediction_variants = \
+                    combiner(n_points, list_predictions, list_indexes_in_whole, list_points)
+
+                pred_output_filename = os.path.join(
+                    options.output_dir,
+                    '{0}__{1}__view_{2:04d}.hdf5'.format(name, combiner.tag, t))
+                print('Saving preds to {}'.format(pred_output_filename))
+                save_full_model_predictions(
+                    fused_points_pred[indexes],
+                    fused_distances_pred[indexes],
+                    pred_output_filename)
+                fused_points_pred_view[combiner.tag].append(fused_points_pred[indexes])
+                fused_distances_pred_view[combiner.tag].append(fused_distances_pred[indexes])
+                # print(fused_points_pred[indexes].shape, fused_distances_pred[indexes].shape)
+
+        for combiner in combiners:
+            print('Concatenating into final result for {}'.format(combiner.tag))
+            fused_points_pred = np.concatenate(fused_points_pred_view[combiner.tag])
+            fused_distances_pred = np.concatenate(fused_distances_pred_view[combiner.tag])
+            print(fused_points_pred.shape, fused_distances_pred.shape)
+            pred_output_filename = os.path.join(
+                options.output_dir,
+                '{}__{}.hdf5'.format(name, combiner.tag))
+            print('Saving preds to {}'.format(pred_output_filename))
+            save_full_model_predictions(
+                fused_points_pred,
+                fused_distances_pred,
+                pred_output_filename)
+
+    else:
+        list_predictions, list_indexes_in_whole, list_points = multi_view_interpolate_predictions(
+            gt_images, pred_distances, gt_extrinsics, gt_intrinsics, **config)
+
+        for combiner in combiners:
+            print('Fusing predictions...')
+            fused_points_pred, fused_distances_pred, prediction_variants = \
+                combiner(n_points, list_predictions, list_indexes_in_whole, list_points)
+            if None is not options.export_prediction_variants:
+                with open(options.export_prediction_variants, 'w') as f:
+                    for idx, values in tqdm(prediction_variants.items()):
+                        f.write('{idx}\t{values}\n'.format(
+                            idx=idx,
+                            values=','.join([str(v) for v in values])
+                        ))
+
+            pred_output_filename = os.path.join(
+                options.output_dir,
+                '{}__{}.hdf5'.format(name, combiner.tag))
+            print('Saving preds to {}'.format(pred_output_filename))
+            save_full_model_predictions(
+                fused_points_pred,
+                fused_distances_pred,
+                pred_output_filename)
 
 
 def parse_args():
@@ -385,7 +475,14 @@ def parse_args():
     parser.add_argument('-l', '--interpolator_function', dest='interpolator_function',
                         required=False, choices=['bisplrep', 'interp2d'], default='bisplrep',
                         help='interpolator function to use.')
+    parser.add_argument('-d', '--pred_distance_scale_ratio', dest='pred_distance_scale_ratio',
+                        default=1.0, type=float, required=False, help='factor by which to multiply the predicted distances.')
 
+    parser.add_argument('-ssv', '--save_single_views', action='store_true', default=False, dest='save_single_views',
+                        help='is set, each single target view is going to be saved')
+
+    parser.add_argument('-epi', '--export_prediction_variants', dest='export_prediction_variants',
+                        help='if set, this should be the filename to save interpolated predictions to.')
     return parser.parse_args()
 
 
