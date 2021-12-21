@@ -1,5 +1,8 @@
+import os
 from abc import ABC
 from collections import defaultdict
+from concurrent.futures import ProcessPoolExecutor
+from functools import partial
 from typing import Callable, List, Mapping, Tuple
 
 import numpy as np
@@ -7,6 +10,7 @@ from scipy.stats.mstats import mquantiles
 from tqdm import tqdm
 
 from sharpf.consolidation.smoothers import PredictionsSmoother
+from sharpf.utils.py_utils.parallel import items_wrapper
 
 
 class AveragingNoDataException(ValueError):
@@ -77,8 +81,12 @@ class PointwisePredictionsCombiner(PredictionsCombiner):
                 predictions_variants[idx].append(distances[i])
 
         # step 2: consolidate predictions
-        for idx, values in tqdm(predictions_variants.items()):
-            fused_distances_pred[idx] = self._func(values)
+        n_omp_threads = int(os.environ.get('OMP_NUM_THREADS', 1))
+        with ProcessPoolExecutor(max_workers=n_omp_threads) as executor:
+            fn = partial(items_wrapper, fn=self._func)
+            results_items = executor.map(fn, predictions_variants.items(), chunksize=1000)
+            for key, result in results_items:
+                fused_distances_pred[key] = result
 
         return fused_points_pred, fused_distances_pred, predictions_variants
 

@@ -27,3 +27,13 @@ def multiproc_parallel(func, iterable, **parallel_kwargs):
 
 def loky_parallel(func, iterable, **parallel_kwargs):
     return omp_parallel(func, iterable, backend='loky', **parallel_kwargs)
+
+
+def items_wrapper(item, fn):
+    """Given a function fn, that aims to accept an iterable,
+    (e.g. numpy.mean), adapt it to usage with dict.items()
+    where dict.items() is structured as (key: Any, values: Sequence)
+    and return (key: Any, fn(values))."""
+    key, values = item
+    result = fn(values)
+    return key, result
