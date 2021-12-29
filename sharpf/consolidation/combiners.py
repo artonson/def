@@ -10,6 +10,7 @@ from scipy.stats.mstats import mquantiles
 from tqdm import tqdm
 
 from sharpf.consolidation.smoothers import PredictionsSmoother
+from sharpf.utils.py_utils.console import eprint_t
 from sharpf.utils.py_utils.parallel import items_wrapper
 
 
@@ -22,13 +23,27 @@ class TruncatedMean(object):
         self._probability = probability
         self._func = func
 
-    def __call__(self, values):
-        quantiles = mquantiles(values,
-                               [(1.0 - self._probability) / 2.0, (1.0 + self._probability) / 2.0],
-                               alphap=0.5, betap=0.5)
+    def __truncate(self, values):
+        prob = [(1.0 - self._probability) / 2.0, (1.0 + self._probability) / 2.0]
+        quantiles = mquantiles(
+            values,
+            prob,
+            alphap=0.5,
+            betap=0.5)
         values = list(filter(lambda value: quantiles[0] <= value <= quantiles[1], values))
         if not values:
             raise AveragingNoDataException('No values after trimming')
+        return np.asarray(values)
+
+    def __call__(self, values):
+        values = np.asarray(values)
+        values_original = np.copy(values)
+        try:
+            values = self.__truncate(values)
+        except AveragingNoDataException as e:
+            eprint_t('No values after trimming, values_original = {}'.format(values_original.tolist()))
+            values = values_original
+
         result = self._func(values)
         return result
 
