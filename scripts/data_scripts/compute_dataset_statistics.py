@@ -97,6 +97,10 @@ def build_patch_description(
         count = len([surface for surface in nbhood_features['surfaces'] if surface['type'] == surface_type])
         s.append(f'num_surface_{surface_type.lower()} {count}')
 
+    for key, value in item.items():
+        if key.startswith('has_smell_'):
+            s.append(f'{key} {int(value)}')
+
     return s
 
 
