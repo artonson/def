@@ -36,7 +36,7 @@ def get_patch_info(
         n_surfaces = len(features['surfaces'])
         n_curves = len(features['curves'])
 
-        return f'{item_id} {n_verts} {n_faces} {n_surfaces} {n_curves}'
+        return [f'{item_id} {n_verts} {n_faces} {n_surfaces} {n_curves}']
 
 
 def main(options):
@@ -68,19 +68,19 @@ def main(options):
                 # are complete and dumped to disk
 
                 for future in as_completed(index_by_future):
-                    item_idx, item_id = index_by_future[future]
+                    item_idx = index_by_future[future]
                     try:
                         s = future.result()
                     except Exception as e:
                         if options.verbose:
-                            eprint_t(f'Error getting item {item_id}: {str(e)}')
+                            eprint_t(f'Error getting item {item_idx}: {str(e)}')
                             eprint_t(traceback.format_exc())
                     else:
                         with open(options.output_file, 'a') as out_file:
-                            lines = [f'{item_id} {item_idx} ' + line for line in s]
+                            lines = [f'{item_idx} ' + line for line in s]
                             out_file.write('\n'.join(lines) + '\n')
                         if options.verbose:
-                            eprint_t(f'Processed item {item_id}, {item_idx}')
+                            eprint_t(f'Processed item {item_idx}')
 
                 index_by_future = {}
 
