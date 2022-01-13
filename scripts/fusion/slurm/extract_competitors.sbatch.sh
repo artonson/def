@@ -75,9 +75,13 @@ while IFS=' ' read -r input_filename; do
 done <"${INPUT_FILENAME:-/dev/stdin}"
 
 # /path/to/output/<shape-id>/<method>/<shape-id>__fused.hdf5
-output_path_global="${OUTPUT_BASE_DIR}/$(basename "${input_filename%.*}")/${METHOD}"
+item_id=$(basename "${input_filename%.*}" )
+output_path_global="${OUTPUT_BASE_DIR}/${item_id}/${METHOD}__fused"
 mkdir -p ${output_path_global}
-output_filename=${output_path_global}/$( basename "${input_filename%.*}__fused.hdf5" )
+output_filename="${output_path_global}/${item_id}__fused.hdf5"
+gt_target="${OUTPUT_BASE_DIR}/${item_id}/def/${item_id}__ground_truth.hdf5"
+gt_link_name="${output_path_global}/${item_id}__ground_truth.hdf5"
+ln -sf "${gt_target}" "${gt_link_name}"
 
 echo "${input_filename} ${output_filename}"
 
