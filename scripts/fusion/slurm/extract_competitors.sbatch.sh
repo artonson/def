@@ -62,7 +62,7 @@ echo "  CONTAINER OPTIONS:"
 echo "  code path:            ${CODE_PATH_CONTAINER}"
 echo "  "
 
-SCRIPT="${CODE_PATH_CONTAINER}/scripts/extract_competitor_from_predictions.py"
+SCRIPT="${CODE_PATH_CONTAINER}/scripts/fusion/extract_competitor_from_predictions.py"
 
 # Read SLURM_ARRAY_TASK_ID num lines from standard input,
 # stopping at line whole number equals SLURM_ARRAY_TASK_ID
