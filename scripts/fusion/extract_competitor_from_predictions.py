@@ -24,7 +24,7 @@ def main(options):
         preload=PreloadTypes.NEVER)
 
     points = np.array(hdf5_file[0]['points']).squeeze()
-    predictions = np.array(hdf5_file[options.key], dtype=np.float).squeeze()
+    predictions = np.array(hdf5_file[0][options.key], dtype=np.float).squeeze()
 
     fusion_io.save_full_model_predictions(
         points,
