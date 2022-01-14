@@ -8,5 +8,5 @@ from .transforms import (
     CompositeTransform, ToTensor, Center,
     PreprocessDepth, PreprocessDistances, DeleteKeys, RenameKeys,
     Concatenate, DepthToPointCloud, Flatten, ComputeTargetSharp, PreprocessArbitraryDepth, PreprocessArbitrarySLDepth,
-    ClampDistances, CenterCrop
+    ClampDistances, CenterCrop, ScaleDistances, RandomFlip
 )

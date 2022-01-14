@@ -15,4 +15,7 @@ from .modules import (
     PointOpBlock,
     Sequential
 )
-from .system import DEFImageRegression, DEFImageSegmentation, DEFPointsRegression, DEFPointsSegmentation
+from .system import (
+    DEFImageRegression, DEFImageSegmentation, DEFPointsRegression, DEFPointsSegmentation,
+    IdentityRegression, IdentitySegmentation
+)

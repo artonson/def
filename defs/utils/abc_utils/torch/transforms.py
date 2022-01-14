@@ -147,10 +147,11 @@ class PreprocessDepth(AbstractTransform):
 
 class PreprocessArbitraryDepth(AbstractTransform):
 
-    def __init__(self, quantile, individual_quantile=False):
+    def __init__(self, quantile, individual_quantile=False, patch_based=False):
         super().__init__(None)
         self.quantile = quantile
         self.individual_quantile = individual_quantile
+        self.patch_based = patch_based
 
     def __call__(self, item):
         if 'voronoi' in item:
@@ -160,18 +161,27 @@ class PreprocessArbitraryDepth(AbstractTransform):
         if 'directions' in item:
             item['directions'] = item['directions'].permute(2, 0, 1).contiguous()
         item['background_mask'] = (item['image'] == 0.0)
-        item['image'] = torch.where(item['background_mask'], item['image'],
-                                    item['image'] - torch.masked_select(item['image'], ~item['background_mask']).min())
-        if self.individual_quantile:
-            quantile = np.quantile(item['image'].view(-1).numpy(), 0.95)
-            if quantile == 0:
-                quantile = item['image'].max()
-            if quantile == 0:
-                quantile = 1.0
-            item['image'] = item['image'] / quantile
+
+        if self.patch_based:
+            item['quantile'] = self.quantile
         else:
-            item['image'] /= self.quantile
+            item['image'] = torch.where(item['background_mask'], item['image'],
+                                        item['image'] - torch.masked_select(item['image'],
+                                                                            ~item['background_mask']).min())
+            if self.individual_quantile:
+                quantile = np.quantile(item['image'].view(-1).numpy(), 0.95)
+                if quantile == 0:
+                    quantile = item['image'].max()
+                if quantile == 0:
+                    quantile = 1.0
+            else:
+                quantile = self.quantile
+
+            item['image'] = item['image'] / quantile
+            item['quantile'] = quantile
+
         item['image'].unsqueeze_(0)
+
         return item
 
 
@@ -230,6 +240,7 @@ class RenameKeys(AbstractTransform):
         for old_key, new_key in zip(self.old_keys, self.new_keys):
             # assert new_key not in item, f"{new_key} not in {item.keys()}"
             item[new_key] = item[old_key]
+            del item[old_key]
         return item
 
 
@@ -238,6 +249,7 @@ class Concatenate(AbstractTransform):
     def __init__(self, in_keys, out_key, dim):
         super().__init__(None)
         self.in_keys = in_keys
+        assert self.in_keys[0] == 'points'
         self.out_key = out_key
         self.dim = dim
 
@@ -329,6 +341,32 @@ class CenterCrop(AbstractTransform):
         item['image'] = item['image'][y1:y1 + self.size_h, x1:x1 + self.size_w]
         if 'distances' in item:
             item['distances'] = item['distances'][y1:y1 + self.size_h, x1:x1 + self.size_w]
+        return item
+
+
+class ScaleDistances(AbstractTransform):
+
+    def __init__(self, scale=0.1):
+        super().__init__(None)
+        self.scale = scale
+
+    def __call__(self, item):
+        item['distances'] *= self.scale
+        return item
+
+
+class RandomFlip(AbstractTransform):
+
+    def __init__(self):
+        super().__init__(None)
+
+    def __call__(self, item):
+        if np.random.rand() > 0.5:
+            item['image'] = torch.flip(item['image'], dims=(0,))
+            item['distances'] = torch.flip(item['distances'], dims=(0,))
+        if np.random.rand() > 0.5:
+            item['image'] = torch.flip(item['image'], dims=(1,))
+            item['distances'] = torch.flip(item['distances'], dims=(1,))
         return item
 
 # class ComputeBackgroundMask(AbstractTransform):

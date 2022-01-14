@@ -95,7 +95,7 @@ class LotsOfHdf5Files(Dataset):
         if data_dir is not None:
             if partition is not None:
                 data_dir = os.path.join(data_dir, partition)
-            assert os.path.exists(data_dir)
+            assert os.path.exists(data_dir), data_dir
             filenames = sorted(glob.glob(os.path.join(data_dir, '*.hdf5')))
         else:
             for filename in filenames:

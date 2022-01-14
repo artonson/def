@@ -3,7 +3,7 @@ defaults:
   - dataloader: standard
   - datasets: ???
   - loggers: test_tube
-  - model: ???
+  - model: unet2d
   - transform: ???
   - system: ???
   - trainer: project

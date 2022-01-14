@@ -10,6 +10,7 @@ from pytorch_lightning.loggers import LightningLoggerBase
 
 from defs.utils.collect_env import collect_env_info
 from defs.utils.hydra import instantiate
+from defs.modeling.system import IdentityRegression, IdentitySegmentation
 
 from configs import trainer_conf, optimizer, scheduler, resolvers
 
@@ -39,13 +40,19 @@ def main(cfg: DictConfig):
 
         assert cfg.test_weights is None or cfg.test_weights == 'best'
         trainer.fit(model)
+        log.info("Test model...")
         trainer.test(ckpt_path=cfg.test_weights)
+        log.info(f"Test is ended for: {os.getcwd()}")
     else:
-        test_weights_path = hydra.utils.to_absolute_path(cfg.test_weights)
-        assert os.path.exists(test_weights_path), f"{test_weights_path} does not exist"
-        model.load_state_dict(torch.load(test_weights_path)['state_dict'], strict=True)
-        log.info("Loaded weights successfully!")
-        trainer.test(model)
+        if isinstance(model, IdentityRegression) or isinstance(model, IdentitySegmentation):
+            trainer.test(model)
+        else:
+            test_weights_path = hydra.utils.to_absolute_path(cfg.test_weights)
+            assert os.path.exists(test_weights_path), f"{test_weights_path} does not exist"
+            model.load_state_dict(torch.load(test_weights_path)['state_dict'], strict=True)
+            log.info("Loaded weights successfully!")
+            trainer.test(model)
+            log.info(f"Test is ended for: {os.getcwd()}\n\n\n")
 
 
 if __name__ == "__main__":

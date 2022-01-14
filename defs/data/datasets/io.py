@@ -159,6 +159,20 @@ class WholePointV2CloudIO():
         return cls.instance
 
 
+class WholeDepthMapIO():
+    def __new__(cls):
+        if not hasattr(cls, 'instance'):
+            cls.instance = io.HDF5IO(
+                {
+                    'image': io.Float64('image'),
+                    'distances': io.Float64('distances'),
+                    'camera_pose': io.Float64('camera_pose'),
+                },
+                len_label='image',
+                compression='lzf')
+        return cls.instance
+
+
 class FusedIO():
     def __new__(cls):
         if not hasattr(cls, 'instance'):
@@ -208,6 +222,7 @@ class AnnotatedViewIO():
                     'has_sharp': io.Bool('has_sharp'),
                     'num_sharp_curves': io.Int8('num_sharp_curves'),
                     'num_surfaces': io.Int8('num_surfaces'),
+                    'has_smell_sharpness_discontinuities': io.Bool('has_smell_sharpness_discontinuities'),
                 },
                 len_label='item_id',
                 compression='lzf')
