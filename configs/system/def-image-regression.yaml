@@ -5,6 +5,7 @@ system_class:
 
 crop: false
 scale: 1.0
+patch_size: ~
 
 eval_mode: false
 

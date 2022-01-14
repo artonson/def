@@ -34,8 +34,8 @@ class DEFImageRegression(LightningModule):
         self.save_predictions = self.hparams.datasets.save_predictions
         if self.save_predictions:
             self.save_dir = os.path.join(os.getcwd(), 'predictions')
-            # if is_main_process() and not os.path.exists(self.save_dir):
-            #     os.mkdir(self.save_dir)
+            if is_main_process() and not os.path.exists(self.save_dir):
+                os.mkdir(self.save_dir)
             log.info(f"The predictions will be saved in {self.save_dir}")
             synchronize()
 
@@ -70,7 +70,14 @@ class DEFImageRegression(LightningModule):
             self.mrecall_4r = nn.ModuleDict(mrecall_4r)
             self.mfpr_4r = nn.ModuleDict(mfpr_4r)
 
-    def forward(self, x, clamp=True, pad_if_cropped=True):
+    def masked_min_2d(self, tensor: torch.Tensor, mask: torch.Tensor, lower: float, upper: float) -> torch.Tensor:
+        return torch.where(
+            torch.any(mask, dim=1),
+            torch.min(tensor.where(mask, tensor.new_tensor(upper).view(1, 1)), dim=1).values,
+            tensor.new_tensor(lower),
+        )
+
+    def forward(self, x, clamp=True, pad_if_cropped=True, quantile=None):
         out: Dict[str, torch.Tensor] = {}
 
         if self.hparams.system.crop:
@@ -87,7 +94,34 @@ class DEFImageRegression(LightningModule):
         if self.hparams.system.scale != 1.0:
             x = F.interpolate(x, scale_factor=self.hparams.system.scale, mode='bilinear', align_corners=False)
 
-        output = self.model(x)  # (B, C, H, W)
+        if self.hparams.system.patch_size is None:
+            output = self.model(x)  # (B, C, H, W)
+        else:
+            assert quantile is not None and torch.all(quantile > 0)
+            assert not self.training
+            quantile_un = quantile.unique()
+            assert quantile_un.shape[0] == 1
+            patch_size = self.hparams.system.patch_size  # == S
+            b, c, h, w = x.shape
+            assert h % patch_size == 0 and w % patch_size == 0
+            nh, nw = h // patch_size, w // patch_size
+            patches = F.unfold(x, kernel_size=patch_size, stride=patch_size)  # (B, C * S * S, NH * NW)
+            patches = patches.permute(0, 2, 1)  # (B, NH * NW, C * S * S)
+            patches = patches.contiguous().view(b * nh * nw, c, patch_size, patch_size)  # (B * NH * NW, C, S, S)
+
+            patches_depth = patches[:, [0]]  # (B * NH * NW, 1, S, S)
+            patches_bg_mask = (patches_depth == 0.0)
+            patches_fg_mask = ~patches_bg_mask
+            patches_depth_min = self.masked_min_2d(patches_depth.view(b * nh * nw, -1),
+                                                   mask=patches_fg_mask.view(b * nh * nw, -1),
+                                                   lower=0.0, upper=patches_depth.max().item() + 1.0)  # (B * NH * NW,)
+            patches[:, [0]] = patches[:, [0]].where(patches_bg_mask,
+                                                    patches[:, [0]] - patches_depth_min[:, None, None, None])
+            patches[:, [0]] = patches[:, [0]] / quantile_un[0]
+            output = self.model(patches)  # (B * NH * NW, C, S, S)
+            output = output.view(b, nh * nw, output.size(1) * patch_size * patch_size)
+            output = output.permute(0, 2, 1).contiguous()  # (B, NH * NW, C * S * S)
+            output = F.fold(output, x.shape[-2:], kernel_size=patch_size, stride=patch_size)
 
         for output_element in self.hparams.model.output_elements:
             key = output_element['key']
@@ -184,7 +218,8 @@ class DEFImageRegression(LightningModule):
         return loss
 
     def _shared_eval_step(self, batch, batch_idx: int, dataloader_idx: Optional[int], partition: str):
-        result = self.forward(batch['points'])
+        quantile = batch['quantile'] if 'quantile' in batch else None
+        result = self.forward(batch['points'], quantile=quantile)
 
         if self.save_predictions:
             for i, index in enumerate(batch['index']):
