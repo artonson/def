@@ -1,9 +1,7 @@
 # @package _group_
 
-high_res_quantile: 5.331804347038269 # 35.782 if defs.utils.abc_utils.torch.PreprocessDepth
-# high-noise-0.08
-# med: 9.145356798171989
-# low:  16.203841590881346,
+high_res_quantile: 5.331804347038269
+individual_quantile: false  # use individual normalizer per each input depth map
 
 train: ${transform.test}
 
@@ -13,10 +11,11 @@ test:
   _target_: defs.utils.abc_utils.torch.CompositeTransform
   transforms:
     - _target_: defs.utils.abc_utils.torch.ToTensor
-      keys: ['image','distances']
+      keys: [ 'image','distances' ]
       type: torch.FloatTensor
     - _target_: defs.utils.abc_utils.torch.PreprocessArbitraryDepth
       quantile: ${transform.high_res_quantile}
+      individual_quantile: ${transform.individual_quantile}
     - _target_: defs.utils.abc_utils.torch.RenameKeys
       old_keys: ['image']
       new_keys: ['points']
