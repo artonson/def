@@ -325,6 +325,9 @@ def main(options):
     gt_intrinsics = [dict(resolution_image=gt_images[0].shape[::-1], resolution_3d=options.resolution_3d, projection=None, validate_image=None) for view in
                      gt_dataset]
 
+    if options.gt_distance_squared:
+        gt_distances = [np.sqrt(image) for image in gt_distances]
+
     print('Fusing ground truth data...')
     fused_points_gt, fused_distances_gt = interpolate_ground_truth(
         gt_images,
@@ -366,6 +369,9 @@ def main(options):
         options.output_dir,
         '{}__{}.hdf5'.format(name, 'absdiff'))
     save_predictions(diff_images, diff_filename)
+
+    if not options.run_fusion:
+        return
 
     threshold = options.resolution_3d * options.distance_interp_factor
     config = {
@@ -477,6 +483,11 @@ def parse_args():
                         help='interpolator function to use.')
     parser.add_argument('-d', '--pred_distance_scale_ratio', dest='pred_distance_scale_ratio',
                         default=1.0, type=float, required=False, help='factor by which to multiply the predicted distances.')
+    parser.add_argument('--gt_distance_squared', dest='gt_distance_squared',
+                        action='store_true', default=False, help='if set, GT distance will be treated as a squared distance.')
+
+    parser.add_argument('--run_fusion', dest='run_fusion', action='store_true', default=False,
+                        help='if set, full fusion will be launched; if not set, only GT, predictions, and diff will be saved.')
 
     parser.add_argument('-ssv', '--save_single_views', action='store_true', default=False, dest='save_single_views',
                         help='is set, each single target view is going to be saved')
