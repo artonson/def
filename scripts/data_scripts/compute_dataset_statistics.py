@@ -9,6 +9,7 @@ import traceback
 from functools import partial
 from typing import Mapping, List
 
+import igl
 import numpy as np
 import yaml
 from torch.utils.data import DataLoader
@@ -30,6 +31,7 @@ from sharpf.utils.abc_utils.mesh.io import trimesh_load
 from sharpf.utils.py_utils.console import eprint_t
 from sharpf.utils.abc_utils.hdf5.dataset import Hdf5File, PreloadTypes
 from sharpf.utils.abc_utils.hdf5.io_struct import collate_mapping_with_io
+from sharpf.utils.camera_utils.camera_pose import CameraPose
 
 
 PATCH_TYPES = ['Plane', 'Cylinder', 'Cone', 'Sphere', 'Torus', 'Revolution', 'Extrusion', 'BSpline', 'Other']
@@ -47,6 +49,7 @@ def uncollate(collated: Mapping) -> List[Mapping]:
         {key: value[idx] for key, value in collated.items()}
         for idx in range(list_len)
     ]
+
 
 def get_patch(
     mesh_vertex_indexes,
@@ -77,7 +80,6 @@ def build_patch_description(
     num_surfaces = len(nbhood_features['surfaces'])
     num_samples = len(points)
     s = [
-        f'has_sharp {int(item["has_sharp"])}',
         f'num_sharp_curves {num_sharp_curves}',
         f'num_all_curves {num_all_curves}',
         f'num_surfaces {num_surfaces}',
@@ -97,9 +99,11 @@ def build_patch_description(
         count = len([surface for surface in nbhood_features['surfaces'] if surface['type'] == surface_type])
         s.append(f'num_surface_{surface_type.lower()} {count}')
 
-    for key, value in item.items():
-        if key.startswith('has_smell_'):
-            s.append(f'{key} {int(value)}')
+    if item is not None:
+        s.append(f'has_sharp {int(item["has_sharp"])}')
+        for key, value in item.items():
+            if key.startswith('has_smell_'):
+                s.append(f'{key} {int(value)}')
 
     return s
 
@@ -144,6 +148,70 @@ def process_points(
     return s
 
 
+def build_complete_model_description(
+        item_id,
+        points,
+        mesh,
+        features
+):
+    s = build_patch_description(None, features, points)
+
+    n_verts = len(mesh.vertices)
+    n_faces = len(mesh.faces)
+    n_surfaces = len(features['surfaces'])
+    n_curves = len(features['curves'])
+    s.extend([
+        f'n_verts {n_verts}',
+        f'n_faces {n_faces}',
+        f'n_surfaces {n_surfaces}',
+        f'n_curves {n_curves}',
+    ])
+
+    _, point_face_indexes, _ = igl.point_mesh_squared_distance(
+        points,
+        mesh.vertices,
+        mesh.faces)
+    unique, counts = np.unique(point_face_indexes, return_counts=True)
+    for min_count in [1, 2, 4, 8, 16, 32, 64]:
+        s.append(f'fraction_covered_{min_count} '
+                 f'{len(mesh.faces) / len(unique[counts >= min_count])}')
+
+    return s
+
+
+def process_images_whole(
+        dataset,
+        imaging,
+        obj_filename,
+        feat_filename
+):
+    item_id = str(dataset[0]['item_id'].decode('utf-8'))
+
+    with ABCChunk([obj_filename, feat_filename]) as data_holder:
+        abc_item = data_holder.get(item_id)
+        mesh, _, _ = trimesh_load(abc_item.obj)
+        features = yaml.load(abc_item.feat, Loader=yaml.Loader)
+
+    mesh.apply_scale(dataset[0]['mesh_scale'])
+
+    gt_images = [view['image'] for view in dataset]
+    gt_distances = [view.get('distances', np.ones_like(view['image'])) for view in dataset]
+    gt_cameras = [view['camera_pose'] for view in dataset]
+
+    points = []
+    for camera_to_world_4x4, image, distances in zip(gt_cameras, gt_images, gt_distances):
+        points_in_world_frame = CameraPose(camera_to_world_4x4).camera_to_world(imaging.image_to_points(image))
+        points.append(points_in_world_frame)
+    points = np.concatenate(points)
+
+    s = build_complete_model_description(
+        item_id,
+        points,
+        mesh,
+        features)
+    return s
+
+
 def main(options):
     # % \LA{for submission -- add figures displaying:
     # % 1) distribution of types of patches and curves over the patch-based dataset;
@@ -156,15 +224,19 @@ def main(options):
     process_fn = {
         'images': process_images,
         'points': process_points,
+        # 'whole_points': process_points_whole,
+        'whole_images': process_images_whole,
     }[options.io_spec]
+
+    dataset = Hdf5File(
+        options.input_file,
+        io=schema,
+        labels='*',
+        preload=PreloadTypes.NEVER)
 
     batch_size = 128
     loader = DataLoader(
-        Hdf5File(
-            options.input_file,
-            io=schema,
-            labels='*',
-            preload=PreloadTypes.NEVER),
+        dataset,
         num_workers=options.n_jobs,
         batch_size=batch_size,
         shuffle=False,
@@ -191,44 +263,58 @@ def main(options):
     if options.verbose:
         eprint_t('Obj filename: {}, feat filename: {}'.format(obj_filename, feat_filename))
 
-    max_queued_tasks = 1024
-    with ProcessPoolExecutor(max_workers=options.n_jobs) as executor:
-        index_by_future = {}
-        item_idx = 0
-        for batch_idx, batch in enumerate(loader):
-            # submit the full batch for processing
-            items = uncollate(batch)
-            for item in items:
-                item_idx += 1
-                item_id = str(item['item_id'].decode('utf-8'))
-                future = executor.submit(process_fn, item, imaging, obj_filename, feat_filename)
-                index_by_future[future] = (item_idx, item_id)
+    if options.io_spec in ['whole_points', 'whole_images']:
+        item_id = str(dataset[0]['item_id'].decode('utf-8'))
+        s = process_fn(
+            dataset,
+            imaging,
+            obj_filename,
+            feat_filename)
+        with open(options.output_file, 'a') as out_file:
+            lines = ['{} '.format(item_id) + line for line in s]
+            out_file.write('\n'.join(lines) + '\n')
+        if options.verbose:
+            eprint_t('Processed item {}'.format(item_id))
 
-            if len(index_by_future) >= max_queued_tasks:
-                # don't enqueue more tasks until all previously submitted
-                # are complete and dumped to disk
+    else:
+        max_queued_tasks = 1024
+        with ProcessPoolExecutor(max_workers=options.n_jobs) as executor:
+            index_by_future = {}
+            item_idx = 0
+            for batch_idx, batch in enumerate(loader):
+                # submit the full batch for processing
+                items = uncollate(batch)
+                for item in items:
+                    item_idx += 1
+                    item_id = str(item['item_id'].decode('utf-8'))
+                    future = executor.submit(process_fn, item, imaging, obj_filename, feat_filename)
+                    index_by_future[future] = (item_idx, item_id)
 
-                for future in as_completed(index_by_future):
-                    item_idx, item_id = index_by_future[future]
-                    try:
-                        s = future.result()
-                    except Exception as e:
-                        if options.verbose:
-                            eprint_t('Error getting item {}: {}'.format(item_id, str(e)))
-                            eprint_t(traceback.format_exc())
-                    else:
-                        with open(options.output_file, 'a') as out_file:
-                            lines = ['{} {} '.format(item_id, item_idx) + line for line in s]
-                            out_file.write('\n'.join(lines) + '\n')
-                        if options.verbose:
-                            eprint_t('Processed item {}, {}'.format(item_id, item_idx))
+                if len(index_by_future) >= max_queued_tasks:
+                    # don't enqueue more tasks until all previously submitted
+                    # are complete and dumped to disk
 
-                index_by_future = {}
+                    for future in as_completed(index_by_future):
+                        item_idx, item_id = index_by_future[future]
+                        try:
+                            s = future.result()
+                        except Exception as e:
+                            if options.verbose:
+                                eprint_t('Error getting item {}: {}'.format(item_id, str(e)))
+                                eprint_t(traceback.format_exc())
+                        else:
+                            with open(options.output_file, 'a') as out_file:
+                                lines = ['{} {} '.format(item_id, item_idx) + line for line in s]
+                                out_file.write('\n'.join(lines) + '\n')
+                            if options.verbose:
+                                eprint_t('Processed item {}, {}'.format(item_id, item_idx))
 
-                if options.verbose:
-                    seen_fraction = batch_idx * batch_size / len(loader.dataset)
-                    eprint_t(f'Processed {batch_idx * batch_size:d} items '
-                             f'({seen_fraction * 100:3.1f}% of data)')
+                    index_by_future = {}
+
+                    if options.verbose:
+                        seen_fraction = batch_idx * batch_size / len(loader.dataset)
+                        eprint_t(f'Processed {batch_idx * batch_size:d} items '
+                                 f'({seen_fraction * 100:3.1f}% of data)')
 
 
 def parse_args():
