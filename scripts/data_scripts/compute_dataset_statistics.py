@@ -13,6 +13,7 @@ import igl
 import numpy as np
 import yaml
 from torch.utils.data import DataLoader
+import trimesh.transformations as tt
 
 __dir__ = os.path.normpath(
     os.path.join(
@@ -20,6 +21,7 @@ __dir__ = os.path.normpath(
 )
 sys.path[1:1] = [__dir__]
 
+from sharpf.utils.camera_utils.view import CameraView
 from sharpf.data.imaging import IMAGING_BY_TYPE
 import sharpf.data.datasets.sharpf_io as io
 from sharpf.utils.geometry_utils.geometry import mean_mmd
@@ -195,8 +197,7 @@ def process_images_whole(
     shape_fabrication_extent = 10.0
     mesh_extent = np.max(mesh.bounding_box.extents)
     mesh = mesh.apply_scale(shape_fabrication_extent / mesh_extent)
-
-    mesh.apply_scale(dataset[0]['mesh_scale'])
+    mesh = mesh.apply_scale(dataset[0]['mesh_scale'])
     mesh = mesh.apply_translation(-mesh.vertices.mean(axis=0))
 
     gt_images = [view['image'] for view in dataset]
@@ -207,6 +208,49 @@ def process_images_whole(
     for camera_to_world_4x4, image, distances in zip(gt_cameras, gt_images, gt_distances):
         points_in_world_frame = CameraPose(camera_to_world_4x4).camera_to_world(imaging.image_to_points(image))
         points.append(points_in_world_frame)
+    points = np.concatenate(points)
+
+    s = build_complete_model_description(
+        item_id,
+        points,
+        mesh,
+        features)
+    return s
+
+
+def process_view(
+        dataset,
+        imaging,
+        obj_filename,
+        feat_filename
+):
+    item_id = str(dataset[0]['item_id'].decode('utf-8'))
+
+    with ABCChunk([obj_filename, feat_filename]) as data_holder:
+        abc_item = data_holder.get(item_id)
+        obj_mesh, _, _ = trimesh_load(abc_item.obj)
+        features = yaml.load(abc_item.feat, Loader=yaml.Loader)
+
+    obj_alignment_transform = dataset[0]['obj_alignment']
+    obj_scale = dataset[0]['obj_scale']
+    mesh = obj_mesh.copy() \
+        .apply_scale(obj_scale) \
+        .apply_transform(obj_alignment_transform)
+
+    views = [
+        CameraView(
+            depth=scan['points'].reshape((-1, 3)),
+            signal=None,
+            faces=scan['faces'].reshape((-1, 3)),
+            extrinsics=scan['extrinsics'],
+            intrinsics=scan['intrinsics'],
+            state='points')
+        for scan in dataset]
+    view_alignments = [scan['points_alignment'] for scan in dataset]
+
+    points = []
+    for view, view_alignment in zip(views, view_alignments):
+        points.append(tt.transform_points(view.depth, view_alignment))
     points = np.concatenate(points)
 
     s = build_complete_model_description(
@@ -231,6 +275,7 @@ def main(options):
         'points': process_points,
         # 'whole_points': process_points_whole,
         'whole_images': process_images_whole,
+        'annotated_view_io': process_view,
     }[options.io_spec]
 
     dataset = Hdf5File(
@@ -268,7 +313,7 @@ def main(options):
     if options.verbose:
         eprint_t('Obj filename: {}, feat filename: {}'.format(obj_filename, feat_filename))
 
-    if options.io_spec in ['whole_points', 'whole_images']:
+    if options.io_spec in ['whole_points', 'whole_images', 'annotated_view_io']:
         item_id = str(dataset[0]['item_id'].decode('utf-8'))
         s = process_fn(
             dataset,
