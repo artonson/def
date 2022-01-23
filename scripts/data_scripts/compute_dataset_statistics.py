@@ -174,7 +174,7 @@ def build_complete_model_description(
     unique, counts = np.unique(point_face_indexes, return_counts=True)
     for min_count in [1, 2, 4, 8, 16, 32, 64]:
         s.append(f'fraction_covered_{min_count} '
-                 f'{len(mesh.faces) / len(unique[counts >= min_count])}')
+                 f'{len(unique[counts >= min_count]) / len(mesh.faces)}')
 
     return s
 
@@ -192,7 +192,12 @@ def process_images_whole(
         mesh, _, _ = trimesh_load(abc_item.obj)
         features = yaml.load(abc_item.feat, Loader=yaml.Loader)
 
+    shape_fabrication_extent = 10.0
+    mesh_extent = np.max(mesh.bounding_box.extents)
+    mesh = mesh.apply_scale(shape_fabrication_extent / mesh_extent)
+
     mesh.apply_scale(dataset[0]['mesh_scale'])
+    mesh = mesh.apply_translation(-mesh.vertices.mean(axis=0))
 
     gt_images = [view['image'] for view in dataset]
     gt_distances = [view.get('distances', np.ones_like(view['image'])) for view in dataset]
@@ -232,7 +237,7 @@ def main(options):
         options.input_file,
         io=schema,
         labels='*',
-        preload=PreloadTypes.NEVER)
+        preload=PreloadTypes.LAZY)
 
     batch_size = 128
     loader = DataLoader(
