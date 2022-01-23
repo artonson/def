@@ -216,10 +216,10 @@ AnnotatedViewIO = io.HDF5IO({
     'has_sharp': io.Bool('has_sharp'),
     'num_sharp_curves': io.Int8('num_sharp_curves'),
     'num_surfaces': io.Int8('num_surfaces'),
+    'has_smell_sharpness_discontinuities': io.Bool('has_smell_sharpness_discontinuities'),
 },
     len_label='item_id',
     compression='lzf')
-
 
 def write_annotated_views_to_hdf5(scans, output_filename):
     collate_fn = partial(io.collate_mapping_with_io, io=AnnotatedViewIO)
