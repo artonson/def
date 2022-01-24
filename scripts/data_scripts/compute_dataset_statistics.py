@@ -240,18 +240,19 @@ def process_view(
 
     views = [
         CameraView(
-            depth=scan['points'].reshape((-1, 3)),
+            depth=scan['points'],
             signal=None,
             faces=scan['faces'].reshape((-1, 3)),
             extrinsics=scan['extrinsics'],
             intrinsics=scan['intrinsics'],
-            state='points')
+            state='pixels')
         for scan in dataset]
     view_alignments = [scan['points_alignment'] for scan in dataset]
 
     points = []
     for view, view_alignment in zip(views, view_alignments):
-        points.append(tt.transform_points(view.depth, view_alignment))
+        points_view = view.to_points()
+        points.append(tt.transform_points(points_view.depth, view_alignment))
     points = np.concatenate(points)
 
     s = build_complete_model_description(
