@@ -169,10 +169,11 @@ def build_complete_model_description(
         f'n_curves {n_curves}',
     ])
 
-    _, point_face_indexes, _ = igl.point_mesh_squared_distance(
+    squared_distance, point_face_indexes, _ = igl.point_mesh_squared_distance(
         points,
         mesh.vertices,
         mesh.faces)
+    s.append(f'mean_distance_to_mesh {np.mean(np.sqrt(squared_distance))} ')
     unique, counts = np.unique(point_face_indexes, return_counts=True)
     for min_count in [1, 2, 4, 8, 16, 32, 64]:
         s.append(f'fraction_covered_{min_count} '
@@ -194,7 +195,7 @@ def process_images_whole(
         mesh, _, _ = trimesh_load(abc_item.obj)
         features = yaml.load(abc_item.feat, Loader=yaml.Loader)
 
-    shape_fabrication_extent = 10.0
+    shape_fabrication_extent = 10.
     mesh_extent = np.max(mesh.bounding_box.extents)
     mesh = mesh.apply_scale(shape_fabrication_extent / mesh_extent)
     mesh = mesh.apply_scale(dataset[0]['mesh_scale'])
