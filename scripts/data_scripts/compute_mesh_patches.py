@@ -70,6 +70,15 @@ def get_patch(
     nbhood = reindex_zerobased(mesh, mesh_vertex_indexes, mesh_face_indexes)
     nbhood_features = compute_features_nbhood(mesh, features, mesh_face_indexes, mesh_vertex_indexes)
     nbhood_features = remove_boundary_features(nbhood, nbhood_features, how='edges')
+    for curve in nbhood_features['curves']:
+        if isinstance(curve['vert_indices'], np.ndarray):
+            curve['vert_indices'] = curve['vert_indices'].tolist()
+
+    for surface in nbhood_features['surfaces']:
+        if isinstance(surface['vert_indices'], np.ndarray):
+            surface['vert_indices'] = surface['vert_indices'].tolist()
+        if isinstance(surface['face_indices'], np.ndarray):
+            surface['face_indices'] = surface['face_indices'].tolist()
 
     return nbhood, nbhood_features
 
