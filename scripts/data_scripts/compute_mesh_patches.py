@@ -104,7 +104,7 @@ def process_images(
     nbhood, nbhood_features = get_patch(
         item['orig_vert_indices'],
         item['orig_face_indexes'],
-        str(item['item_id'].decode('utf-8')),
+        item['item_id'],
         obj_filename,
         feat_filename)
     item_out = build_patch_description(
@@ -123,7 +123,7 @@ def process_points(
     nbhood, nbhood_features = get_patch(
         item['orig_vert_indices'],
         item['orig_face_indexes'],
-        str(item['item_id'].decode('utf-8')),
+        item['item_id'],
         obj_filename,
         feat_filename)
     item_out = build_patch_description(
@@ -171,7 +171,7 @@ def process_images_whole(
         obj_filename,
         feat_filename
 ):
-    item_id = str(dataset[0]['item_id'].decode('utf-8'))
+    item_id = dataset[0]['item_id']
 
     with ABCChunk([obj_filename, feat_filename]) as data_holder:
         abc_item = data_holder.get(item_id)
@@ -208,7 +208,7 @@ def process_view(
         obj_filename,
         feat_filename
 ):
-    item_id = str(dataset[0]['item_id'].decode('utf-8'))
+    item_id = dataset[0]['item_id']
 
     with ABCChunk([obj_filename, feat_filename]) as data_holder:
         abc_item = data_holder.get(item_id)
@@ -339,7 +339,7 @@ def main(options):
         eprint_t('Obj filename: {}, feat filename: {}'.format(obj_filename, feat_filename))
 
     if options.io_spec in ['whole_points', 'whole_images', 'annotated_view_io']:
-        item_id = str(dataset[0]['item_id'].decode('utf-8'))
+        item_id = dataset[0]['item_id']
         s = process_fn(
             dataset,
             imaging,
@@ -361,7 +361,7 @@ def main(options):
                 items = uncollate(batch)
                 for item in items:
                     item_idx += 1
-                    item_id = str(item['item_id'].decode('utf-8'))
+                    item_id = item['item_id']
                     future = executor.submit(process_fn, item, imaging, obj_filename, feat_filename)
                     index_by_future[future] = (item_idx, item_id)
 
