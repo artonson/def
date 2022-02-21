@@ -89,9 +89,9 @@ def build_patch_description(
         nbhood_features,
 ):
     item_out = deepcopy(item)
-    item_out['vertices'] = np.array(nbhood.vertices, dtype=np.float64).ravel(),
-    item_out['faces'] = np.array(nbhood.faces, dtype=np.float64).ravel(),
-    item_out['features'] = np.array([json.dumps(nbhood_features)], dtype=object),
+    item_out['vertices'] = np.array(nbhood.vertices, dtype=np.float64).ravel()
+    item_out['faces'] = np.array(nbhood.faces, dtype=np.float64).ravel()
+    item_out['features'] = json.dumps(nbhood_features)
     return item_out
 
 

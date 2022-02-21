@@ -51,7 +51,19 @@ class AsciiString(HDF5Dataset):
         super().__init__(name, dtype=h5py.string_dtype(encoding='ascii'))
 
     def set(self, hdf5_file, data, compression=None):
-        hdf5_file.create_dataset(self.name, data=np.string_(data), dtype=self.dtype, compression=compression)
+        hdf5_file.create_dataset(
+            self.name,
+            data=np.string_(data),
+            dtype=self.dtype,
+            compression=compression)
+
+    def get(self, hdf5_file):
+        data = np.array(hdf5_file[self.name])
+        data = np.array([s.decode('ascii') for s in data])
+        return data.astype(self.dtype)
+
+    def get_one(self, hdf5_file, index):
+        return hdf5_file[self.name][index].decode('ascii')
 
 
 class VariableLenDataset(HDF5Dataset):
