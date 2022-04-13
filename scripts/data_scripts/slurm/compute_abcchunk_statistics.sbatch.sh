@@ -22,13 +22,15 @@ usage() { echo "$__usage" >&2; }
 
 # Get all the required options and set the necessary variables
 VERBOSE=false
-while getopts "a:c:o:v" opt
+while getopts "a:c:o:vn:m:" opt
 do
     case ${opt} in
         c) CHUNK=$OPTARG;;
         a) ABC_PATH_HOST=$OPTARG;;
         o) OUTPUT_FILE_HOST=$OPTARG;;
         v) VERBOSE=true;;
+        n) ID_START=$OPTARG;;
+        m) ID_END=$OPTARG;;
         *) usage; exit 1 ;;
     esac
 done
@@ -36,6 +38,13 @@ done
 if [[ "${VERBOSE}" = true ]]; then
     set -x
     VERBOSE_ARG="--verbose"
+fi
+
+if [[ -n "${ID_START}" ]]; then
+    ID_START_ARG="-n1=${ID_START}"
+fi
+if [[ -n "${ID_END}" ]]; then
+    ID_END_ARG="-n2=${ID_END}"
 fi
 
 # get image filenames from here
@@ -86,5 +95,6 @@ singularity exec \
         --abc-input-dir ${ABC_PATH_CONTAINER} \\
         --output-file ${OUTPUT_FILE} \\
         --jobs ${N_TASKS} \\
+        ${ID_START_ARG} ${ID_END_ARG} \\
         ${VERBOSE_ARG} \\
         "
