@@ -131,6 +131,7 @@ def run_single_threaded(
 
         for item_idx, abc_item in enumerate(data_holder[slice_start:slice_end]):
             s = get_patch_info(abc_item)
+            item_idx = item_idx + slice_start
             with open(output_file, 'a') as out_file:
                 out_file.write(f'{item_idx} {s}\n')
             if verbose:
