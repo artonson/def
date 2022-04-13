@@ -74,12 +74,19 @@ def run_parallel(
         output_file,
         verbose=False,
         n_jobs=1,
+        slice_start=None,
+        slice_end=None,
 ):
+    if None is slice_start: slice_start = 0
+    if None is slice_end:
+        with ABCChunk([obj_filename]) as data_holder:
+            slice_end = len(data_holder)
+
     max_queued_tasks = 128
     with ProcessPoolExecutor(max_workers=n_jobs) as executor:
         index_by_future = {}
 
-        for item_idx in range(8000):
+        for item_idx in range(slice_start, slice_end):
             future = executor.submit(get_patch_worker, obj_filename, feat_filename, item_idx)
             index_by_future[future] = item_idx
 
@@ -113,9 +120,16 @@ def run_single_threaded(
         feat_filename,
         output_file,
         verbose=False,
+        slice_start=None,
+        slice_end=None,
 ):
+    if None is slice_start:
+        slice_start = 0
     with ABCChunk([obj_filename, feat_filename]) as data_holder:
-        for item_idx, abc_item in enumerate(data_holder):
+        if None is slice_end:
+            slice_end = len(data_holder)
+
+        for item_idx, abc_item in enumerate(data_holder[slice_start:slice_end]):
             s = get_patch_info(abc_item)
             with open(output_file, 'a') as out_file:
                 out_file.write(f'{item_idx} {s}\n')
@@ -144,14 +158,18 @@ def main(options):
             obj_filename,
             feat_filename,
             options.output_file,
-            options.verbose)
+            options.verbose,
+            options.slice_start,
+            options.slice_end)
     else:
         run_parallel(
             obj_filename,
             feat_filename,
             options.output_file,
             options.verbose,
-            options.n_jobs)
+            options.n_jobs,
+            options.slice_start,
+            options.slice_end)
 
 
 def parse_args():
@@ -164,6 +182,10 @@ def parse_args():
                         required=True, help='output file.')
     parser.add_argument('-j', '--jobs', dest='n_jobs',
                         type=int, default=1, help='CPU jobs to use in parallel [default: 1].')
+    parser.add_argument('-n1', dest='slice_start', type=int,
+                        required=False, help='min index of data to process')
+    parser.add_argument('-n2', dest='slice_end', type=int,
+                        required=False, help='max index of data to process')
 
     parser.add_argument('--verbose', dest='verbose', action='store_true', default=False,
                         required=False, help='be verbose')
