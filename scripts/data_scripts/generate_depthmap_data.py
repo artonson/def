@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 
 import argparse
+import glob
 from collections import defaultdict
 import json
 import os
 import sys
 import traceback
+from typing import Mapping
 
 from joblib import Parallel, delayed
 import numpy as np
@@ -28,7 +30,7 @@ from sharpf.data.imaging import IMAGING_BY_TYPE
 from sharpf.data.noisers import NOISE_BY_TYPE
 from sharpf.utils.abc_utils.abc import feature_utils
 from sharpf.utils.py_utils.console import eprint_t
-from sharpf.utils.py_utils.os import add_suffix
+from sharpf.utils.py_utils.os import add_suffix, change_ext
 from sharpf.utils.py_utils.config import load_func_from_config
 from sharpf.utils.abc_utils.mesh.io import trimesh_load
 import sharpf.data.data_smells as smells
@@ -59,7 +61,12 @@ LOW_RES = 0.125
 XLOW_RES = 0.25
 
 
-def get_annotated_patches(item, config):
+def get_annotated_patches(
+        mesh: trimesh.base.Trimesh,
+        features: Mapping,
+        item_id: str,
+        config: Mapping,
+):
     shape_fabrication_extent = config.get('shape_fabrication_extent', 10.0)
     base_n_points_per_short_curve = config.get('base_n_points_per_short_curve', 8)
     base_resolution_3d = config.get('base_resolution_3d', LOW_RES)
@@ -80,14 +87,10 @@ def get_annotated_patches(item, config):
     smell_depth_discontinuity = smells.SmellDepthDiscontinuity.from_config(config['smell_depth_discontinuity'])
     smell_mesh_self_intersections = smells.SmellMeshSelfIntersections.from_config(config['smell_mesh_self_intersections'])
 
-    # load the mesh and the feature curves annotations
-    mesh, _, _ = trimesh_load(item.obj)
-    features = yaml.load(item.feat, Loader=yaml.Loader)
-
     processed_mesh = trimesh.base.Trimesh(vertices=mesh.vertices, faces=mesh.faces, process=True, validate=True)
     if processed_mesh.vertices.shape != mesh.vertices.shape or \
             processed_mesh.faces.shape != mesh.faces.shape or not mesh.is_watertight:
-        raise DataGenerationException('Will not process mesh {}: likely the mesh is broken'.format(item.item_id))
+        raise DataGenerationException('Will not process mesh {}: likely the mesh is broken'.format(item_id))
 
     has_smell_mismatching_surface_annotation = any([
         np.array(np.unique(mesh.faces[surface['face_indices']]) != np.sort(surface['vert_indices'])).all()
@@ -175,7 +178,7 @@ def get_annotated_patches(item, config):
                 'normals': normals_image,
                 'distances': distances_image,
                 'directions': directions_image,
-                'item_id': item.item_id,
+                'item_id': item_id,
                 'orig_vert_indices': mesh_vertex_indexes,
                 'orig_face_indexes': mesh_face_indexes,
                 'has_sharp': has_sharp,
@@ -197,7 +200,7 @@ def get_annotated_patches(item, config):
             yield configuration, patch_info
 
 
-def generate_patches(meshes_filename, feats_filename, data_slice, config, output_file):
+def generate_patches_abc(meshes_filename, feats_filename, data_slice, config, output_file):
     slice_start, slice_end = data_slice
     with ABCChunk([meshes_filename, feats_filename]) as data_holder:
         point_patches_by_config = defaultdict(list)
@@ -205,7 +208,11 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
             eprint_t("Processing chunk file {chunk}, item {item}".format(
                 chunk=meshes_filename, item=item.item_id))
             try:
-                for configuration, patch_info in get_annotated_patches(item, config):
+                # load the mesh and the feature curves annotations
+                mesh, _, _ = trimesh_load(item.obj)
+                features = yaml.load(item.feat, Loader=yaml.Loader)
+
+                for configuration, patch_info in get_annotated_patches(mesh, features, item.item_id, config):
                     config_name = configuration.get('name')
                     point_patches_by_config[config_name].append(patch_info)
 
@@ -234,7 +241,51 @@ def generate_patches(meshes_filename, feats_filename, data_slice, config, output
                 num_patches=len(point_patches), output_file=output_file_config))
 
 
-def make_patches(options):
+def generate_patches_folder(filenames, data_slice, config, output_file):
+    slice_start, slice_end = data_slice
+
+    point_patches_by_config = defaultdict(list)
+    for meshes_filename, feats_filename in filenames[slice_start:slice_end]:
+        item_id, _ = os.path.splitext(os.path.basename(meshes_filename))
+        eprint_t("Processing chunk file {chunk}, item {item}".format(
+            chunk=meshes_filename, item=item_id))
+        try:
+            # load the mesh and the feature curves annotations
+            with open(meshes_filename, 'r') as mesh_file:
+                mesh, _, _ = trimesh_load(mesh_file, need_decode=False)
+            with open(feats_filename, 'r') as feats_file:
+                features = yaml.load(feats_file, Loader=yaml.Loader)
+
+            for configuration, patch_info in get_annotated_patches(mesh, features, item_id, config):
+                config_name = configuration.get('name')
+                point_patches_by_config[config_name].append(patch_info)
+
+        except Exception as e:
+            eprint_t('Error processing item {item_id} from chunk {chunk}: {what}'.format(
+                item_id=item_id, chunk='[{},{}]'.format(meshes_filename, feats_filename), what=e))
+            eprint_t(traceback.format_exc())
+
+        else:
+            eprint_t('Done processing item {item_id} from chunk {chunk}'.format(
+                item_id=item_id, chunk='[{},{}]'.format(meshes_filename, feats_filename)))
+
+    for config_name, point_patches in point_patches_by_config.items():
+        if len(point_patches) == 0:
+            continue
+
+        output_file_config = add_suffix(output_file, config_name) if config_name else output_file
+        try:
+            save_depth_maps(point_patches, output_file_config)
+        except Exception as e:
+            eprint_t('Error writing patches to disk at {output_file}: {what}'.format(
+                output_file=output_file_config, what=e))
+            eprint_t(traceback.format_exc())
+        else:
+            eprint_t('Done writing {num_patches} patches to disk at {output_file}'.format(
+                num_patches=len(point_patches), output_file=output_file_config))
+
+
+def make_patches_from_abc(options):
     obj_filename = os.path.join(
         options.input_dir,
         ABC_7Z_FILEMASK.format(
@@ -282,29 +333,129 @@ def make_patches(options):
     max_patches_per_mesh = config.get('max_patches_per_mesh', 1500)
     parallel = Parallel(n_jobs=options.n_jobs, backend='multiprocessing',
                         timeout=chunk_size * max_patches_per_mesh * MAX_SEC_PER_PATCH)
-    delayed_iterable = (delayed(generate_patches)(obj_filename, feat_filename, data_slice, config, out_filename)
+    delayed_iterable = (delayed(generate_patches_abc)(obj_filename, feat_filename, data_slice, config, out_filename)
                         for data_slice, out_filename in zip(abc_data_slices, output_files))
     parallel(delayed_iterable)
+
+
+def make_patches_from_folder(options):
+    folder_data = sorted(glob.glob(os.path.join(options.input_dir, '*.obj')))
+    folder_data = [
+        (filename, change_ext(filename, '.yml'))
+        for filename in folder_data
+        if os.path.exists(change_ext(filename, '.yml'))]
+
+    if all([opt is not None for opt in (options.slice_start, options.slice_end)]):
+        slice_start, slice_end = options.slice_start, options.slice_end
+    else:
+        slice_start, slice_end = 0, len(folder_data)
+        if options.slice_start is not None:
+            slice_start = options.slice_start
+        if options.slice_end is not None:
+            slice_end = options.slice_end
+
+    processes_to_spawn = 10 * options.n_jobs
+    chunk_size = max(1, (slice_end - slice_start) // processes_to_spawn)
+    data_slices = [(start, start + chunk_size) for start in range(slice_start, slice_end, chunk_size)]
+    output_files = [
+        os.path.join(
+            options.output_dir,
+            'data_{slice_start}_{slice_end}.hdf5'.format(
+                slice_start=slice_start, slice_end=slice_end))
+        for slice_start, slice_end in data_slices]
+
+    with open(options.dataset_config) as config_file:
+        config = json.load(config_file)
+
+    MAX_SEC_PER_PATCH = 100
+    max_patches_per_mesh = config.get('max_patches_per_mesh', 1500)
+    parallel = Parallel(
+        n_jobs=options.n_jobs,
+        backend='multiprocessing',
+        timeout=chunk_size * max_patches_per_mesh * MAX_SEC_PER_PATCH)
+    delayed_iterable = (
+        delayed(generate_patches_folder)(
+            folder_data,
+            data_slice,
+            config,
+            out_filename)
+        for data_slice, out_filename in zip(data_slices, output_files))
+
+    parallel(delayed_iterable)
+
+
+def make_patches(options):
+    if None is not options.chunk:
+        make_patches_from_abc(options)
+
+    elif None is not options.unarchived:
+        make_patches_from_folder(options)
+
+    else:
+        assert False
 
 
 def parse_args():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('-j', '--jobs', dest='n_jobs',
-                        type=int, default=4, help='CPU jobs to use in parallel [default: 4].')
-    parser.add_argument('-i', '--input-dir', dest='input_dir',
-                        required=True, help='input dir with ABC dataset.')
-    parser.add_argument('-c', '--chunk', required=True, help='ABC chunk id to process.')
-    parser.add_argument('-o', '--output-dir', dest='output_dir',
-                        required=True, help='output dir.')
-    parser.add_argument('-g', '--dataset-config', dest='dataset_config',
-                        required=True, help='dataset configuration file.')
-    parser.add_argument('-n1', dest='slice_start', type=int,
-                        required=False, help='min index of data to process')
-    parser.add_argument('-n2', dest='slice_end', type=int,
-                        required=False, help='max index of data to process')
-    parser.add_argument('--verbose', dest='verbose', action='store_true', default=False,
-                        required=False, help='be verbose')
+    parser.add_argument(
+        '-i', '--input-dir',
+        dest='input_dir',
+        required=True,
+        help='input dir with the source dataset. '
+             'The source dataset can be either a collection'
+             'of .obj and .yml files (with the same name),'
+             'or a .7z archived ABC dataset.')
+
+    input_group = parser.add_mutually_exclusive_group()
+    input_group.add_argument(
+        '-c', '--chunk',
+        help='ABC chunk id to process; if set, this will '
+             'interpret the input folder as a directory '
+             'with the .7z archived ABC dataset.')
+    input_group.add_argument(
+        '-ua', '--unarchived',
+        action='store_true',
+        default=False,
+        help='if set, this will view the input folder as a collection'
+             'of .obj and .yml files (with the same name).')
+
+    parser.add_argument(
+        '-o', '--output-dir',
+        dest='output_dir',
+        required=True,
+        help='output dir.')
+    parser.add_argument(
+        '-n1',
+        dest='slice_start',
+        type=int,
+        required=False,
+        help='min index of data (sorted lexicographically) to process.')
+    parser.add_argument(
+        '-n2',
+        dest='slice_end',
+        type=int,
+        required=False,
+        help='max index of data (sorted lexicographically) to process.')
+
+    parser.add_argument(
+        '-g', '--dataset-config',
+        dest='dataset_config',
+        required=True,
+        help='dataset configuration file.')
+    parser.add_argument(
+        '-j', '--jobs',
+        dest='n_jobs',
+        type=int,
+        default=4,
+        help='CPU jobs to use in parallel [default: 4].')
+    parser.add_argument(
+        '-v', '--verbose',
+        dest='verbose',
+        action='store_true',
+        default=False,
+        help='be verbose.')
+
     return parser.parse_args()
 
 
