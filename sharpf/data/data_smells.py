@@ -33,7 +33,7 @@ class SmellCoarseSurfacesByNumEdges(DataSmell):
     def run(self, mesh, mesh_face_indexes, features):
         intersecting_surfaces = get_intersecting_surfaces(mesh_face_indexes, features['surfaces'])
         for i, surface in enumerate(intersecting_surfaces):
-            if surface['type'] == 'Plane':
+            if surface.get('type', 'NAT') == 'Plane':
                 continue
             boundary_curves = get_boundary_curves(mesh, surface, features)
             if len(boundary_curves) == 0:
@@ -58,7 +58,7 @@ class SmellCoarseSurfacesByAngles(DataSmell):
     def run(self, mesh, mesh_face_indexes, features):
         intersecting_surfaces = get_intersecting_surfaces(mesh_face_indexes, features['surfaces'])
         for i, surface in enumerate(intersecting_surfaces):
-            if surface['type'] == 'Plane':
+            if surface.get('type', 'NAT') == 'Plane':
                 continue
             surface_mesh = get_surface_as_mesh(mesh, surface, deduce_verts_from_faces=True)
             adjacent_normal_a = surface_mesh.face_normals[surface_mesh.face_adjacency][:, 0, :]
