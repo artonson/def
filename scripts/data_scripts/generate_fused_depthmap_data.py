@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import glob
 from copy import deepcopy
 import json
 import os
@@ -17,9 +18,9 @@ __dir__ = os.path.normpath(
     os.path.join(
         os.path.dirname(os.path.realpath(__file__)), '..', '..')
 )
-
 sys.path[1:1] = [__dir__]
 
+from sharpf.utils.py_utils.os import change_ext
 from sharpf.data import DataGenerationException
 from sharpf.utils.abc_utils.abc.abc_data import ABCModality, ABCChunk, ABC_7Z_FILEMASK
 from sharpf.data.annotation import ANNOTATOR_BY_TYPE
@@ -269,7 +270,7 @@ def get_annotated_patches(data, config, n_jobs):
     return whole_patches
 
 
-def make_patches(options):
+def make_patches_from_abc(options):
     obj_filename = os.path.join(
         options.input_dir,
         ABC_7Z_FILEMASK.format(
@@ -335,25 +336,134 @@ def make_patches(options):
                     num_patches=len(patches), output_file=output_filename))
 
 
+def make_patches_from_folder(options):
+    folder_data = sorted(glob.glob(os.path.join(options.input_dir, '*.obj')))
+    folder_data = [
+        (filename, change_ext(filename, '.yml'))
+        for filename in folder_data
+        if os.path.exists(change_ext(filename, '.yml'))]
+
+    with open(options.dataset_config) as config_file:
+        config = json.load(config_file)
+
+    if None is not options.item_idx:
+        meshes_filename, feats_filename = folder_data[options.item_idx]
+        item_id, _ = os.path.splitext(os.path.basename(meshes_filename))
+    else:
+        assert None is not options.item_id
+        meshes_filename = os.path.join(options.input_dir, f'{options.item_id}.obj')
+        feats_filename = os.path.join(options.input_dir, f'{options.item_id}.yml')
+        item_id = options.item_id
+
+    with open(meshes_filename, 'r') as mesh_file:
+        mesh, _, _ = trimesh_load(mesh_file, need_decode=False)
+    with open(feats_filename, 'r') as feats_file:
+        features = yaml.load(feats_file, Loader=yaml.Loader)
+    data = {'mesh': mesh, 'features': features, 'item_id': item_id}
+
+    try:
+        eprint_t("Processing chunk file {chunk}, item {item}".format(
+            chunk=meshes_filename, item=data['item_id']))
+        patches = get_annotated_patches(data, config, options.n_jobs)
+
+    except Exception as e:
+        eprint_t('Error processing item {item_id} from chunk {chunk}: {what}'.format(
+            item_id=data['item_id'], chunk='[{},{}]'.format(meshes_filename, feats_filename), what=e))
+        eprint_t(traceback.format_exc())
+
+    else:
+        eprint_t('Done processing item {item_id} from chunk {chunk}'.format(
+            item_id=data['item_id'], chunk='[{},{}]'.format(meshes_filename, feats_filename)))
+
+        if len(patches) == 0:
+            return
+
+        output_filename = os.path.join(
+            options.output_dir,
+            'abc_{chunk}_{item_id}.hdf5'.format(
+                chunk=options.chunk.zfill(4),
+                item_id=data['item_id']))
+        try:
+            save_fn = io.SAVE_FNS['images']
+            save_fn(patches, output_filename)
+        except Exception as e:
+            eprint_t('Error writing patches to disk at {output_file}: {what}'.format(
+                output_file=output_filename, what=e))
+            eprint_t(traceback.format_exc())
+        else:
+            eprint_t('Done writing {num_patches} patches to disk at {output_file}'.format(
+                num_patches=len(patches), output_file=output_filename))
+
+def make_patches(options):
+    if None is not options.chunk:
+        make_patches_from_abc(options)
+
+    elif None is not options.unarchived:
+        make_patches_from_folder(options)
+
+    else:
+        assert False
+
 def parse_args():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('-j', '--jobs', dest='n_jobs',
-                        type=int, default=4, help='CPU jobs to use in parallel [default: 4].')
-    parser.add_argument('-i', '--input-dir', dest='input_dir',
-                        required=True, help='input dir with ABC dataset.')
-    parser.add_argument('-c', '--chunk', required=True, help='ABC chunk id to process.')
-    parser.add_argument('-o', '--output-dir', dest='output_dir',
-                        required=True, help='output dir.')
-    parser.add_argument('-g', '--dataset-config', dest='dataset_config',
-                        required=True, help='dataset configuration file.')
+    parser.add_argument(
+        '-i', '--input-dir',
+        dest='input_dir',
+        required=True,
+        help='input dir with the source dataset. '
+             'The source dataset can be either a collection'
+             'of .obj and .yml files (with the same name),'
+             'or a .7z archived ABC dataset.')
 
-    group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument('-id', '--item-id', dest='item_id', help='data id to process.')
-    group.add_argument('-n', '--item-index', dest='item_idx', type=int, help='index of data to process')
+    input_group = parser.add_mutually_exclusive_group()
+    input_group.add_argument(
+        '-c', '--chunk',
+        help='ABC chunk id to process; if set, this will '
+             'interpret the input folder as a directory '
+             'with the .7z archived ABC dataset.')
+    input_group.add_argument(
+        '-ua', '--unarchived',
+        action='store_true',
+        default=False,
+        help='if set, this will view the input folder as a collection'
+             'of .obj and .yml files (with the same name).')
 
-    parser.add_argument('--verbose', dest='verbose', action='store_true', default=False,
-                        required=False, help='be verbose')
+    parser.add_argument(
+        '-o', '--output-dir',
+        dest='output_dir',
+        required=True,
+        help='output dir.')
+    parser.add_argument(
+        '-g', '--dataset-config',
+        dest='dataset_config',
+        required=True,
+        help='dataset configuration file.')
+
+    idx_group = parser.add_mutually_exclusive_group(required=True)
+    idx_group.add_argument(
+        '-id', '--item-id',
+        dest='item_id',
+        help='data id to process.')
+    idx_group.add_argument(
+        '-n', '--item-index',
+        dest='item_idx',
+        type=int,
+        help='index of data to process.')
+
+    parser.add_argument(
+        '-j', '--jobs',
+        dest='n_jobs',
+        type=int,
+        default=4,
+        help='CPU jobs to use in parallel [default: 4].')
+    parser.add_argument(
+        '-v', '--verbose',
+        dest='verbose',
+        action='store_true',
+        default=False,
+        help='be verbose.')
+
     return parser.parse_args()
 
 
