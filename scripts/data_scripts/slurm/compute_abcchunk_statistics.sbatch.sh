@@ -56,7 +56,7 @@ if [[ ! ${ABC_PATH_HOST} ]]; then
     echo "input_dir is not set" && usage && exit 1
 fi
 
-if [[ -n "${CHUNK}" ]]; then
+if [[ -z "${CHUNK}" ]]; then
     if [[ -n "${SLURM_ARRAY_TASK_ID}" ]]; then
         CHUNK=${SLURM_ARRAY_TASK_ID}
     else
@@ -65,7 +65,7 @@ if [[ -n "${CHUNK}" ]]; then
 fi
 
 OUTPUT_PATH_CONTAINER="/out"
-if [[ ! ${OUTPUT_FILE_HOST} ]]; then
+if [[ ! ${OUTPUT_PATH_HOST} ]]; then
     echo "output_dir is not set" && usage && exit 1
 fi
 OUTPUT_BASENAME="abc_statistics__${CHUNK}__${ID_START}__${ID_END}.txt"
