@@ -6,6 +6,7 @@ from functools import partial
 import os
 import sys
 
+import torch
 from torch.utils.data import DataLoader
 
 __dir__ = os.path.normpath(
@@ -64,6 +65,19 @@ class BufferedHDF5Writer(object):
             print('Saved {} with {} items'.format(filename, len(self.data)))
 
 
+def select_items_by_id(batch, valid_id_set=None):
+    item_ids = batch['item_id']
+    selected_idx = [idx for idx, item_id in enumerate(item_ids)
+                    if item_id in valid_id_set]
+    filtered_batch = {}
+    for key, value in batch.items():
+        if isinstance(value, torch.Tensor):
+            filtered_batch[key] = value[selected_idx]
+        elif isinstance(value, list):
+            filtered_batch[key] = [value[i] for i in selected_idx]
+    return filtered_batch
+
+
 def main(options):
     IO, save_fn = io.IO_SPECS[options.io_spec], io.SAVE_FNS[options.io_spec]
 
@@ -90,6 +104,9 @@ def main(options):
     }
     train_writer_params = {'prefix': options.train_prefix, **writer_params}
     val_writer_params = {'prefix': options.val_prefix, **writer_params}
+    valid_id_set = None
+    if options.id_list_file:
+        valid_id_set = set([line.strip() for line in options.id_list_file])
 
     with BufferedHDF5Writer(**train_writer_params) as train_writer, \
             BufferedHDF5Writer(**val_writer_params) as val_writer:
@@ -98,8 +115,9 @@ def main(options):
         for batch_idx, batch in enumerate(loader):
             seen_fraction = batch_idx * batch_size / len(loader.dataset)
             writer = train_writer if seen_fraction <= options.train_fraction else val_writer
+            filtered_batch = select_items_by_id(batch, valid_id_set)
             filtered_batch = select_items_by_predicates(
-                batch, true_keys=options.true_keys, false_keys=options.false_keys)
+                filtered_batch, true_keys=options.true_keys, false_keys=options.false_keys)
             writer.extend(filtered_batch)
 
             any_key = next(iter(filtered_batch.keys()))
@@ -145,6 +163,8 @@ def parse_options():
                         type=int, default=4, help='CPU jobs to use in parallel [default: 4].')
     parser.add_argument('-x', '--max-loaded-files', dest='max_loaded_files',
                         type=int, default=10, help='max loaded sourcec HDF5 files.')
+    parser.add_argument('-ilf', '--id-list-file', dest='id_list_file', type=argparse.FileType('r'),
+                        help='if specified, this is the filename of the input file with ABC item IDs to use.')
 
     parser.add_argument('-v', '--verbose', dest='verbose', action='store_true',
                         default=False, help='overwrite existing files.')
