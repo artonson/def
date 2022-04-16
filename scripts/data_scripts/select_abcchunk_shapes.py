@@ -21,7 +21,7 @@ def parse_item_info(line: str):
     e.g.:
     5000 00996964_0c378724bacc399c9c303d73_008 num_verts=13185 num_faces=26366 ...
     """
-    index, item_id, keys_values = line.strip().split(maxsplit=3)
+    index, item_id, keys_values = line.strip().split(maxsplit=2)
     info = {'index': index, 'item_id': item_id, 'params': {}}
     for key_value in keys_values.split():
         key, value = key_value.split('=')
