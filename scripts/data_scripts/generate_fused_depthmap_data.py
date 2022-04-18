@@ -380,9 +380,7 @@ def make_patches_from_folder(options):
 
         output_filename = os.path.join(
             options.output_dir,
-            'abc_{chunk}_{item_id}.hdf5'.format(
-                chunk=options.chunk.zfill(4),
-                item_id=data['item_id']))
+            'data_{item_id}.hdf5'.format(item_id=data['item_id']))
         try:
             save_fn = io.SAVE_FNS['images']
             save_fn(patches, output_filename)
