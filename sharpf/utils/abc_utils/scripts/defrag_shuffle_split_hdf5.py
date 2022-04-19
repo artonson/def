@@ -115,7 +115,9 @@ def main(options):
         for batch_idx, batch in enumerate(loader):
             seen_fraction = batch_idx * batch_size / len(loader.dataset)
             writer = train_writer if seen_fraction <= options.train_fraction else val_writer
-            filtered_batch = select_items_by_id(batch, valid_id_set)
+            filtered_batch = batch
+            if None is not valid_id_set:
+                filtered_batch = select_items_by_id(filtered_batch, valid_id_set)
             filtered_batch = select_items_by_predicates(
                 filtered_batch, true_keys=options.true_keys, false_keys=options.false_keys)
             writer.extend(filtered_batch)
