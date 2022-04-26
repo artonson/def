@@ -60,6 +60,8 @@ def main(options):
         else:
             low, high = 0.0, options.max_distance_to_feature
 
+    indexes_subsample = None
+
     input_cmaps = options.input_cmaps or ['plasma_r'] * len(options.inputs)
     for input_filename, input_cmap, key in tqdm(zip(options.inputs, input_cmaps, options.keys), desc='Loading/plotting'):
         dataset = Hdf5File(
@@ -67,12 +69,17 @@ def main(options):
             io=ComparisonsIO,
             preload=PreloadTypes.LAZY,
             labels=['points', key])
-#        name_for_plot = change_ext(
-#            os.path.basename(input_filename), '').split('__', maxsplit=1)[-1]
-        name_for_plot = key
+        name_for_plot = change_ext(
+            os.path.basename(input_filename), '').split('__', maxsplit=1)[-1]
+#        name_for_plot = key
 
         points = dataset[0]['points']
         distances = np.array(dataset[0][key], dtype=np.float)
+        if None is not options.subsample:
+            if None is indexes_subsample:
+                indexes_subsample = np.random.choice(len(points), size=options.subsample, replace=False)
+            print("Subsampling input to {} points".format(options.subsample))
+            points, distances = points[indexes_subsample], distances[indexes_subsample]
 
         if is_hard_label:
             distances[distances <= options.sharpness_hard_thr] = low
@@ -131,6 +138,9 @@ def parse_args():
 
     parser.add_argument('-k', '--key', dest='keys', action='append',
                         default=[], help='what key to use for getting preds.')
+
+    parser.add_argument('-e', '--subsample', dest='subsample', default=None, type=int, 
+                        help='if set, specifies the number of points to subsample the input to.')
     return parser.parse_args()
 
 
