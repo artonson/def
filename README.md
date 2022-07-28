@@ -10,8 +10,9 @@ _Albert Matveev, Ruslan Rakhimov, Alexey Artemov, Gleb Bobrovskikh, Vage Egiazar
 
 ## :construction: Construction Alert! :construction:
 
-We are currently in the process of updating the code. 
-As soon as we finish, this message will disappear.
+We are currently in the process of updating and release the source code for our project. 
+As soon as we finish this housekeeping, this message will disappear.
+If you would like to use our method now, please email the corresponding authors of the paper.
 
 
 ## Installation
