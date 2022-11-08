@@ -228,19 +228,41 @@ def multi_view_interpolate_predictions(
 
     n_jobs = config.get('n_jobs')
     n_images = len(images)
-    data_iterable = (
-        (i, j, get_view_local(i), get_view_local(j), point_indexes, config)
-        for i, j in itertools.product(range(n_images), range(n_images)))
 
-    os.environ['OMP_NUM_THREADS'] = str(n_jobs)
     list_predictions, list_indexes_in_whole, list_points = [], [], []
-    for predictions_interp, indexes_interp, points_interp in multiproc_parallel(
-            do_interpolate,
-            data_iterable,
-            batch_size=16):
-        list_predictions.append(predictions_interp)
-        list_indexes_in_whole.append(indexes_interp)
-        list_points.append(points_interp)
+    from concurrent.futures import ProcessPoolExecutor, as_completed
+    with ProcessPoolExecutor(max_workers=n_jobs) as executor:
+        futures = []
+        for i, j in itertools.product(range(n_images), range(n_images)):
+            view_i, view_j = get_view_local(i), get_view_local(j)
+            future = executor.submit(
+                do_interpolate,
+                i, j, view_i, view_j, point_indexes, config)
+            futures.append(future)
+
+        for future in as_completed(futures):
+            try:
+                predictions_interp, indexes_interp, points_interp = future.result()
+            except Exception as exc:
+                print(f'Computation generated an exception: str(exc)')
+            else:
+                list_predictions.append(predictions_interp)
+                list_indexes_in_whole.append(indexes_interp)
+                list_points.append(points_interp)
+    #
+    # data_iterable = (
+    #     (i, j, get_view_local(i), get_view_local(j), point_indexes, config)
+    #     for i, j in itertools.product(range(n_images), range(n_images)))
+    #
+    # os.environ['OMP_NUM_THREADS'] = str(n_jobs)
+    # list_predictions, list_indexes_in_whole, list_points = [], [], []
+    # for predictions_interp, indexes_interp, points_interp in multiproc_parallel(
+    #         do_interpolate,
+    #         data_iterable,
+    #         batch_size=16):
+    #     list_predictions.append(predictions_interp)
+    #     list_indexes_in_whole.append(indexes_interp)
+    #     list_points.append(points_interp)
 
     return list_predictions, list_indexes_in_whole, list_points
 
