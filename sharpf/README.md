@@ -1,4 +1,4 @@
-# `scripts/`
+# `def/`
 
 The following is the brief explanation of the code in this directory. 
 If you would like to know more about something, please feel free to read 
