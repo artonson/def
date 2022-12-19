@@ -1,5 +1,6 @@
-# DEF: Deep Estimation of Sharp Geometric Features in 3D Shapes
+# DEF: Deep estimation of sharp geometric features in 3D shapes
 
+### Using the code
 **SIGGRAPH 2022 [[Project Page](https://artonson.github.io/publications/def)] [[Arxiv](https://arxiv.org/abs/2011.15081)] [[Bibtex](docs/bib.bib)]**
 
 This is an official implementation of the paper 
@@ -15,33 +16,15 @@ As soon as we finish this housekeeping, this message will disappear.
 If you would like to use our method now, please email the corresponding authors of the paper.
 
 
-## Installation
-The preferred way of setting up the environment required to run out method
-is by building and using a docker image. The docker image contains all the 
-necessary software required to run, debug, and develop the components of 
-our approach and its constituent parts. We thus strongly recommend using
-either a pre-built docker image available on DockerHub, or using the 
-ready-made scripts to build your own docker image locally.
-
-To build the docker image from the source code available in this repository,
-run the command:
-```bash
-bash docker/build_docker.sh 
-```
-To get the docker image from DockerHub, run the command
-```bash
-docker pull artonson/def:latest
-```
-
-
 ## Getting started
 Below, we enumerate the major steps required for our method to work, and 
 provide the links to the respective documentation. To get familiar with more
 details of how our method works, please refer to the respective documentation
-pages, the source code, contact the authours via [artonson at yandex ru],
+pages, the source code, contact the authors via [artonson at yandex ru],
 or [open an issue](https://github.com/artonson/def/issues/new).
- * [Generating synthetic training datasets](https://github.com/artonson/def/blob/main/docs/synthetic_data.md)
- * [Generating real-world training datasets](https://github.com/artonson/def/blob/main/docs/real_data.md)
+ * [System installation and configuration](docs/install.md)
+ * [Generating synthetic training datasets](docs/synthetic_data.md)
+ * [Generating real-world training datasets](docs/real_data.md)
  * [Training point-based and image-based DEF networks](https://github.com/artonson/def/blob/main/docs/training.md)
  * [Running inference with a pre-trained DEF network](https://github.com/artonson/def/blob/main/docs/inference.md)
  * [Running reconstruction on complete 3D models](https://github.com/artonson/def/blob/main/docs/fusion.md)
@@ -62,7 +45,6 @@ the respective weight files.
 
 
 ## Citing
-
 ```
 @article{10.1145/3528223.3530140,
 author = {Matveev, Albert and Rakhimov, Ruslan and Artemov, Alexey and Bobrovskikh, Gleb and Egiazarian, Vage and Bogomolov, Emil and Panozzo, Daniele and Zorin, Denis and Burnaev, Evgeny},
@@ -84,9 +66,15 @@ keywords = {curve extraction, sharp geometric features, deep learning}
 }
 ```
 
-
 ## Acknowledgements
 
-
-
-
+We are grateful to Prof. Dzmitry Tsetserukou (Skoltech) and his laboratory 
+staff for providing the 3D printing device and technical support. We thank 
+Sebastian Koch (Technical University of Berlin), Timofey Glukhikh (Skoltech) 
+and Teseo Schneider (New York University) for providing assistance in 
+data generation. We also thank Maria Taktasheva (Skoltech) for assistance 
+in computational experiments. We acknowledge the use of computational 
+resources of the Skoltech CDISE supercomputer Zhores for obtaining the 
+results presented in this paper. The work was supported by the Analytical 
+center under the RF Government (subsidy agreement 000000D730321P5Q0002, 
+Grant No. 70-2021-00145 02.11.2021).
