@@ -18,17 +18,19 @@ If you would like to use our method now, please email the corresponding authors 
 
 ## Getting started
 Below, we enumerate the major steps required for our method to work, and 
-provide the links to the respective documentation. To get familiar with more
-details of how our method works, please refer to the respective documentation
-pages, the source code, contact the authors via [artonson at yandex ru],
+provide the links to the respective documentation and resources. To get 
+familiar with more details of how our method works, please refer to 
+the respective documentation pages, the source code, contact 
+the authors via [artonson at yandex ru],
 or [open an issue](https://github.com/artonson/def/issues/new).
  * [System installation and configuration](docs/install.md)
  * [Generating synthetic training datasets](docs/synthetic_data.md)
  * [Generating real-world training datasets](docs/real_data.md)
- * [Training point-based and image-based DEF networks](https://github.com/artonson/def/blob/main/docs/training.md)
- * [Running inference with a pre-trained DEF network](https://github.com/artonson/def/blob/main/docs/inference.md)
- * [Running reconstruction on complete 3D models](https://github.com/artonson/def/blob/main/docs/fusion.md)
- * [Running extraction of parametric curves](https://github.com/artonson/def/blob/main/docs/parametric.md)
+ * [Training point-based and image-based DEF networks](docs/training.md)
+ * [Running inference with a pre-trained DEF network](docs/inference.md)
+ * [Running reconstruction on complete 3D models](docs/fusion.md)
+ * [Running extraction of parametric curves](docs/parametric.md)
+ * [Obtaining predictions made by DEF](docs/ready_predictions.md)
 
 
 ## Pre-trained models

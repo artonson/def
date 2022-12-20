@@ -20,7 +20,7 @@ docker/run_docker.sh \
   -l /path/to/outputs \
   -u 
 ```
-you will see logs produced in the form
+you will see a message produced in the form
 ```
 **** LAUNCHING CONTAINER artonson/def:latest *******
       Pushing you to /code directory
@@ -37,7 +37,7 @@ This will process items from 0th to 100th index in chunk 0 of ABC:
 ```bash
 cd /code 
 
-export DATA_PATH_CONTAINER=/data  # path to ABC *obj*.7z and *features*.7z files
+export DATA_PATH_CONTAINER=/data  # path to ABC *obj*.7z and *feat*.7z files
 export CODE_PATH_CONTAINER=/code  # path to this repo root
 export OUTPUT_PATH_CONTAINER=/logs   # path to outputs and logs
 export MAKE_DATA_SCRIPT="${CODE_PATH_CONTAINER}/scripts/data_scripts/generate_depthmap_data.py"
@@ -62,4 +62,28 @@ python3 ${MAKE_DATA_SCRIPT} \\
 Let the script run for a while, and it will produce 
 data and logs (both in console and in the output 
 folder). 
-Running the other scripts from this folder is fully similar. 
+Running the other data generation scripts is completely similar
+to running the previous code snippet. 
+
+
+## Precomputed datasets *(DEF-Sim)*
+
+To foster further research, we have precomputed and publish
+a few datasets as our DEF-Sim data. 
+
+### Patch-based datasets (training and evaluation)
+
+### Complete 3D model datasets (intended for evaluation only)
+
+Please note that these shapes are high-resolution, densely 
+sampled point clouds typically with millions of points. 
+
+| **Link**                                                                                                                      | **Modality** | **Resolution** | **Sampling distance** | **Noise level** | **Num. views** | **Num. shapes** |
+|-------------------------------------------------------------------------------------------------------------------------------|--------------|----------------|-----------------------|-----------------|---------------|-----------------|
+| [def_sim-images-high-0-18views.tar.gz](https://www.dropbox.com/s/v27gwxm9js3r6p7/def_sim-images-high-0-18views.tar.gz?dl=0)   | depth images | 1024 x 1024    | 0.02                  | 0               | 18            | 85              | 
+| [def_sim-images-high-0-128views.tar.gz](https://www.dropbox.com/s/2klbt953s684dn1/def_sim-images-high-0-128views.tar.gz?dl=0) | depth images | 1024 x 1024    | 0.02                  | 0               | 128           |                 |
+| [def_sim-images-high-0.005.tar.gz](https://www.dropbox.com/s/6foffi2unaoqtk4/def_sim-images-high-0.005.tar.gz?dl=0)           | depth images | 1024 x 1024    | 0.02                  | 0.005 (SNR=4:1) | 18            |                 |
+| [def_sim-images-high-0.02.tar.gz](https://www.dropbox.com/s/o19o35zzq12ui49/def_sim-images-high-0.02.tar.gz?dl=0)             | depth images | 1024 x 1024    | 0.02                  | 0.02 (SNR=1:1)  | 18            |                 |
+| [def_sim-images-high-0.08.tar.gz](https://www.dropbox.com/s/cg25f2z7olkayto/def_sim-images-high-0.08.tar.gz?dl=0)             | depth images | 1024 x 1024    | 0.02                  | 0.08 (SNR=1:4)  | 18            |                 |
+| [def_sim-images-med.tar.gz](https://www.dropbox.com/s/ea166q3rmjubw30/def_sim-images-med-0.tar.gz?dl=0)                       | depth images | 1024 x 1024    | 0.05 (2.5x)           | 0               | 18            |                 |
+| [def_sim-images-low.tar.gz](https://www.dropbox.com/s/rnuvw2j2id5ntdf/def_sim-images-low-0.tar.gz?dl=0)                       | depth images | 1024 x 1024    | 0.125 (2.5^2x)        | 0               | 18            |                 |
