@@ -9,7 +9,7 @@ import yaml
 
 __dir__ = os.path.normpath(
     os.path.join(
-        os.path.dirname(os.path.realpath(__file__)), '..', '..'))
+        os.path.dirname(os.path.realpath(__file__)), '..', '..', '..'))
 sys.path[1:1] = [__dir__]
 
 from sharpf.utils.abc_utils.abc.abc_data import ABCModality, ABCChunk, ABC_7Z_FILEMASK

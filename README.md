@@ -36,12 +36,14 @@ We provide a variety of pre-trained DEF networks (both image-based and point-bas
 The table below summarizes these models and provides links for downloading 
 the respective weight files.
 
-| **Link** | **Modality**   | **Resolution** | **Noise level** | **Trained on** | 
-|----------|----------------|----------------|-----------------|----------------|
- | [x](y)   | Image-based | 0.02           |                 | DEF-Sim |
+| **Link** | **Modality**  | **Resolution** | **Noise level** | **Trained on** | 
+|----------|---------------|----------------|-----------------|----------------|
+ | [x](y)   | Image-based   | 0.02           |                 | DEF-Sim |
 
 
 ## Training and evaluation datasets
+See also [Synthetic data](docs/synthetic_data.md) and 
+[Real-world data](docs/real_data.md) pages.
 
 
 ## Citing

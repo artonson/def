@@ -11,7 +11,7 @@ import yaml
 
 __dir__ = os.path.normpath(
     os.path.join(
-        os.path.dirname(os.path.realpath(__file__)), '..', '..')
+        os.path.dirname(os.path.realpath(__file__)), '..', '..', '..')
 )
 
 sys.path[1:1] = [__dir__]
@@ -146,7 +146,9 @@ def main(options):
 
 
 def parse_args():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description='Check if input meshes have self-intersections '
+                    'and so whole model annotation will not correctly compute.')
 
     parser.add_argument('-j', '--jobs', dest='n_jobs',
                         type=int, default=4, help='CPU jobs to use in parallel [default: 4].')

@@ -71,7 +71,9 @@ def main(options):
 
 
 def parse_args():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description='Given per-shape ABC item info in text format, '
+                    'filter out item IDs with certain requirements.')
 
     parser.add_argument(
         '-i', '--input-file',

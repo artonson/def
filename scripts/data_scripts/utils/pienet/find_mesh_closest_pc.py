@@ -15,7 +15,7 @@ from scipy import io as sio
 
 __dir__ = os.path.normpath(
     os.path.join(
-        os.path.dirname(os.path.realpath(__file__)), '..', '..'))
+        os.path.dirname(os.path.realpath(__file__)), '..', '..', '..', '..'))
 
 from sharpf.utils.py_utils.os import change_ext
 
