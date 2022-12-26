@@ -8,14 +8,6 @@ _Albert Matveev, Ruslan Rakhimov, Alexey Artemov, Gleb Bobrovskikh, Vage Egiazar
 
 ![Teaser Image](docs/images/teaser.jpg)
 
-
-## :construction: Construction Alert! :construction:
-
-We are currently in the process of updating and release the source code for our project. 
-As soon as we finish this housekeeping, this message will disappear.
-If you would like to use our method now, please email the corresponding authors of the paper.
-
-
 ## Getting started
 Below, we enumerate the major steps required for our method to work, and 
 provide the links to the respective documentation and resources. To get 
