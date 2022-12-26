@@ -23,7 +23,50 @@ ln -s /gpfs/gpfs0/3ddl/sharp_features/data_v3_cvpr/images data/images
 ```
 
 ## Download pretrained models
-You can download weights from [Dropbox](https://www.dropbox.com/scl/fo/7qg4r7m8wraykesn6crmx/h?dl=0&rlkey=l4kv9bqeyckdeaicjknmcluga)
+
+The following table provides an overview of the available models. 
+You can download weights from [Dropbox](https://www.dropbox.com/scl/fo/7qg4r7m8wraykesn6crmx/h?dl=0&rlkey=l4kv9bqeyckdeaicjknmcluga).
+
+| **Filename**                                        | **Modality** | **Resolution** | **Noise level** | **Inputs**                 | **Supervision**               | **Loss** |
+|-----------------------------------------------------|--------------|----------------|-----------------|----------------------------|-------------------------------|----------|
+| `def-image-arbitrary-regression-high-0.ckpt`        | image-based  | 0.02           | 0               | depth image (with bg)      | real-valued distances         | hist     |
+| `def-image-arbitrary-regression-high-0.005.ckpt`    | image-based  | 0.02           | 0.005           | depth image (with bg)      | real-valued distances         | hist     |
+| `def-image-arbitrary-regression-high-0.02.ckpt`     | image-based  | 0.02           | 0.02            | depth image (with bg)      | real-valued distances         | hist     |
+ | `def-image-arbitrary-regression-high-0.08.ckpt`     | image-based  | 0.02           | 0.08            | depth image (with bg)      | real-valued distances         | hist     |
+| `def-image-arbitrary-regression-med-0.ckpt`         | image-based  | 0.05           | 0               | depth image (with bg)      | real-valued distances         | hist     |
+| `def-image-arbitrary-regression-low-0.ckpt`         | image-based  | 0.125          | 0               | depth image (with bg)      | real-valued distances         | hist     |
+| `def-image-arbitrary-segmentation-high-0.ckpt`      | image-based  | 0.02           | 0               | depth image (with bg)      | binary mask: distances < 0.02 | bce      |
+| `def-image-high-0.ckpt`                             | image-based  | 0.02           | 0               | depth image (with bg)      | real-valued distances         | hist     |
+| `def-image-regression-high-0.0025.ckpt`             | image-based  | 0.02           | 0.0025          | depth image (no bg)        | real-valued distances         | hist     |
+| `def-image-regression-high-0.005.ckpt`              | image-based  | 0.02           | 0.005           | depth image (no bg)        | real-valued distances         | hist     |
+| `def-image-regression-high-0.01.ckpt`               | image-based  | 0.02           | 0.01            | depth image (no bg)        | real-valued distances         | hist     |
+| `def-image-regression-high-0.02.ckpt`               | image-based  | 0.02           | 0.02            | depth image (no bg)        | real-valued distances         | hist     |
+| `def-image-regression-high-0.04.ckpt`               | image-based  | 0.02           | 0.04            | depth image (no bg)        | real-valued distances         | hist     |
+| `def-image-regression-high-0.08.ckpt`               | image-based  | 0.02           | 0.08            | depth image (no bg)        | real-valued distances         | hist     |
+| `def-image-regression-med-0.ckpt`                   | image-based  | 0.05           | 0               | depth image (no bg)        | real-valued distances         | hist     |
+| `def-image-regression-low-0.ckpt`                   | image-based  | 0.125          | 0               | depth image (no bg)        | real-valued distances         | hist     |
+| `def-image-segmentation-high-0.ckpt`                | image-based  | 0.02           | 0               | depth image (no bg)        | binary mask: distances < 0.02 | bce      |
+| `def-image-regression-real.ckpt`                    | image-based  | 0.5 mm (med)   | <unknown>       | real depth image (with bg) | real-valued distances         | hist     |
+| `def-points-regression-high-0.ckpt`                 | point-based  | 0.02           | 0               | point patch                | real-valued distances         | hist     |
+| `def-points-regression-high-0.0025.ckpt`            | point-based  | 0.02           | 0.0025          | point patch                | real-valued distances         | hist     |
+| `def-points-regression-high-0.005.ckpt`             | point-based  | 0.02           | 0.005           | point patch                | real-valued distances         | hist     |
+| `def-points-regression-high-0.01.ckpt`              | point-based  | 0.02           | 0.01            | point patch                | real-valued distances         | hist     |
+| `def-points-regression-high-0.02.ckpt`              | point-based  | 0.02           | 0.02            | point patch                | real-valued distances         | hist     |
+| `def-points-regression-high-0.04.ckpt`              | point-based  | 0.02           | 0.04            | point patch                | real-valued distances         | hist     |
+| `def-points-regression-high-0.08.ckpt`              | point-based  | 0.02           | 0.08            | point patch                | real-valued distances         | hist     |
+| `def-points-regression-med-0.ckpt`                  | point-based  | 0.05           | 0               | point patch                | real-valued distances         | hist     |
+| `def-points-regression-low-0.ckpt`                  | point-based  | 0.125          | 0               | point patch                | real-valued distances         | hist     |
+| `def-points-regression-high-0-dgcnn-d3w64-mse.ckpt` | point-based  | 0.02           | 0               | point patch                | real-valued distances         | mse      |
+| `def-points-regression-high-0-dgcnn-d3w64-l1.ckpt`  | point-based  | 0.02           | 0               | point patch                | real-valued distances         | l1       |
+| `def-points-segmentation-high-0.ckpt`               | point-based  | 0.02           | 0               | point patch                | binary mask: distances < 0.02 | bce      |
+| `def-points-wo-v-regression-high-0.ckpt`            | point-based  | 0.02           | 0               | point patch + voronoi      | real-valued distances         | hist     |
+| `def-points-wo-v-regression-high-0.02.ckpt`         | point-based  | 0.02           | 0.02            | point patch + voronoi      | real-valued distances         | hist     |
+| `def-points-wo-v-regression-med-0.ckpt`             | point-based  | 0.05           | 0               | point patch + voronoi      | real-valued distances         | hist     |
+| `def-points-wo-v-regression-low-0.ckpt`             | point-based  | 0.125          | 0               | point patch + voronoi      | real-valued distances         | hist     |
+| `def-points-wo-v-segmentation-high-0.ckpt`          | point-based  | 0.02           | 0               | point patch + voronoi      | binary mask: distances < 0.02 | bce      |
+| `def-points-wo-v-regression-real.ckpt`              | point-based  | 0.5 mm (med)   | <unknown>       | point patch + voronoi      | real-valued distances         | hist     |
+
+
 
 ## Experiments
 
