@@ -9,9 +9,10 @@ set -x
 
 module load apps/singularity-3.2.0
 
-SIMAGES_DIR=/gpfs/gpfs0/3ddl/singularity-images
+PROJECT_ROOT="$( cd "$( dirname "${BASH_SOURCE[0]}" )"/.. >/dev/null 2>&1 && pwd )"
+source "${PROJECT_ROOT}"/env.sh
 
-[[ -d ${SIMAGES_DIR} ]] || mkdir ${SIMAGES_DIR}
+[[ -d ${SIMAGES_DIR} ]] || mkdir "${SIMAGES_DIR}"
 
 IMAGE_NAME="artonson/sharp_features"
 IMAGE_VERSION="latest"

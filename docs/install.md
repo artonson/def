@@ -27,6 +27,14 @@ To get the docker image from DockerHub, run the command
 docker pull artonson/def:latest
 ```
 
+To build the singularity image, please set a valid `$SIMAGES_DIR`
+environment variable in `env.sh` and run
+```bash
+bash docker/build_singularity.sh
+```
+to pull the docker image, convert it to a singularity, and save
+to the path specified by `$SIMAGES_DIR`. 
+
 
 ### Running the environment 
 
