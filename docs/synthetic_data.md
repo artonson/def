@@ -2,10 +2,10 @@
 
 To generate either point-based or image-based training data, we use several similarly 
 structured Python scripts:
- * [`scripts/data_scripts/generate_depthmap_data.py`](scripts/data_scripts/generate_depthmap_data.py) 
- * [`scripts/data_scripts/generate_pointcloud_data.py`](scripts/data_scripts/generate_pointcloud_data.py) 
-* [`scripts/data_scripts/generate_fused_depthmap_data.py`](scripts/data_scripts/generate_fused_depthmap_data.py)
-* [`scripts/data_scripts/generate_fused_pointcloud_data.py`](scripts/data_scripts/generate_fused_pointcloud_data.py) 
+ * [`scripts/data_scripts/generate_depthmap_data.py`](https://github.com/artonson/def/blob/main/scripts/data_scripts/generate_depthmap_data.py) 
+ * [`scripts/data_scripts/generate_pointcloud_data.py`](https://github.com/artonson/def/blob/main/scripts/data_scripts/generate_pointcloud_data.py) 
+* [`scripts/data_scripts/generate_fused_depthmap_data.py`](https://github.com/artonson/def/blob/main/scripts/data_scripts/generate_fused_depthmap_data.py)
+* [`scripts/data_scripts/generate_fused_pointcloud_data.py`](https://github.com/artonson/def/blob/main/scripts/data_scripts/generate_fused_pointcloud_data.py) 
 
 ## Example data generation 
 

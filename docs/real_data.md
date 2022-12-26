@@ -24,7 +24,7 @@ We provide the following two sets of files:
    * [SharpF_200_68_96.tar.gz (952 Mb)](https://www.dropbox.com/s/eromr6i9h4d3cih/SharpF_200_68_96.tar.gz?dl=0)
    * [SharpF_200_97_105.tar.gz (327 Mb)](https://www.dropbox.com/s/v0yn7y07swfarrd/SharpF_200_97_105.tar.gz?dl=0)
    * [new.tar.gz (573 Mb)](https://www.dropbox.com/s/3pnvi3tgtk2ta9c/new.tar.gz?dl=0)
- * The final aligned, annotated training, testing, and evaluation datasets **(DEF-Scan)**
+ * **The final aligned, annotated training, testing, and evaluation datasets (DEF-Scan)**
    * In image-based format: [images_align4mm_fullmesh_whole.tar.gz (753 Mb)](https://www.dropbox.com/s/5k2swrpb0vhqv15/images_align4mm_fullmesh_whole.tar.gz?dl=0)
       * 981 training, 479 validation, 468 testing instances (depth images)
    * In point-based format: [points_align4mm_partmesh_whole.tar.gz (6.2 Gb)](https://www.dropbox.com/s/ej7qzmh2153birb/points_align4mm_partmesh_whole.tar.gz?dl=0)

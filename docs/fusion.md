@@ -1,7 +1,8 @@
 # Running reconstruction on complete 3D models
 
 We expect that predictions obtained by the DEF model are located in 
-a known directory and have the following example structure: 
+a known directory and have the following example structure
+(see [network inference docs](inference.md) on how to run predictions): 
 ```bash
 (base) [a.artemov@an01:/gpfs/gpfs0/3ddl/sharp_features/predictions/images_align4mm_fullmesh_whole/amed/92side_folder_images__align4mm_fullmesh_whole]$ll
 total 3.5K
