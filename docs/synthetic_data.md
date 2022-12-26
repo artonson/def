@@ -79,25 +79,30 @@ For point-based datasets, 4096 points are sampled from each patch.
 We do not release datasets corresponding to high-resolution (r = 0.02)
 models with noise levels 0.0025, 0.01, and 0.04 to save storage. 
 
-| **Link**                                                                                                             | **Modality** | **Resolution** | **Sampling distance** | **Noise level**  |
-|----------------------------------------------------------------------------------------------------------------------|--------------|----------------|-----------------------|------------------|
-| [train (64k)](https://www.dropbox.com/s/jsgxba4piiuknib/def_sim-images-high-0-arbitrary-patches-train.tar.gz?dl=0)   | depth images | 64 x 64        | 0.02                  | 0                |
-| [def_sim-images-high-0.005.tar.gz](https://www.dropbox.com/s/6foffi2unaoqtk4/def_sim-images-high-0.005.tar.gz?dl=0)  | depth images | 64 x 64        | 0.02                  | 0.005 (SNR=4:1)  |
-| [def_sim-images-high-0.02.tar.gz](https://www.dropbox.com/s/o19o35zzq12ui49/def_sim-images-high-0.02.tar.gz?dl=0)    | depth images | 64 x 64        | 0.02                  | 0.02 (SNR=1:1)   |
-| [def_sim-images-high-0.08.tar.gz](https://www.dropbox.com/s/cg25f2z7olkayto/def_sim-images-high-0.08.tar.gz?dl=0)    | depth images | 64 x 64        | 0.02                  | 0.08 (SNR=1:4)   |
-| [def_sim-images-med.tar.gz](https://www.dropbox.com/s/ea166q3rmjubw30/def_sim-images-med-0.tar.gz?dl=0)              | depth images | 64 x 64        | 0.05 (2.5x)           | 0                |
-| [def_sim-images-low.tar.gz](https://www.dropbox.com/s/rnuvw2j2id5ntdf/def_sim-images-low-0.tar.gz?dl=0)              | depth images | 64 x 64        | 0.125 (2.5^2x)        | 0                |
-| [def_sim-points-high-0.tar.gz](https://www.dropbox.com/s/4tbni1lia1u2rte/def_sim-points-high-0.tar.gz?dl=0)          | point clouds | 4096           | 0.02                  | 0                |
-| [def_sim-points-high-0.005.tar.gz](https://www.dropbox.com/s/totynms1cshfa69/def_sim-points-high-0.005.tar.gz?dl=0)  | point clouds | 4096           | 0.02                  | 0.005 (SNR=4:1)  |
-| [def_sim-points-high-0.02.tar.gz](https://www.dropbox.com/s/527qd7k3pq6gdcb/def_sim-points-high-0.02.tar.gz?dl=0)    | point clouds | 4096           | 0.02                  | 0.02 (SNR=1:1)   |
-| [def_sim-points-high-0.08.tar.gz](https://www.dropbox.com/s/mk7p5sm3q32eztv/def_sim-points-high-0.08.tar.gz?dl=0)    | point clouds | 4096           | 0.02                  | 0.08 (SNR=1:4)   |
-| [def_sim-points-med-0.tar.gz](https://www.dropbox.com/s/vx0m2eff8kxeho2/def_sim-points-med-0.tar.gz?dl=0)            | point clouds | 4096           | 0.05 (2.5x)           | 0                |
-| [def_sim-points-low-0.tar.gz](https://www.dropbox.com/s/xgjqyh2lc7couxp/def_sim-points-low-0.tar.gz?dl=0)            | point clouds | 4096           | 0.125 (2.5^2x)        | 0                |
+The following datasets are available by the 
+[synthetic_data/patches/](https://www.dropbox.com/scl/fo/o1iwodlqs1ksd0riiymuq/h?dl=0&rlkey=37oc14dg1m5f0jzh6t1prjtbw) folder: 
+| **Link**                                                  | **Modality** | **Resolution** | **Sampling distance** | **Noise level**  |
+|-----------------------------------------------------------|--------------|----------------|-----------------------|------------------|
+| `def_sim-images-high-0-arbitrary-patches-*.tar.gz`        | depth images | 64 x 64        | 0.02                  | 0                |
+| `def_sim-images-high-0.005-arbitrary-patches-*.tar.gz`    | depth images | 64 x 64        | 0.02                  | 0.005 (SNR=4:1)  |
+| `def_sim-images-high-0.02-arbitrary-patches-*.tar.gz`     | depth images | 64 x 64        | 0.02                  | 0.02 (SNR=1:1)   |
+| `def_sim-images-high-0.08-arbitrary-patches-*.tar.gz`     | depth images | 64 x 64        | 0.02                  | 0.08 (SNR=1:4)   |
+| `def_sim-images-med-0-arbitrary-patches-*.tar.gz`         | depth images | 64 x 64        | 0.05 (2.5x)           | 0                |
+| `def_sim-images-low-0-arbitrary-patches-*.tar.gz`         | depth images | 64 x 64        | 0.125 (2.5^2x)        | 0                |
+| `def_sim-points-high-0-arbitrary-patches-*.tar.gz`        | point clouds | 4096           | 0.02                  | 0                |
+| `def_sim-points-high-0.005-arbitrary-patches-*.tar.gz`    | point clouds | 4096           | 0.02                  | 0.005 (SNR=4:1)  |
+| `def_sim-points-high-0.02-arbitrary-patches-*.tar.gz`     | point clouds | 4096           | 0.02                  | 0.02 (SNR=1:1)   |
+| `def_sim-points-high-0.08-arbitrary-patches-*.tar.gz`     | point clouds | 4096           | 0.02                  | 0.08 (SNR=1:4)   |
+| `def_sim-points-med-0-arbitrary-patches-*.tar.gz`         | point clouds | 4096           | 0.05 (2.5x)           | 0                |
+| `def_sim-points-low-0-arbitrary-patches-*.tar.gz`         | point clouds | 4096           | 0.125 (2.5^2x)        | 0                |
 
 ### Complete 3D model datasets (intended for evaluation only)
 
 Please note that these shapes are high-resolution, densely 
 sampled point clouds typically with millions of points. 
+
+The folder [synthetic_data/](https://www.dropbox.com/scl/fo/mm9rnirl4l7pxba4h94kt/h?dl=0&rlkey=mfqa8b2lwmh4x7xaact7bat0c)
+contains all the files.
 
 | **Link**                                                                                                                    | **Modality** | **Resolution** | **Sampling distance** | **Noise level**  | **Num. views** | **Num. shapes** |
 |-----------------------------------------------------------------------------------------------------------------------------|--------------|----------------|-----------------------|------------------|---------------|-----------------|
