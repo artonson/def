@@ -23,7 +23,7 @@ ln -s /gpfs/gpfs0/3ddl/sharp_features/data_v3_cvpr/images data/images
 ```
 
 ## Download pretrained models
-You can download weights from [here](https://yadi.sk/d/dAcmcOLk2Q4GVQ?w=1)
+You can download weights from [Dropbox](https://www.dropbox.com/scl/fo/7qg4r7m8wraykesn6crmx/h?dl=0&rlkey=l4kv9bqeyckdeaicjknmcluga)
 
 ## Experiments
 

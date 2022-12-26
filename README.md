@@ -40,7 +40,7 @@ the respective weight files.
 
 | **Link** | **Modality**  | **Resolution** | **Noise level** | **Trained on** | 
 |----------|---------------|----------------|-----------------|----------------|
- | [x](y)   | Image-based   | 0.02           |                 | DEF-Sim |
+ | [x](y)   | Image-based   | 0.02           |                 | DEF-Sim        |
 
 
 ## Training and evaluation datasets

@@ -1,6 +1,6 @@
 # Generating real-world training datasets
 
-## Provided files
+## Provided files *(DEF-Scan)*
 
 We provide the following two sets of files:
  * The intermediate files used within the processing pipeline, including: 
