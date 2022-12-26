@@ -101,21 +101,21 @@ The following datasets are available by the
 Please note that these shapes are high-resolution, densely 
 sampled point clouds typically with millions of points. 
 
-The folder [synthetic_data/](https://www.dropbox.com/scl/fo/mm9rnirl4l7pxba4h94kt/h?dl=0&rlkey=mfqa8b2lwmh4x7xaact7bat0c)
+The folder [synthetic_data/complete_models/](https://www.dropbox.com/scl/fo/o1iwodlqs1ksd0riiymuq/h?dl=0&rlkey=37oc14dg1m5f0jzh6t1prjtbw)
 contains all the files.
 
-| **Link**                                                                                                                    | **Modality** | **Resolution** | **Sampling distance** | **Noise level**  | **Num. views** | **Num. shapes** |
-|-----------------------------------------------------------------------------------------------------------------------------|--------------|----------------|-----------------------|------------------|---------------|-----------------|
-| [def_sim-images-high-0-18views.tar.gz](https://www.dropbox.com/s/v27gwxm9js3r6p7/def_sim-images-high-0-18views.tar.gz?dl=0) | depth images | 1024 x 1024    | 0.02                  | 0                | 18            | 85              | 
-| [def_sim-images-high-0-128views.tar.gz](https://www.dropbox.com/s/2klbt953s684dn1/def_sim-images-high-0-128views.tar.gz?dl=0) | depth images | 1024 x 1024  | 0.02                  | 0                | 128           | 95              |
-| [def_sim-images-high-0.005.tar.gz](https://www.dropbox.com/s/6foffi2unaoqtk4/def_sim-images-high-0.005.tar.gz?dl=0)         | depth images | 1024 x 1024    | 0.02                  | 0.005 (SNR=4:1)  | 18            | 87              |
-| [def_sim-images-high-0.02.tar.gz](https://www.dropbox.com/s/o19o35zzq12ui49/def_sim-images-high-0.02.tar.gz?dl=0)           | depth images | 1024 x 1024    | 0.02                  | 0.02 (SNR=1:1)   | 18            | 87              |
-| [def_sim-images-high-0.08.tar.gz](https://www.dropbox.com/s/cg25f2z7olkayto/def_sim-images-high-0.08.tar.gz?dl=0)           | depth images | 1024 x 1024    | 0.02                  | 0.08 (SNR=1:4)   | 18            | 87              |
-| [def_sim-images-med.tar.gz](https://www.dropbox.com/s/ea166q3rmjubw30/def_sim-images-med-0.tar.gz?dl=0)                     | depth images | 1024 x 1024    | 0.05 (2.5x)           | 0                | 18            | 100             |
-| [def_sim-images-low.tar.gz](https://www.dropbox.com/s/rnuvw2j2id5ntdf/def_sim-images-low-0.tar.gz?dl=0)                     | depth images | 1024 x 1024    | 0.125 (2.5^2x)        | 0                | 18            | 104             |
-| [def_sim-points-high-0.tar.gz](https://www.dropbox.com/s/4tbni1lia1u2rte/def_sim-points-high-0.tar.gz?dl=0)                 | point clouds | various        | 0.02                  | 0                | point patches | 84              |
-| [def_sim-points-high-0.005.tar.gz](https://www.dropbox.com/s/totynms1cshfa69/def_sim-points-high-0.005.tar.gz?dl=0)         | point clouds | various        | 0.02                  | 0.005 (SNR=4:1)  | point patches | 83              |
-| [def_sim-points-high-0.02.tar.gz](https://www.dropbox.com/s/527qd7k3pq6gdcb/def_sim-points-high-0.02.tar.gz?dl=0)           | point clouds | various        | 0.02                  | 0.02 (SNR=1:1)   | point patches | 84              |
-| [def_sim-points-high-0.08.tar.gz](https://www.dropbox.com/s/mk7p5sm3q32eztv/def_sim-points-high-0.08.tar.gz?dl=0)           | point clouds | various        | 0.02                  | 0.08 (SNR=1:4)   | point patches | 83              |
-| [def_sim-points-med-0.tar.gz](https://www.dropbox.com/s/vx0m2eff8kxeho2/def_sim-points-med-0.tar.gz?dl=0)                   | point clouds | various        | 0.05 (2.5x)           | 0                | point patches | 103             |
-| [def_sim-points-low-0.tar.gz](https://www.dropbox.com/s/xgjqyh2lc7couxp/def_sim-points-low-0.tar.gz?dl=0)                   | point clouds | various        | 0.125 (2.5^2x)        | 0                | point patches | 75              |
+| **Link**                                  | **Modality** | **Resolution** | **Sampling distance** | **Noise level**  | **Num. views** | **Num. shapes** |
+|-------------------------------------------|--------------|----------------|-----------------------|------------------|----------------|-----------------|
+| `def_sim-images-high-0-18views.tar.gz`    | depth images | 1024 x 1024    | 0.02                  | 0                | 18             | 85              | 
+| `def_sim-images-high-0-128views.tar.gz`   | depth images | 1024 x 1024    | 0.02                  | 0                | 128            | 95              |
+| `def_sim-images-high-0.005.tar.gz`        | depth images | 1024 x 1024    | 0.02                  | 0.005 (SNR=4:1)  | 18             | 87              |
+| `def_sim-images-high-0.02.tar.gz`         | depth images | 1024 x 1024    | 0.02                  | 0.02 (SNR=1:1)   | 18             | 87              |
+| `def_sim-images-high-0.08.tar.gz`         | depth images | 1024 x 1024    | 0.02                  | 0.08 (SNR=1:4)   | 18             | 87              |
+| `def_sim-images-med.tar.gz`               | depth images | 1024 x 1024    | 0.05 (2.5x)           | 0                | 18             | 100             |
+| `def_sim-images-low.tar.gz`               | depth images | 1024 x 1024    | 0.125 (2.5^2x)        | 0                | 18             | 104             |
+| `def_sim-points-high-0.tar.gz`            | point clouds | various        | 0.02                  | 0                | point patches  | 84              |
+| `def_sim-points-high-0.005.tar.gz`        | point clouds | various        | 0.02                  | 0.005 (SNR=4:1)  | point patches  | 83              |
+| `def_sim-points-high-0.02.tar.gz`         | point clouds | various        | 0.02                  | 0.02 (SNR=1:1)   | point patches  | 84              |
+| `def_sim-points-high-0.08.tar.gz`         | point clouds | various        | 0.02                  | 0.08 (SNR=1:4)   | point patches  | 83              |
+| `def_sim-points-med-0.tar.gz`             | point clouds | various        | 0.05 (2.5x)           | 0                | point patches  | 103             |
+| `def_sim-points-low-0.tar.gz`             | point clouds | various        | 0.125 (2.5^2x)        | 0                | point patches  | 75              |
