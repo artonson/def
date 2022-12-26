@@ -24,5 +24,9 @@ for batch processing of multiple IDs.
 compute fused predictions for complete 3D models. 
  * `fuse_points.py` given predictions for **real-world** individual views in the point patch format,
   compute fused predictions for complete 3D models. 
+ * `fuse_images_synthetic.py` given predictions for **synthetic** individual views in the range-image format,
+  compute fused predictions for complete 3D models.
+ * `fuse_points_synthetic.py` given predictions for **synthetic** individual views in the point patch format,
+  compute fused predictions for complete 3D models. 
  * `fusion_analysis.py` computes absolute differences between predictions and ground-truth. 
  * `fused_images_to_pienet.py` converts data to PIE-Net format. 

@@ -15,14 +15,34 @@ drwxrwsr-x  3 3ddl 3ddl 4.0K May  6  2021 tb_logs
 ```
 
 For obtaining predictions on complete **synthetic** 3D models,
-run the following script in docker container:
+run the following shell code in docker container:
 ```bash
+fuse_script="/code/scripts/fusion/fuse_images_synthetic.py"
 
+shape="abc_0051_00512867_bb8ce171738b5deacb786b2d_008"
+views_gt="/path/to/gt/${shape}.hdf5"
+views_pred_dir="/path/to/preds/${shape}/predictions/"
+output_path="/path/to/output/"
+
+N_JOBS=10
+PARAM_RESOLUTION_3D=0.02
+PARAM_DISTANCE_INTERP_FACTOR=6.0
+PARAM_NN_SET_SIZE=8
+PARAM_INTERPOLATOR_FUNCTION=bisplrep
+
+python3 ${fuse_script} \\
+    --true-filename ${views_gt} \\
+    --pred-dir ${views_pred_dir} \\
+    --output-dir ${output_path} \\
+    --jobs ${N_JOBS} \\
+    --nn_set_size ${PARAM_NN_SET_SIZE} \\
+    --resolution_3d ${PARAM_RESOLUTION_3D} \\
+    --distance_interp_factor ${PARAM_DISTANCE_INTERP_FACTOR} \\
+    --interpolator_function ${PARAM_INTERPOLATOR_FUNCTION}
 ```
 
-
 For obtaining predictions on complete **real-world** 3D models,
-run the following script in docker container:
+run the following shell code in docker container:
 ```bash
 fuse_script="/code/scripts/fusion/fuse_images.py"
 config=/code/scripts/fusion/configs/real_images_base.yml
