@@ -1,0 +1,60 @@
+# @package _group_
+
+resolution_q: 0.25
+compute_metrics: true
+save_predictions: false
+
+train:
+  - dataset_name: train
+    dataset_class:
+      _target_: defs.utils.abc_utils.LotsOfHdf5Files
+      io:
+        _target_: defs.data.WholePointCloudIO
+      filenames: [
+        '/gpfs/gpfs0/3ddl/sharp_features/data_rw_iccv/points_whole/train/shuffled/train_0.hdf5',
+      ]
+      labels: ['points', 'distances']
+      transform: ${transform.train}
+      max_loaded_files: 1
+      preload: true
+val:
+  - dataset_name: val
+    dataset_class:
+      _target_: defs.utils.abc_utils.LotsOfHdf5Files
+      io:
+        _target_: defs.data.WholePointCloudIO
+      filenames: [
+        '/gpfs/gpfs0/3ddl/sharp_features/data_rw_iccv/points_whole/val/shuffled/train_0.hdf5',
+      ]
+      labels: ['points', 'distances']
+      transform: ${transform.val}
+      max_loaded_files: 1
+      return_index: true
+      preload: true
+test:
+  - dataset_name: val
+    dataset_class:
+      _target_: defs.utils.abc_utils.LotsOfHdf5Files
+      io:
+        _target_: defs.data.WholePointCloudIO
+      filenames: [
+        '/gpfs/gpfs0/3ddl/sharp_features/data_rw_iccv/points_whole/val/shuffled/train_0.hdf5',
+      ]
+      labels: ['points', 'distances']
+      transform: ${transform.test}
+      max_loaded_files: 1
+      return_index: true
+      preload: true
+  - dataset_name: test
+    dataset_class:
+      _target_: defs.utils.abc_utils.LotsOfHdf5Files
+      io:
+        _target_: defs.data.WholePointCloudIO
+      filenames: [
+        '/gpfs/gpfs0/3ddl/sharp_features/data_rw_iccv/points_whole/test/shuffled/train_0.hdf5',
+      ]
+      labels: ['points', 'distances']
+      transform: ${transform.test}
+      max_loaded_files: 1
+      return_index: true
+      preload: true

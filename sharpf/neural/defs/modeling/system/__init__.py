@@ -1,0 +1,6 @@
+from .def_image_regression import DEFImageRegression
+from .def_image_segmentation import DEFImageSegmentation
+from .def_points_regression import DEFPointsRegression
+from .def_points_segmentation import DEFPointsSegmentation
+from .identity_regression import IdentityRegression
+from .identity_segmentation import IdentitySegmentation

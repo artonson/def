@@ -1,0 +1,22 @@
+# @package _group_
+
+high_res_quantile: 5.331804347038269
+individual_quantile: false  # use individual normalizer per each input depth map
+
+train: ${transform.test}
+
+val: ${transform.test}
+
+test:
+  _target_: defs.utils.abc_utils.torch.CompositeTransform
+  transforms:
+    - _target_: defs.utils.abc_utils.torch.ToTensor
+      keys: [ 'image','distances' ]
+      type: torch.FloatTensor
+    - _target_: defs.utils.abc_utils.torch.PreprocessArbitraryDepth
+      quantile: ${transform.high_res_quantile}
+      individual_quantile: ${transform.individual_quantile}
+    - _target_: defs.utils.abc_utils.torch.RenameKeys
+      old_keys: ['image']
+      new_keys: ['points']
+    - _target_: defs.utils.abc_utils.torch.ComputeIsFlatProperty

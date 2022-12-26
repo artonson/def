@@ -12,4 +12,5 @@ This folder contains the main implementation blocks of the DEF approach.
  * `fusion/` a set of functions and computatational methods for running 
 reconstruction on complete 3D models.
  * `metrics/` a set of functions for computing metrics. 
+ * `neural/` a everything related to training DEF networks. 
  * `utils/` a broad set of utility functions.  

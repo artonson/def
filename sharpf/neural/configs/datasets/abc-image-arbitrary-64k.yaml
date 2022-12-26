@@ -1,0 +1,70 @@
+# @package _group_
+
+resolution: high
+resolution_q: 0.02
+noise: 0.0
+compute_metrics: true
+save_predictions: false
+
+train:
+  - dataset_name: train
+    dataset_class:
+      _target_: defs.utils.abc_utils.LotsOfHdf5Files
+      io:
+        _target_: defs.data.DepthMapIO
+      filenames: [
+        '${hydra:runtime.cwd}/data/images/${datasets.resolution}_res.json/${datasets.noise}/train_arbitrary/train_0.hdf5',
+        '${hydra:runtime.cwd}/data/images/${datasets.resolution}_res.json/${datasets.noise}/train_arbitrary/train_1.hdf5',
+        '${hydra:runtime.cwd}/data/images/${datasets.resolution}_res.json/${datasets.noise}/train_arbitrary/train_2.hdf5',
+        '${hydra:runtime.cwd}/data/images/${datasets.resolution}_res.json/${datasets.noise}/train_arbitrary/train_3.hdf5',
+      ]
+      labels: ['image', 'distances']
+      transform: ${transform.train}
+      max_loaded_files: 4
+val:
+  - dataset_name: val
+    dataset_class:
+      _target_: defs.utils.abc_utils.LotsOfHdf5Files
+      io:
+        _target_: defs.data.DepthMapIO
+      filenames: [
+        '${hydra:runtime.cwd}/data/images/${datasets.resolution}_res.json/${datasets.noise}/val_arbitrary/train_0.hdf5',
+        '${hydra:runtime.cwd}/data/images/${datasets.resolution}_res.json/${datasets.noise}/val_arbitrary/train_1.hdf5',
+        '${hydra:runtime.cwd}/data/images/${datasets.resolution}_res.json/${datasets.noise}/val_arbitrary/train_2.hdf5',
+        '${hydra:runtime.cwd}/data/images/${datasets.resolution}_res.json/${datasets.noise}/val_arbitrary/train_3.hdf5'
+      ]
+      labels: ['image', 'distances']
+      transform: ${transform.val}
+      max_loaded_files: 2
+      return_index: true
+test:
+  - dataset_name: val
+    dataset_class:
+      _target_: defs.utils.abc_utils.LotsOfHdf5Files
+      io:
+        _target_: defs.data.DepthMapIO
+      filenames: [
+        '${hydra:runtime.cwd}/data/images/${datasets.resolution}_res.json/${datasets.noise}/val_arbitrary/train_0.hdf5',
+        '${hydra:runtime.cwd}/data/images/${datasets.resolution}_res.json/${datasets.noise}/val_arbitrary/train_1.hdf5',
+        '${hydra:runtime.cwd}/data/images/${datasets.resolution}_res.json/${datasets.noise}/val_arbitrary/train_2.hdf5',
+        '${hydra:runtime.cwd}/data/images/${datasets.resolution}_res.json/${datasets.noise}/val_arbitrary/train_3.hdf5'
+      ]
+      labels: ['image', 'distances']
+      transform: ${transform.val}
+      max_loaded_files: 2
+      return_index: true
+  - dataset_name: test
+    dataset_class:
+      _target_: defs.utils.abc_utils.LotsOfHdf5Files
+      io:
+        _target_: defs.data.DepthMapIO
+      filenames: [
+        '${hydra:runtime.cwd}/data/images/${datasets.resolution}_res.json/0.0/test_arbitrary/train_0.hdf5',
+        '${hydra:runtime.cwd}/data/images/${datasets.resolution}_res.json/0.0/test_arbitrary/train_1.hdf5',
+        '${hydra:runtime.cwd}/data/images/${datasets.resolution}_res.json/0.0/test_arbitrary/train_2.hdf5',
+        '${hydra:runtime.cwd}/data/images/${datasets.resolution}_res.json/0.0/test_arbitrary/train_3.hdf5'
+      ]
+      labels: ['image', 'distances']
+      transform: ${transform.test}
+      max_loaded_files: 2
+      return_index: true

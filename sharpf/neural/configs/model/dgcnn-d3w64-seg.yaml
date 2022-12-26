@@ -1,0 +1,80 @@
+# @package _group_
+
+in_channels: 3
+out_channels: 1
+
+example_input_array:
+  _target_: torch.rand
+  size:
+    - 1
+    - 4096
+    - ${model.in_channels}
+
+output_elements:
+  - key: preds_sharp
+    channel_range:
+      - 0
+      - ${model.out_channels}
+
+model_class:
+  _target_: defs.modeling.DGCNN
+  encoder_blocks:
+    - _target_: defs.modeling.PointOpBlock
+      neighbours:
+        _target_: defs.modeling.NeighbourKNN
+        k: 30
+      local_transform:
+        _target_: defs.modeling.LocalDynamicGraph
+      feature_extractor:
+        _target_: defs.modeling.StackedConv
+        channels:
+          - ${mul:2,${model.in_channels}}
+          - 64
+          - 64
+      aggregation:
+        _target_: defs.modeling.AggregationMax
+    - _target_: defs.modeling.PointOpBlock
+      neighbours:
+        _target_: defs.modeling.NeighbourKNN
+        k: 30
+      local_transform:
+        _target_: defs.modeling.LocalDynamicGraph
+      feature_extractor:
+        _target_: defs.modeling.StackedConv
+        channels: [128, 64, 64]
+      aggregation:
+        _target_: defs.modeling.AggregationMax
+    - _target_: defs.modeling.PointOpBlock
+      neighbours:
+        _target_: defs.modeling.NeighbourKNN
+        k: 30
+      local_transform:
+        _target_: defs.modeling.LocalDynamicGraph
+      feature_extractor:
+        _target_: defs.modeling.StackedConv
+        channels: [128, 64, 64]
+      aggregation:
+        _target_: defs.modeling.AggregationMax
+  decoder_blocks:
+    - _target_: defs.modeling.PointOpBlock
+      in_features: [0, 1, 2]
+      feature_extractor:
+        _target_: defs.modeling.StackedConv
+        channels: [192, 4096]
+      aggregation:
+        _target_: defs.modeling.GlobalMaxPooling
+    - _target_: defs.modeling.PointOpBlock
+      in_features: [0, 1, 2]
+      feature_extractor:
+        _target_: defs.modeling.StackedConv
+        channels: [4288, 512, 256]
+        dropout_prob: 0.0
+    - _target_: defs.modeling.PointOpBlock
+      feature_extractor:
+        _target_: defs.modeling.StackedConv
+        channels:
+          - 256
+          - ${model.out_channels}
+        bn: false
+        relu: false
+        conv_bias: true
