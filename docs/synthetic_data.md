@@ -101,7 +101,7 @@ The following datasets are available by the
 Please note that these shapes are high-resolution, densely 
 sampled point clouds typically with millions of points. 
 
-The folder [synthetic_data/complete_models/](https://www.dropbox.com/scl/fo/o1iwodlqs1ksd0riiymuq/h?dl=0&rlkey=37oc14dg1m5f0jzh6t1prjtbw)
+The folder [synthetic_data/complete_models/](https://www.dropbox.com/scl/fo/yizmgvuxtdblqqr6656c1/h?dl=0&rlkey=10knittkmv6v64dsmhdsbytx8)
 contains all the files.
 
 | **Link**                                  | **Modality** | **Resolution** | **Sampling distance** | **Noise level**  | **Num. views** | **Num. shapes** |
