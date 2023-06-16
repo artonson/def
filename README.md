@@ -1,6 +1,5 @@
 # DEF: Deep estimation of sharp geometric features in 3D shapes
 
-### Using the code
 **SIGGRAPH 2022 [[Project Page](https://artonson.github.io/publications/2022-def/)] [[Arxiv](https://arxiv.org/abs/2011.15081)] [[Bibtex](docs/bib.bib)]**
 
 This is an official implementation of the paper 
